@@ -59,35 +59,10 @@ typedef struct UI_SETTINGS_STATE {
     int32_t listener_id;
 } UI_SETTINGS_STATE;
 
-static int32_t M_GetVisibleRows(void);
-static uint8_t *M_GetColorComponent(const UI_SETTINGS_OPTION *option);
-static M_ENUM_LOOKUP M_GetEnumEntry(const UI_SETTINGS_OPTION *option);
-static const char *M_FormatRowValue(
-    const UI_SETTINGS_STATE *s, int32_t row_idx);
-static float M_MeasureMaxValueWidth(const UI_SETTINGS_OPTION *option);
-static bool M_CanChangeValue(
-    const UI_SETTINGS_STATE *s, int32_t row_idx, int32_t dir);
-static bool M_RequestChangeValue(
-    const UI_SETTINGS_STATE *s, int32_t row_idx, int32_t dir);
-static float M_GetMaxLabelWidth(const UI_SETTINGS_STATE *s);
-static float M_GetMaxValueWidth(const UI_SETTINGS_STATE *s);
-static bool M_CanExamine(const UI_SETTINGS_STATE *s, int32_t row_idx);
-static bool M_CanRestoreDefault(const UI_SETTINGS_STATE *s, int32_t row_idx);
-static void M_RestoreDefault(const UI_SETTINGS_STATE *s, int32_t row_idx);
-static void M_RecomputeSizes(UI_SETTINGS_STATE *s);
-
-static void M_OptionLabel(
-    const UI_SETTINGS_OPTION *option, const char *text, bool star_if_enforced);
-static void M_Footer(const UI_SETTINGS_STATE *s);
-static UI_SETTINGS_STATE *M_InitCommon(GAME_STRING_ID title);
-static void M_HandleConfigChange(const EVENT *event, void *data);
-static const UI_SETTINGS_OPTION *M_GetOptionByRow(
-    const UI_SETTINGS_STATE *s, int32_t row_idx);
-
 static int32_t M_GetVisibleRows(void)
 {
-    const int32_t res_h = Scaler_CalcInverse(
-        Viewport_GetHeight(VIEWPORT_GAME), SCALER_TARGET_TEXT);
+    const int32_t res_h =
+        Scaler_CalcInverse(Viewport_GetHeight(VIEWPORT_UI), SCALER_TARGET_TEXT);
     static struct {
         int32_t threshold;
         int32_t rows;
@@ -351,7 +326,7 @@ static bool M_RequestChangeValue(
 
     UI_Settings_RequestChange(option, dir);
 changed:
-    Config_Write();
+    Config_Update();
     return true;
 }
 
@@ -447,7 +422,7 @@ static void M_RestoreDefault(
     const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, row_idx);
     if (option != nullptr) {
         Config_RestoreOptionDefault(option->target);
-        Config_Write();
+        Config_Update();
     }
 }
 
@@ -769,13 +744,27 @@ void UI_Settings(UI_SETTINGS_STATE *const s)
         .orientation = UI_STACK_VERTICAL,
         .align = { .h = UI_STACK_H_ALIGN_SPAN },
     });
-    if (s->tab_switch != nullptr) {
+    if (s->tab_switch != nullptr && s->tab_count > 0) {
         UI_TabSwitch(
             s->tab_switch, s->phase == UI_SETTINGS_PHASE_NAVIGATE_TABS);
         UI_Spacer(0.0f, 8.0f);
     }
 
     UI_BeginScrollableArea(&s->scroll, s->tab_count > 0);
+
+    if (s->scroll.vis_items == 0) {
+        UI_BeginResize(-1.0f, -1.0f);
+        UI_BeginPad(
+            TR_VERSION == 1 ? -1.0f : 0.0f, TR_VERSION == 1 ? -1.0f : 0.0f);
+        UI_BeginStackEx((UI_STACK_SETTINGS) {
+            .orientation = UI_STACK_VERTICAL,
+            .align = { .h = UI_STACK_H_ALIGN_CENTER },
+        });
+        UI_Label(GS(COMMON_SETTINGS_ALL_HIDDEN_DISCLAIMER));
+        UI_EndStack();
+        UI_EndPad();
+        UI_EndResize();
+    }
 
     for (int32_t i = 0; i < s->scroll.vis_items; i++) {
         const int32_t row = s->scroll.first_item + i;

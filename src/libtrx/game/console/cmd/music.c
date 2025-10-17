@@ -4,18 +4,16 @@
 #include "game/music.h"
 #include "strings.h"
 
-static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *ctx);
-
 static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
 {
     int32_t track_to_play = -1;
     if (String_IsEmpty(ctx->args)) {
         return CR_BAD_INVOCATION;
     } else if (String_ParseInteger(ctx->args, &track_to_play)) {
-        if (Music_Play(track_to_play, MPM_ALWAYS)) {
+        if (Music_Play_Direct(track_to_play, MPM_ALWAYS)) {
             Console_Log(GS(OSD_PLAY_MUSIC_TRACK), track_to_play);
         } else {
-            Console_Log(GS(OSD_INVALID_MUSIC_TRACK));
+            Console_LogError(GS(OSD_INVALID_MUSIC_TRACK));
         }
         return CR_SUCCESS;
     } else {

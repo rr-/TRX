@@ -2,12 +2,11 @@
 
 #include "decomp/skidoo.h"
 #include "game/creature.h"
-#include "game/sound.h"
-#include "global/vars.h"
 
 #include <libtrx/debug.h>
 #include <libtrx/game/carrier.h>
 #include <libtrx/game/lara.h>
+#include <libtrx/game/sound.h>
 #include <libtrx/utils.h>
 
 #define SKIDOO_DRIVER_MIN_TURN (SKIDOO_MAX_TURN / 3) // = 364
@@ -32,15 +31,6 @@ typedef enum {
 typedef enum {
     SKIDOO_DRIVER_ANIM_DEATH = 10,
 } SKIDOO_DRIVER_ANIM;
-
-static void M_KillDriver(ITEM *driver_item);
-static void M_MakeMountable(ITEM *skidoo_item);
-static void M_ControlDead(ITEM *driver_item, ITEM *skidoo_item);
-static int16_t M_ControlAlive(ITEM *driver_item, ITEM *skidoo_item);
-static void M_Setup(OBJECT *obj);
-static void M_Initialise(int16_t item_num);
-static void M_HandleSave(ITEM *item, SAVEGAME_STAGE stage);
-static void M_Control(int16_t item_num);
 
 static void M_KillDriver(ITEM *const driver_item)
 {
@@ -77,8 +67,9 @@ static void M_ControlDead(ITEM *const driver_item, ITEM *const skidoo_item)
         driver_item->current_anim_state = SKIDOO_DRIVER_STATE_DEATH;
         Carrier_TestItemDrops(Item_GetIndex(skidoo_item));
 
-        if (g_Lara.target == skidoo_item) {
-            g_Lara.target = nullptr;
+        LARA_INFO *const lara = Lara_GetLaraInfo();
+        if (lara->target == skidoo_item) {
+            lara->target = nullptr;
         }
     }
 
@@ -146,17 +137,19 @@ static int16_t M_ControlAlive(ITEM *const driver_item, ITEM *const skidoo_item)
     }
 
     if (driver_item->current_anim_state != SKIDOO_DRIVER_STATE_DEATH) {
+        const ITEM *const lara_item = Lara_GetItem();
         if (driver_data->flags == 0
             && ABS(info.angle) < SKIDOO_DRIVER_TARGET_ANGLE
-            && g_LaraItem->hit_points > 0) {
+            && lara_item->hit_points > 0) {
             const int32_t damage = Lara_Vehicle_IsMounted()
                 ? SKIDOO_DRIVER_SHOT_DAMAGE
                 : SKIDOO_DRIVER_LARA_DAMAGE;
 
-            if (Creature_ShootAtLara(
-                    skidoo_item, &info, &g_Skidoo_RightGun, 0, damage)
-                || Creature_ShootAtLara(
-                    skidoo_item, &info, &g_Skidoo_LeftGun, 0, damage)) {
+            const bool left_targetable = Creature_ShootAtLara(
+                skidoo_item, &info, &g_Skidoo_RightGun, 0, damage);
+            const bool right_targetable = Creature_ShootAtLara(
+                skidoo_item, &info, &g_Skidoo_LeftGun, 0, damage);
+            if (left_targetable || right_targetable) {
                 driver_data->flags = 5;
             }
         }
@@ -168,23 +161,6 @@ static int16_t M_ControlAlive(ITEM *const driver_item, ITEM *const skidoo_item)
     }
 
     return angle;
-}
-
-static void M_Setup(OBJECT *const obj)
-{
-    if (!obj->loaded) {
-        return;
-    }
-
-    obj->initialise_func = M_Initialise;
-    obj->handle_save_func = M_HandleSave;
-    obj->control_func = M_Control;
-
-    obj->hit_points = 1;
-
-    obj->save_position = true;
-    obj->save_flags = true;
-    obj->save_anim = true;
 }
 
 static void M_Initialise(const int16_t item_num)
@@ -212,6 +188,7 @@ static void M_HandleSave(ITEM *const item, const SAVEGAME_STAGE stage)
 {
     if (stage == SAVEGAME_STAGE_AFTER_LOAD) {
         if (item->status == IS_DEACTIVATED) {
+            item->hit_points = DONT_TARGET;
             const int16_t skidoo_num = (int16_t)(intptr_t)item->data;
             ITEM *const skidoo = Item_Get(skidoo_num);
             skidoo->object_id = O_SKIDOO_FAST;
@@ -273,6 +250,23 @@ static void M_Control(const int16_t driver_item_num)
         const int16_t frame_num = Item_GetRelativeFrame(skidoo_item);
         Item_SwitchToAnim(driver_item, anim_num, frame_num);
     }
+}
+
+static void M_Setup(OBJECT *const obj)
+{
+    if (!obj->loaded) {
+        return;
+    }
+
+    obj->initialise_func = M_Initialise;
+    obj->handle_save_func = M_HandleSave;
+    obj->control_func = M_Control;
+
+    obj->hit_points = 1;
+
+    obj->save_position = true;
+    obj->save_flags = true;
+    obj->save_anim = true;
 }
 
 REGISTER_OBJECT(O_SKIDOO_DRIVER, M_Setup)

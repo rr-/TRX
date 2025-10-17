@@ -4,6 +4,7 @@
 
 #include <SDL2/SDL_keyboard.h>
 
+// Key state table updated via SDL events.
 #define KEY_DOWN(a) (m_KeyboardState[(a)])
 
 typedef struct {
@@ -11,7 +12,7 @@ typedef struct {
     SDL_Scancode scancode;
 } BUILTIN_KEYBOARD_LAYOUT;
 
-const Uint8 *m_KeyboardState = nullptr;
+static bool m_KeyboardState[SDL_NUM_SCANCODES] = {};
 static bool m_Conflicts[INPUT_LAYOUT_NUMBER_OF][INPUT_ROLE_NUMBER_OF] = {};
 
 static BUILTIN_KEYBOARD_LAYOUT m_BuiltinLayout[] = {
@@ -24,30 +25,23 @@ static BUILTIN_KEYBOARD_LAYOUT m_BuiltinLayout[] = {
 
 static SDL_Scancode m_Layout[INPUT_LAYOUT_NUMBER_OF][INPUT_ROLE_NUMBER_OF];
 
-static const char *M_GetScancodeName(SDL_Scancode scancode);
-
-static bool M_Key(INPUT_LAYOUT layout, INPUT_ROLE role);
-static SDL_Scancode M_GetAssignedScancode(INPUT_LAYOUT layout, INPUT_ROLE role);
-static void M_AssignScancode(
-    INPUT_LAYOUT layout, INPUT_ROLE role, SDL_Scancode scancode);
-static bool M_CheckConflict(
-    INPUT_LAYOUT layout, INPUT_ROLE role1, INPUT_ROLE role2);
-static void M_AssignConflict(
-    INPUT_LAYOUT layout, INPUT_ROLE role, bool conflict);
-static void M_CheckConflicts(INPUT_LAYOUT layout);
-
-static void M_Init(void);
-static bool M_CustomUpdate(INPUT_STATE *result, INPUT_LAYOUT layout);
-static bool M_IsPressed(INPUT_LAYOUT layout, INPUT_ROLE role);
-static bool M_IsRoleConflicted(INPUT_LAYOUT layout, INPUT_ROLE role);
-static const char *M_GetName(INPUT_LAYOUT layout, INPUT_ROLE role);
-static void M_UnassignRole(INPUT_LAYOUT layout, INPUT_ROLE role);
-static bool M_AssignFromJSONObject(
-    INPUT_LAYOUT layout, INPUT_ROLE role, JSON_OBJECT *bind_obj);
-static bool M_AssignToJSONObject(
-    INPUT_LAYOUT layout, INPUT_ROLE role, JSON_OBJECT *bind_obj);
-static void M_ResetLayout(INPUT_LAYOUT layout);
-static bool M_ReadAndAssign(INPUT_LAYOUT layout, INPUT_ROLE role);
+// Update internal controller button/axis state from SDL events.
+// @param event     Event to process.
+static void M_ProcessEvent(const SDL_Event *const event)
+{
+    switch (event->type) {
+    case SDL_KEYDOWN:
+        if (!event->key.repeat) {
+            m_KeyboardState[event->key.keysym.scancode] = true;
+        }
+        break;
+    case SDL_KEYUP:
+        m_KeyboardState[event->key.keysym.scancode] = false;
+        break;
+    default:
+        break;
+    }
+}
 
 static const char *M_GetScancodeName(SDL_Scancode scancode)
 {
@@ -133,6 +127,7 @@ static const char *M_GetScancodeName(SDL_Scancode scancode)
         case SDL_SCANCODE_COMMA:              return "\\{keyboard comma}";
         case SDL_SCANCODE_PERIOD:             return "\\{keyboard period}";
         case SDL_SCANCODE_SLASH:              return "\\{keyboard slash}";
+        case SDL_SCANCODE_NONUSBACKSLASH:     return "\\{keyboard backslash}";
 
         case SDL_SCANCODE_F1:                 return "\\{keyboard f1}";
         case SDL_SCANCODE_F2:                 return "\\{keyboard f2}";
@@ -333,14 +328,6 @@ static SDL_Scancode M_GetAssignedScancode(INPUT_LAYOUT layout, INPUT_ROLE role)
     return m_Layout[layout][role];
 }
 
-static void M_AssignScancode(
-    const INPUT_LAYOUT layout, const INPUT_ROLE role,
-    const SDL_Scancode scancode)
-{
-    m_Layout[layout][role] = scancode;
-    M_CheckConflicts(layout);
-}
-
 static bool M_CheckConflict(
     const INPUT_LAYOUT layout, const INPUT_ROLE role1, const INPUT_ROLE role2)
 {
@@ -360,10 +347,26 @@ static void M_CheckConflicts(const INPUT_LAYOUT layout)
     Input_ConflictHelper(layout, M_CheckConflict, M_AssignConflict);
 }
 
+static void M_AssignScancode(
+    const INPUT_LAYOUT layout, const INPUT_ROLE role,
+    const SDL_Scancode scancode)
+{
+    m_Layout[layout][role] = scancode;
+    M_CheckConflicts(layout);
+}
+
+static void M_ResetLayout(const INPUT_LAYOUT layout)
+{
+    for (INPUT_ROLE role = 0; role < INPUT_ROLE_NUMBER_OF; role++) {
+        const SDL_Scancode scancode =
+            M_GetAssignedScancode(INPUT_LAYOUT_DEFAULT, role);
+        m_Layout[layout][role] = scancode;
+    }
+    M_CheckConflicts(layout);
+}
+
 static void M_Init(void)
 {
-    m_KeyboardState = SDL_GetKeyboardState(nullptr);
-
     // first, reset the roles to null
     for (INPUT_ROLE role = 0; role < INPUT_ROLE_NUMBER_OF; role++) {
         m_Layout[INPUT_LAYOUT_DEFAULT][role] = SDL_SCANCODE_UNKNOWN;
@@ -438,16 +441,6 @@ static bool M_AssignToJSONObject(
     return true;
 }
 
-static void M_ResetLayout(const INPUT_LAYOUT layout)
-{
-    for (INPUT_ROLE role = 0; role < INPUT_ROLE_NUMBER_OF; role++) {
-        const SDL_Scancode scancode =
-            M_GetAssignedScancode(INPUT_LAYOUT_DEFAULT, role);
-        m_Layout[layout][role] = scancode;
-    }
-    M_CheckConflicts(layout);
-}
-
 static bool M_ReadAndAssign(const INPUT_LAYOUT layout, const INPUT_ROLE role)
 {
     for (SDL_Scancode scancode = 0; scancode < SDL_NUM_SCANCODES; scancode++) {
@@ -463,6 +456,7 @@ INPUT_BACKEND_IMPL g_Input_Keyboard = {
     .init = M_Init,
     .shutdown = nullptr,
     .discover = nullptr,
+    .process_event = M_ProcessEvent,
     .custom_update = M_CustomUpdate,
     .is_pressed = M_IsPressed,
     .is_role_conflicted = M_IsRoleConflicted,

@@ -4,60 +4,49 @@
 #include "game/effects.h"
 #include "game/game_flow.h"
 #include "game/level.h"
-#include "game/output.h"
 #include "game/room_draw.h"
 #include "game/shell.h"
-#include "game/sound.h"
-#include "global/vars.h"
 
 #include <libtrx/config.h>
 #include <libtrx/debug.h>
 #include <libtrx/game/camera.h>
 #include <libtrx/game/interpolation.h>
+#include <libtrx/game/lara.h>
 #include <libtrx/game/lara/hair.h>
 #include <libtrx/game/music.h>
+#include <libtrx/game/output.h>
+#include <libtrx/game/sound.h>
 #include <libtrx/utils.h>
 
 static CAMERA_INFO m_LocalCamera = {};
-
-static void M_FixAudioDrift(void);
-
-static void M_FixAudioDrift(void)
-{
-    const int32_t audio_frame_idx = Music_GetTimestamp() * LOGIC_FPS;
-    const int32_t game_frame_idx = Camera_GetCineData()->frame_idx;
-    const int32_t audio_drift = ABS(audio_frame_idx - game_frame_idx);
-    if (audio_drift >= LOGIC_FPS * 0.2) {
-        LOG_DEBUG("Detected audio drift: %d frames", audio_drift);
-        Music_SeekTimestamp(game_frame_idx / (double)LOGIC_FPS);
-    }
-}
 
 bool Cutscene_Start(const int32_t level_num)
 {
     const GF_LEVEL *const level = GF_GetLevel(GFLT_CUTSCENES, level_num);
     ASSERT(GF_GetCurrentLevel() == level);
 
-    CutscenePlayer1_Initialise(g_Lara.item_num);
+    CutscenePlayer1_Initialise(Item_GetIndex(Lara_GetItem()));
     CINE_DATA *const cine_data = Camera_GetCineData();
     g_Camera.target_angle = cine_data->position.target_angle;
 
-    Music_SetVolume(1.0f);
     cine_data->frame_idx = 0;
+
+    if (level->music_track != MX_INACTIVE) {
+        Music_Play_Direct(level->music_track, MPM_ALWAYS);
+    }
+
     return true;
 }
 
 void Cutscene_End(void)
 {
-    Music_SetVolume(g_Config.audio.music_volume);
     Music_Stop();
-    Sound_StopAll();
 }
 
 GF_COMMAND Cutscene_Control(void)
 {
     Interpolation_Remember();
-    M_FixAudioDrift();
+    Music_SyncTimestamp(Camera_GetCineData()->frame_idx / (double)LOGIC_FPS);
 
     Input_Update();
     Shell_ProcessInput();
@@ -101,7 +90,7 @@ void Cutscene_Draw(void)
     Interpolation_Interpolate();
     Camera_Apply();
     Room_DrawAllRooms(g_Camera.interp.room_num);
-    Output_DrawPolyList();
+    SceneCompositor_Flush();
 }
 
 CAMERA_INFO *Cutscene_GetCamera(void)

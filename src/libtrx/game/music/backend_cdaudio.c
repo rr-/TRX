@@ -25,12 +25,6 @@ typedef struct {
     M_CDAUDIO_TRACK *tracks;
 } M_BACKEND_DATA;
 
-static bool M_Parse(M_BACKEND_DATA *data);
-static bool M_Init(MUSIC_BACKEND *backend);
-static const char *M_Describe(const MUSIC_BACKEND *backend);
-static int32_t M_Play(const MUSIC_BACKEND *backend, int32_t track_id);
-static void M_Shutdown(MUSIC_BACKEND *backend);
-
 static bool M_Parse(M_BACKEND_DATA *const data)
 {
     ASSERT(data != nullptr);
@@ -126,6 +120,7 @@ static bool M_Init(MUSIC_BACKEND *const backend)
         LOG_ERROR("Failed to parse CDAudio data");
         return false;
     }
+    File_Close(fp);
 
     return true;
 }
@@ -160,7 +155,7 @@ static int32_t M_Play(
     const int32_t audio_stream_id = Audio_Stream_CreateFromFile(data->path);
     Audio_Stream_SetStartTimestamp(audio_stream_id, track->from / 1000.0);
     Audio_Stream_SetStopTimestamp(audio_stream_id, track->to / 1000.0);
-    Audio_Stream_SeekTimestamp(audio_stream_id, track->from / 1000.0);
+    Audio_Stream_SeekTimestamp(audio_stream_id, 0.0f);
     return audio_stream_id;
 }
 

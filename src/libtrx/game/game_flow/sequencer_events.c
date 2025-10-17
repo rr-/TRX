@@ -4,6 +4,7 @@
 #include "game/game_flow/sequencer.h"
 #include "game/game_flow/sequencer_priv.h"
 #include "game/game_flow/vars.h"
+#include "game/objects/creatures/bacon_lara.h"
 #include "game/phase.h"
 #include "log.h"
 
@@ -11,20 +12,31 @@ static DECLARE_GF_EVENT_HANDLER(M_HandleExitToTitle);
 static DECLARE_GF_EVENT_HANDLER(M_HandlePlayCutscene);
 static DECLARE_GF_EVENT_HANDLER(M_HandlePlayFMV);
 static DECLARE_GF_EVENT_HANDLER(M_HandlePicture);
+static DECLARE_GF_EVENT_HANDLER(M_HandleInventoryModifier);
 static DECLARE_GF_EVENT_HANDLER(M_HandleLevelStats);
 static DECLARE_GF_EVENT_HANDLER(M_HandleTotalStats);
+static DECLARE_GF_EVENT_HANDLER(M_HandleSetupBaconLara);
 
 static DECLARE_GF_EVENT_HANDLER((*m_EventHandlers[GFS_NUMBER_OF])) = {
     // clang-format off
-    [GFS_EXIT_TO_TITLE]   = M_HandleExitToTitle,
-    [GFS_PLAY_CUTSCENE]   = M_HandlePlayCutscene,
-    [GFS_PLAY_FMV]        = M_HandlePlayFMV,
+    [GFS_EXIT_TO_TITLE]     = M_HandleExitToTitle,
+    [GFS_PLAY_CUTSCENE]     = M_HandlePlayCutscene,
+    [GFS_PLAY_FMV]          = M_HandlePlayFMV,
+    [GFS_ADD_ITEM]          = M_HandleInventoryModifier,
+    [GFS_REMOVE_WEAPONS]    = M_HandleInventoryModifier,
+    [GFS_REMOVE_AMMO]       = M_HandleInventoryModifier,
+    [GFS_REMOVE_MEDIPACKS]  = M_HandleInventoryModifier,
 #if TR_VERSION == 1
-    [GFS_LOADING_SCREEN]  = M_HandlePicture,
+    [GFS_REMOVE_SCIONS]     = M_HandleInventoryModifier,
+    [GFS_LOADING_SCREEN]    = M_HandlePicture,
+#else
+    [GFS_ADD_SECRET_REWARD] = M_HandleInventoryModifier,
+    [GFS_REMOVE_FLARES]     = M_HandleInventoryModifier,
 #endif
-    [GFS_DISPLAY_PICTURE] = M_HandlePicture,
-    [GFS_LEVEL_STATS]     = M_HandleLevelStats,
-    [GFS_TOTAL_STATS]     = M_HandleTotalStats,
+    [GFS_DISPLAY_PICTURE]   = M_HandlePicture,
+    [GFS_LEVEL_STATS]       = M_HandleLevelStats,
+    [GFS_TOTAL_STATS]       = M_HandleTotalStats,
+    [GFS_SETUP_BACON_LARA]  = M_HandleSetupBaconLara,
     // clang-format on
 };
 
@@ -101,6 +113,12 @@ static DECLARE_GF_EVENT_HANDLER(M_HandlePicture)
     return gf_cmd;
 }
 
+static DECLARE_GF_EVENT_HANDLER(M_HandleInventoryModifier)
+{
+    // handled in GF_InventoryModifier_Apply
+    return (GF_COMMAND) { .action = GF_NOOP };
+}
+
 static DECLARE_GF_EVENT_HANDLER(M_HandleLevelStats)
 {
     GF_COMMAND gf_cmd = { .action = GF_NOOP };
@@ -115,8 +133,9 @@ static DECLARE_GF_EVENT_HANDLER(M_HandleLevelStats)
 #endif
 
     PHASE *const phase = Phase_Stats_Create((PHASE_STATS_ARGS) {
-        .background_type =
-            (TR_VERSION == 1 || Game_IsInGym()) ? BK_TRANSPARENT : BK_OBJECT,
+        .background_type = (TR_VERSION == 1 || Game_IsInGym())
+            ? BK_TRANSPARENT
+            : g_Config.ui.stats_background_style,
         .level_num = -1,
         .show_final_stats = false,
         .use_bare_style = use_bare_style,
@@ -147,6 +166,19 @@ static DECLARE_GF_EVENT_HANDLER(M_HandleTotalStats)
     gf_cmd = PhaseExecutor_Run(phase);
     Phase_Stats_Destroy(phase);
     return gf_cmd;
+}
+
+static DECLARE_GF_EVENT_HANDLER(M_HandleSetupBaconLara)
+{
+    // TODO: move me to lua!
+    if (seq_ctx != GFSC_STORY) {
+        const int32_t anchor_room = (int32_t)(intptr_t)event->data;
+        if (!BaconLara_InitialiseAnchor(anchor_room)) {
+            LOG_ERROR("Could not anchor Bacon Lara to room %d", anchor_room);
+            return (GF_COMMAND) { .action = GF_EXIT_TO_TITLE };
+        }
+    }
+    return (GF_COMMAND) { .action = GF_NOOP };
 }
 
 void GF_SetSequenceEventHandler(

@@ -26,7 +26,7 @@ typedef struct {
 // Node structure that forms the UI tree
 typedef struct UI_NODE {
     // Common operations on a widget
-    const UI_WIDGET_OPS *ops;
+    UI_WIDGET_OPS ops;
 
     // Final layout rectangle
     float x;
@@ -73,6 +73,3 @@ void UI_ToggleState(bool *config_setting);
 void UI_HandleKeyDown(uint32_t key);
 void UI_HandleKeyUp(uint32_t key);
 void UI_HandleTextEdit(const char *text);
-
-// Execute all scheduled UI draw operations in order.
-void UI_Draw(void);

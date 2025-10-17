@@ -7,8 +7,6 @@
 #include "game/savegame.h"
 #include "strings.h"
 
-static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *ctx);
-
 static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
 {
     if (!Game_IsPlayable()) {
@@ -22,7 +20,7 @@ static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
     const int32_t slot_idx = slot_num - 1; // convert 1-indexing to 0-indexing
 
     if (slot_idx < 0 || slot_idx >= Savegame_GetSlotCount()) {
-        Console_Log(GS(OSD_SAVE_GAME_FAIL_INVALID_SLOT), slot_num);
+        Console_LogError(GS(OSD_SAVE_GAME_FAIL_INVALID_SLOT), slot_num);
         return CR_BAD_INVOCATION;
     }
 

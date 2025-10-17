@@ -6,14 +6,11 @@
 #include "game/game_flow.h"
 #include "game/inventory.h"
 #include "game/item_actions.h"
-#include "game/lara/control.h"
+#include "game/lara.h"
 #include "game/level.h"
-#include "game/output.h"
-#include "game/overlay.h"
 #include "game/room_draw.h"
 #include "game/savegame.h"
 #include "game/shell.h"
-#include "game/sound.h"
 #include "game/stats.h"
 #include "global/vars.h"
 
@@ -23,33 +20,32 @@
 #include <libtrx/game/interpolation.h>
 #include <libtrx/game/lara.h>
 #include <libtrx/game/music.h>
+#include <libtrx/game/output.h>
+#include <libtrx/game/overlay.h>
+#include <libtrx/game/sound.h>
 
 bool Game_Start(const GF_LEVEL *const level, const GF_SEQUENCE_CONTEXT seq_ctx)
 {
     Game_SetCurrentLevel(level);
 
-    g_OverlayStatus = 1;
+    g_OverlayFlag = 1;
     Camera_Initialise();
     Interpolation_Remember();
-    Stats_StartTimer();
+
+    const bool is_cutscene = level->type == GFL_CUTSCENE;
+    if (level->music_track != MX_INACTIVE
+        && (is_cutscene || Music_GetCurrentLoopedTrack() == MX_INACTIVE)) {
+        Music_Play_Direct(
+            level->music_track, is_cutscene ? MPM_ALWAYS : MPM_LOOPED);
+    }
+
     return true;
 }
 
 void Game_End(void)
 {
-    Overlay_HideGameInfo();
-    Sound_StopAll();
+    Savegame_PersistGameToCurrentInfo(Game_GetCurrentLevel());
     Music_Stop();
-    Music_SetVolume(g_Config.audio.music_volume);
-}
-
-void Game_Suspend(void)
-{
-}
-
-void Game_Resume(void)
-{
-    Stats_StartTimer();
 }
 
 GF_COMMAND Game_Control(const bool demo_mode)
@@ -84,10 +80,11 @@ GF_COMMAND Game_Control(const bool demo_mode)
         }
     }
 
-    if (g_Lara.death_timer > DEATH_WAIT
-        || (g_Lara.death_timer > DEATH_WAIT_INPUT
+    const LARA_INFO *const lara = Lara_GetLaraInfo();
+    if (lara->death_timer > DEATH_WAIT
+        || (lara->death_timer > DEATH_WAIT_INPUT
             && (g_InputDB.menu_confirm || g_InputDB.menu_back))
-        || g_OverlayStatus == 2) {
+        || g_OverlayFlag == 2) {
         if (demo_mode) {
             return g_GameFlow.cmd_death_demo_mode;
         }
@@ -97,38 +94,38 @@ GF_COMMAND Game_Control(const bool demo_mode)
         if (g_GameFlow.cmd_death_in_game.action != GF_NOOP) {
             return g_GameFlow.cmd_death_in_game;
         }
-        if (g_OverlayStatus == 2) {
-            g_OverlayStatus = 1;
+        if (g_OverlayFlag == 2) {
+            g_OverlayFlag = 1;
             const GF_COMMAND gf_cmd = GF_ShowInventory(INV_DEATH_MODE);
             if (gf_cmd.action != GF_NOOP) {
                 return gf_cmd;
             }
         } else {
-            g_OverlayStatus = 2;
+            g_OverlayFlag = 2;
         }
     }
 
     if (((g_InputDB.load || g_InputDB.save || g_InputDB.option)
-         || g_OverlayStatus <= 0)
-        && g_Lara.death_timer == 0 && !g_Lara.extra_anim) {
-        if (g_OverlayStatus > 0) {
+         || g_OverlayFlag <= 0)
+        && lara->death_timer == 0 && !lara->extra_anim) {
+        if (g_OverlayFlag > 0) {
             if (g_GameFlow.load_save_disabled) {
-                g_OverlayStatus = 0;
+                g_OverlayFlag = 0;
             } else if (g_Input.save) {
-                g_OverlayStatus = -2;
+                g_OverlayFlag = -2;
             } else {
-                g_OverlayStatus = g_Input.load ? -1 : 0;
+                g_OverlayFlag = g_Input.load ? -1 : 0;
             }
         } else {
             GF_COMMAND gf_cmd;
-            if (g_OverlayStatus == -1) {
+            if (g_OverlayFlag == -1) {
                 gf_cmd = GF_ShowInventory(INV_LOAD_MODE);
-            } else if (g_OverlayStatus == -2) {
+            } else if (g_OverlayFlag == -2) {
                 gf_cmd = GF_ShowInventory(INV_SAVE_MODE);
             } else {
                 gf_cmd = GF_ShowInventory(INV_GAME_MODE);
             }
-            g_OverlayStatus = 1;
+            g_OverlayFlag = 1;
             if (gf_cmd.action != GF_NOOP) {
                 return gf_cmd;
             }
@@ -137,16 +134,16 @@ GF_COMMAND Game_Control(const bool demo_mode)
 
     Output_ResetDynamicLights();
 
+    Sound_ResetAmbient();
     Item_Control();
     Effect_Control();
     Lara_Control();
     Lara_Hair_Control(false);
     Camera_Update();
-    Sound_UpdateEffects();
-    Sound_EndScene();
     ItemAction_RunActive();
+    Sound_UpdateEffects();
     Overlay_Animate(1);
-    Output_AnimateTextures(1 * TICKS_PER_FRAME);
+    Output_AnimateTextures(1);
 
     if (!Game_IsInGym() || Gym_IsAssaultTimerActive()) {
         Stats_UpdateTimer();
@@ -160,36 +157,17 @@ void Game_Draw(bool draw_overlay)
     Interpolation_Interpolate();
     Camera_Apply();
     Room_DrawAllRooms(g_Camera.interp.room_num);
-    Output_DrawPolyList();
     if (draw_overlay) {
         Overlay_DrawGameInfo();
-        Output_DrawPolyList();
-    } else {
-        Overlay_HideGameInfo();
     }
+    SceneCompositor_Flush();
+    Game_DrawFade();
 }
 
 void Game_ProcessInput(void)
 {
     if (GF_GetCurrentLevel()->type == GFL_DEMO) {
         return;
-    }
-
-    if (g_InputDB.equip_pistols && Inv_RequestItem(O_PISTOL_OPTION)) {
-        g_Lara.request_gun_type = LGT_PISTOLS;
-    } else if (g_InputDB.equip_shotgun && Inv_RequestItem(O_SHOTGUN_OPTION)) {
-        g_Lara.request_gun_type = LGT_SHOTGUN;
-    } else if (g_InputDB.equip_magnums && Inv_RequestItem(O_MAGNUM_OPTION)) {
-        g_Lara.request_gun_type = LGT_MAGNUMS;
-    } else if (g_InputDB.equip_uzis && Inv_RequestItem(O_UZI_OPTION)) {
-        g_Lara.request_gun_type = LGT_UZIS;
-    } else if (g_InputDB.equip_harpoon && Inv_RequestItem(O_HARPOON_OPTION)) {
-        g_Lara.request_gun_type = LGT_HARPOON;
-    } else if (g_InputDB.equip_m16 && Inv_RequestItem(O_M16_OPTION)) {
-        g_Lara.request_gun_type = LGT_M16;
-    } else if (
-        g_InputDB.equip_grenade_launcher && Inv_RequestItem(O_GRENADE_OPTION)) {
-        g_Lara.request_gun_type = LGT_GRENADE;
     }
 
     if (g_InputDB.use_small_medi && Inv_RequestItem(O_SMALL_MEDIPACK_OPTION)) {

@@ -36,11 +36,6 @@ void Lara_TakeHit(ITEM *const lara_item, const int32_t dx, const int32_t dz)
 
 void Lara_TouchLava(void)
 {
-    if (g_Config.debug.enable_invulnerability) {
-        Lara_CatchFire();
-        return;
-    }
-
     ITEM *const lara_item = Lara_GetItem();
     LARA_INFO *const lara_info = Lara_GetLaraInfo();
     if (lara_item->hit_points < 0 || lara_info->water_status == LWS_CHEAT) {
@@ -53,6 +48,11 @@ void Lara_TouchLava(void)
     const int32_t height =
         Room_GetHeight(sector, lara_item->pos.x, MAX_HEIGHT, lara_item->pos.z);
     if (lara_item->floor != height) {
+        return;
+    }
+
+    if (g_Config.debug.enable_invulnerability) {
+        Lara_CatchFire();
         return;
     }
 
@@ -226,7 +226,7 @@ void Lara_Extinguish(void)
     }
 }
 
-bool Lara_HasState(const LARA_STATE *const test_arr)
+bool Lara_HasState(const LARA_TRX_STATE *const test_arr)
 {
     const LARA_INFO *const lara_info = Lara_GetLaraInfo();
     if (lara_info->extra_anim) {
@@ -234,8 +234,24 @@ bool Lara_HasState(const LARA_STATE *const test_arr)
     }
 
     const ITEM *const lara_item = Lara_GetItem();
-    for (int32_t i = 0; test_arr[i] != (LARA_STATE)-1; i++) {
-        if (test_arr[i] == (LARA_STATE)lara_item->current_anim_state) {
+    for (int32_t i = 0; test_arr[i] != LS_TRX_INVALID; i++) {
+        if (test_arr[i] == LS_U(lara_item->current_anim_state)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Lara_HasExtraState(const LARA_EXTRA_STATE *const test_arr)
+{
+    const LARA_INFO *const lara_info = Lara_GetLaraInfo();
+    if (!lara_info->extra_anim) {
+        return false;
+    }
+
+    const ITEM *const lara_item = Lara_GetItem();
+    for (int32_t i = 0; test_arr[i] != (LARA_EXTRA_STATE)-1; i++) {
+        if (test_arr[i] == (LARA_EXTRA_STATE)lara_item->current_anim_state) {
             return true;
         }
     }

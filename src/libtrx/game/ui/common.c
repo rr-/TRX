@@ -25,10 +25,7 @@ static struct {
     },
 };
 
-static UI_INPUT M_TranslateInput(uint32_t system_keycode);
-static void M_MeasureNode(UI_NODE *node);
-static void M_LayoutNode(UI_NODE *node, float x, float y, float w, float h);
-static void M_DrawNode(const UI_NODE *node);
+extern void UI_ClearDraw(void);
 
 static UI_INPUT M_TranslateInput(const uint32_t system_keycode)
 {
@@ -51,8 +48,7 @@ static UI_INPUT M_TranslateInput(const uint32_t system_keycode)
 // Depth-first measure pass
 static void M_MeasureNode(UI_NODE *const node)
 {
-    if (node == nullptr || node->ops == nullptr
-        || node->ops->measure == nullptr) {
+    if (node == nullptr || node->ops.measure == nullptr) {
         return;
     }
 
@@ -63,7 +59,7 @@ static void M_MeasureNode(UI_NODE *const node)
         child = child->next_sibling;
     }
 
-    node->ops->measure(node);
+    node->ops.measure(node);
 }
 
 // Depth-first layout pass
@@ -71,23 +67,22 @@ static void M_LayoutNode(
     UI_NODE *const node, const float x, const float y, const float w,
     const float h)
 {
-    if (node == nullptr || node->ops == nullptr
-        || node->ops->layout == nullptr) {
+    if (node == nullptr || node->ops.layout == nullptr) {
         return;
     }
 
-    node->ops->layout(node, x, y, w, h);
+    node->ops.layout(node, x, y, w, h);
     // Recursing to children is a responsibility of the layout function.
 }
 
 // Depth-first draw pass
 static void M_DrawNode(const UI_NODE *const node)
 {
-    if (node == nullptr || node->ops == nullptr || node->ops->draw == nullptr) {
+    if (node == nullptr || node->ops.draw == nullptr) {
         return;
     }
 
-    node->ops->draw(node);
+    node->ops.draw(node);
     // Recursing to children is a responsibility of the draw function.
 }
 
@@ -95,11 +90,12 @@ static void M_DrawNode(const UI_NODE *const node)
 UI_NODE *UI_AllocNode(
     const UI_WIDGET_OPS *const ops, const size_t additional_size)
 {
-    const size_t size = sizeof(UI_NODE) + additional_size;
+    const size_t size =
+        Memory_Align(sizeof(UI_NODE)) + Memory_Align(additional_size);
     UI_NODE *const node = Memory_ArenaAlloc(&m_Priv.alloc, size);
     memset(node, 0, size);
-    node->ops = ops;
-    node->data = (char *)node + sizeof(UI_NODE);
+    node->ops = *ops;
+    node->data = (char *)node + Memory_Align(sizeof(UI_NODE));
     return node;
 }
 
@@ -147,6 +143,7 @@ const UI_NODE *UI_GetCurrent(void)
 // Scene management
 void UI_BeginScene(void)
 {
+    UI_ClearDraw();
     Memory_ArenaReset(&m_Priv.alloc);
     UI_BeginAnchor(0.5f, 0.5f); // Make a root node.
 }
@@ -178,7 +175,7 @@ void UI_Shutdown(void)
 void UI_ToggleState(bool *const config_setting)
 {
     *config_setting ^= true;
-    Config_Write();
+    Config_Update();
     Console_Log(*config_setting ? GS(OSD_UI_ON) : GS(OSD_UI_OFF));
 }
 
@@ -209,13 +206,13 @@ void UI_HandleTextEdit(const char *const text)
 int32_t UI_GetCanvasWidth(void)
 {
     return Scaler_CalcInverse(
-        Viewport_GetWidth(VIEWPORT_GAME), SCALER_TARGET_GENERIC);
+        Viewport_GetWidth(VIEWPORT_UI), SCALER_TARGET_GENERIC);
 }
 
 int32_t UI_GetCanvasHeight(void)
 {
     return Scaler_CalcInverse(
-        Viewport_GetHeight(VIEWPORT_GAME), SCALER_TARGET_GENERIC);
+        Viewport_GetHeight(VIEWPORT_UI), SCALER_TARGET_GENERIC);
 }
 
 float UI_ScaleX(const float x)

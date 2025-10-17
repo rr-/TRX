@@ -2,6 +2,7 @@
 #include "game/console/registry.h"
 #include "game/const.h"
 #include "game/creature.h"
+#include "game/game.h"
 #include "game/game_string.h"
 #include "game/items.h"
 #include "game/lara/cheat.h"
@@ -16,21 +17,14 @@
 
 #if TR_VERSION == 2
 extern bool CombatEnd_IsWaitingForBoss(void);
-extern GAME_OBJECT_ID CombatEnd_GetBossType(void);
+extern OBJECT_ID CombatEnd_GetBossType(void);
 #endif
 
-static bool M_CanTargetObjectCreature(GAME_OBJECT_ID obj_id);
-static bool M_KillSingleEnemyInRange(int32_t max_dist);
-static int32_t M_KillAllEnemiesInRange(int32_t max_dist);
-static COMMAND_RESULT M_KillAllEnemies(void);
-static COMMAND_RESULT M_KillNearestEnemies(void);
-static COMMAND_RESULT M_KillEnemyType(const char *enemy_name);
-static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *ctx);
-
-static bool M_CanTargetObjectCreature(const GAME_OBJECT_ID obj_id)
+static bool M_CanTargetObjectCreature(const OBJECT_ID obj_id)
 {
     return (Object_IsType(obj_id, g_EnemyObjects)
-            || Object_IsType(obj_id, g_AllyObjects))
+            || Object_IsType(obj_id, g_AllyObjects)
+            || Object_IsType(obj_id, g_LoyalObjects))
         && Object_Get(obj_id)->loaded;
 }
 
@@ -99,7 +93,7 @@ static COMMAND_RESULT M_KillAllEnemies(void)
     }
 
     if (num_killed == 0) {
-        Console_Log(GS(OSD_KILL_ALL_FAIL));
+        Console_LogError(GS(OSD_KILL_ALL_FAIL));
         return CR_FAILURE;
     }
 
@@ -117,7 +111,7 @@ static COMMAND_RESULT M_KillNearestEnemies(void)
 
     if (kill_count == 0) {
         // No enemies killed
-        Console_Log(GS(OSD_KILL_FAIL));
+        Console_LogError(GS(OSD_KILL_FAIL));
         return CR_FAILURE;
     } else {
         // At least one enemy was killed.
@@ -156,11 +150,11 @@ static COMMAND_RESULT M_KillEnemyType(const char *const enemy_name)
     Memory_FreePointer(&matches);
 
     if (!matches_found) {
-        Console_Log(GS(OSD_INVALID_OBJECT), enemy_name);
+        Console_LogError(GS(OSD_INVALID_OBJECT), enemy_name);
         return CR_FAILURE;
     }
     if (num_killed == 0) {
-        Console_Log(GS(OSD_OBJECT_NOT_FOUND), enemy_name);
+        Console_LogError(GS(OSD_OBJECT_NOT_FOUND), enemy_name);
         return CR_FAILURE;
     }
     Console_Log(GS(OSD_KILL_ALL), num_killed);
@@ -169,6 +163,10 @@ static COMMAND_RESULT M_KillEnemyType(const char *const enemy_name)
 
 static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
 {
+    if (!Game_IsLoaded()) {
+        return CR_UNAVAILABLE;
+    }
+
     if (String_Equivalent(ctx->args, "all")) {
         return M_KillAllEnemies();
     }

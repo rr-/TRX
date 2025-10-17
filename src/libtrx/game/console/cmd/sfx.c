@@ -8,9 +8,6 @@
 #include <stdio.h>
 #include <string.h>
 
-static char *M_CreateRangeString(void);
-static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *ctx);
-
 static char *M_CreateRangeString(void)
 {
     size_t buffer_size = 64;
@@ -19,7 +16,7 @@ static char *M_CreateRangeString(void)
     int32_t prev = -1;
     int32_t start = -1;
     for (int32_t i = 0; i <= SFX_NUMBER_OF; i++) {
-        const bool valid = Sound_IsAvailable(i);
+        const bool valid = Sound_IsAvailable_Direct(i);
 
         if (valid && start == -1) {
             start = i;
@@ -62,18 +59,18 @@ static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
         return CR_SUCCESS;
     }
 
-    int32_t sfx_id;
+    SAMPLE_ID sfx_id;
     if (!String_ParseInteger(ctx->args, &sfx_id)) {
         return CR_BAD_INVOCATION;
     }
 
-    if (!Sound_IsAvailable(sfx_id)) {
-        Console_Log(GS(OSD_INVALID_SAMPLE), sfx_id);
+    if (!Sound_IsAvailable_Direct(sfx_id)) {
+        Console_LogError(GS(OSD_INVALID_SAMPLE), sfx_id);
         return CR_FAILURE;
     }
 
     Console_Log(GS(OSD_SOUND_PLAYING_SAMPLE), sfx_id);
-    Sound_Effect(sfx_id, nullptr, SPM_ALWAYS);
+    Sound_Effect_Direct(sfx_id, nullptr, SPM_ALWAYS);
     return CR_SUCCESS;
 }
 

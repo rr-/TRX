@@ -71,51 +71,32 @@ static const double m_ManualCameraMultiplier[11] = {
 
 static BOX_INFO m_FixedBox = {};
 static bool m_IsChunky = false;
+static bool m_IsInitialised = false;
 #if TR_VERSION == 2
 // TODO: consolidate with Viewport API
 extern int32_t g_PhdPersp;
 #endif
-
-static M_SETTINGS M_GetSettings(void);
-static void M_AdjustMusicVolume(bool underwater);
-
-static void M_OffsetAdditionalAngle(int16_t delta);
-static void M_OffsetAdditionalElevation(int16_t delta);
-static void M_OffsetReset(void);
-
-static const BOX_INFO *M_GetBox(
-    const SECTOR *sector, int32_t x, int32_t z, bool generate_box);
-static bool M_IsGoodPosition(int32_t x, int32_t y, int32_t z, int16_t room_num);
-static const SECTOR *M_GetSector(
-    int32_t x, int32_t y, int32_t z, int16_t room_num);
-
-static int32_t M_ShiftClamp(GAME_VECTOR *pos, int32_t clamp);
-static void M_SmartShift(GAME_VECTOR *target, void (*shift)(M_SHIFT_ARGS));
-static void M_Clip(M_SHIFT_ARGS);
-static void M_Shift(M_SHIFT_ARGS);
-static void M_Move(const GAME_VECTOR *target, int32_t speed);
-
-static void M_Chase(const ITEM *item);
-static void M_Combat(const ITEM *item);
-static void M_Fixed(void);
-static void M_Look(const ITEM *item);
 
 static M_SETTINGS M_GetSettings(void)
 {
     return m_CameraSettings[g_Config.visuals.camera_mode];
 }
 
-static void M_AdjustMusicVolume(const bool underwater)
+static void M_AdjustMusicVolume(const bool is_underwater)
 {
-    const bool is_ambient =
-        Music_GetCurrentPlayingTrack() == Music_GetCurrentLoopedTrack();
     if (!Game_IsPlaying()) {
         return;
     }
-    const double multiplier = !underwater ? 1.0
+    const bool is_ambient =
+        Music_GetCurrentPlayingTrack() == Music_GetCurrentLoopedTrack();
+    const bool is_cutscene = GF_GetCurrentLevel()->type == GFL_CUTSCENE;
+    const double base_volume = is_cutscene ? g_Config.audio.cutscene_volume
+        : is_ambient                       ? g_Config.audio.ambient_volume
+                                           : g_Config.audio.music_volume;
+    const double multiplier = !is_underwater || is_cutscene ? 1.0
         : is_ambient ? g_Config.audio.underwater_ambient_volume
                      : g_Config.audio.underwater_music_volume;
-    Music_SetVolume(g_Config.audio.music_volume * multiplier);
+    Music_SetVolume(base_volume * multiplier);
 }
 
 static void M_OffsetAdditionalAngle(const int16_t delta)
@@ -158,12 +139,6 @@ static const BOX_INFO *M_GetBox(
     return &m_FixedBox;
 }
 
-static bool M_IsGoodPosition(
-    const int32_t x, const int32_t y, const int32_t z, int16_t room_num)
-{
-    return M_GetSector(x, y, z, room_num) != nullptr;
-}
-
 static const SECTOR *M_GetSector(
     const int32_t x, const int32_t y, const int32_t z, int16_t room_num)
 {
@@ -173,8 +148,13 @@ static const SECTOR *M_GetSector(
     if (y > height || y < ceiling) {
         return nullptr;
     }
-
     return sector;
+}
+
+static bool M_IsGoodPosition(
+    const int32_t x, const int32_t y, const int32_t z, int16_t room_num)
+{
+    return M_GetSector(x, y, z, room_num) != nullptr;
 }
 
 static int32_t M_ShiftClamp(GAME_VECTOR *const pos, const int32_t clamp)
@@ -396,7 +376,7 @@ static void M_SmartShift(GAME_VECTOR *const target, void (*shift)(M_SHIFT_ARGS))
 
 #undef SHIFT
 
-    if (!clip) {
+    if (clip == CLIP_NOT_VISIBLE) {
         return;
     }
 
@@ -763,6 +743,7 @@ void Camera_SetChunky(const bool is_chunky)
 
 void Camera_Initialise(void)
 {
+    m_IsInitialised = false;
     Matrix_ResetStack();
     g_Camera.last = NO_CAMERA;
     g_Camera.underwater = false;
@@ -770,6 +751,8 @@ void Camera_Initialise(void)
 #if TR_VERSION == 2
     Viewport_AlterFOV(-1);
 #endif
+    Camera_Update();
+    m_IsInitialised = true;
 }
 
 void Camera_ResetPosition(void)
@@ -842,7 +825,7 @@ void Camera_ClampInterpResult(void)
 
 finish:
     const int32_t floor =
-        Room_GetHeightEx(sector, pos->x, pos->y, pos->z, true);
+        Room_GetHeightEx(sector, pos->x, pos->y, pos->z, true, NO_ITEM);
     const int32_t ceiling =
         Room_GetCeilingEx(sector, pos->x, pos->y, pos->z, true);
     if (floor != NO_HEIGHT && ceiling != NO_HEIGHT) {
@@ -928,7 +911,7 @@ void Camera_EnsureEnvironment(void)
 void Camera_Update(void)
 {
     if (g_Camera.type == CAM_PHOTO_MODE) {
-        Camera_UpdatePhotoMode();
+        Camera_PhotoMode_Update();
         Camera_EnsureEnvironment();
         return;
     }
@@ -1091,7 +1074,9 @@ void Camera_Update(void)
 #endif
     }
     Camera_SetChunky(false);
-    Camera_EnsureEnvironment();
+    if (m_IsInitialised) {
+        Camera_EnsureEnvironment();
+    }
 }
 
 void Camera_UpdateMicPosition(void)

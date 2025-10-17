@@ -1,9 +1,18 @@
 #pragma once
 
+#include <stdint.h>
+
 typedef enum {
     MX_INACTIVE = -1,
-#define MUSIC_TRACK_DEFINE(name, id) name = id,
-#include "./ids.def"
-#undef MUSIC_TRACK_DEFINE
+} MUSIC_ID;
+
+typedef enum {
+    MX_TRX_INVALID = -1,
+#define X_CATALOG_ID(enum_value) enum_value,
+#include "../catalog_music.def"
+#undef X_CATALOG_ID
     MX_NUMBER_OF,
-} MUSIC_TRACK_ID;
+} MUSIC_TRX_ID;
+
+MUSIC_ID Music_ToGameID(MUSIC_TRX_ID music_track);
+MUSIC_TRX_ID Music_FromGameID(MUSIC_ID track_id);

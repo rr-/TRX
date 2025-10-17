@@ -1,21 +1,45 @@
 #include "game/lara/common.h"
 
 #include "config.h"
+#include "game/catalog.h"
+#include "game/gun.h"
+#include "game/inventory.h"
 #include "game/item_actions.h"
 #include "game/lara.h"
 #include "game/matrix.h"
 #include "game/pathing.h"
 #include "game/rooms.h"
 #include "game/savegame.h"
+#include "game/sound.h"
+#include "game/stats.h"
 
 #define M_MOVE_ANIM_VELOCITY 12
 #define M_MOVE_SPEED 16
 #define M_MOVE_ANGLE (2 * DEG_1) // = 364
 #define M_PUSH_TIMEOUT 15
 
+static const LARA_TRX_ANIMATION m_InvalidInterpAnims[] = {
+    // clang-format off
+    LA_JUMP_NEUTRAL_ROLL,
+    LA_CONTROLLED_DROP_CONTINUE,
+    LA_HANG_TO_JUMP_BACK,
+    LA_TRX_INVALID, // sentinel
+    // clang-format on
+};
+
 static bool m_Controllable = false;
 static int16_t m_DeathCameraTarget = NO_ITEM;
 static LARA_EXTRA_STATE m_StartAnimState = LS_EXTRA_BREATH;
+
+static bool M_IsInvalidInterpAnim(const LARA_TRX_ANIMATION anim_idx)
+{
+    for (int32_t i = 0; m_InvalidInterpAnims[i] != LA_TRX_INVALID; i++) {
+        if (m_InvalidInterpAnims[i] == anim_idx) {
+            return true;
+        }
+    }
+    return false;
+}
 
 void Lara_Initialise(const GF_LEVEL *const level)
 {
@@ -38,7 +62,6 @@ void Lara_Initialise(const GF_LEVEL *const level)
 #if TR_VERSION >= 2
     lara_info->back_gun_obj_id = O_LARA;
     lara_info->gun_item_num = NO_ITEM;
-    lara_info->climb_status = false;
     lara_info->flare.age = 0;
     lara_info->flare.control = false;
     lara_info->flare.frame_num = 0;
@@ -50,12 +73,17 @@ void Lara_Initialise(const GF_LEVEL *const level)
     lara_info->hit_effect_count = 0;
     lara_info->hit_frame = 0;
     lara_info->air = LARA_MAX_AIR;
+    lara_info->sprint_timer = LARA_MAX_SPRINT;
+    lara_info->exposure_timer = LARA_MAX_EXPOSURE;
     lara_info->water_surface_dist = 100;
     lara_info->death_timer = 0;
     lara_info->dive_timer = 0;
+    lara_info->idle_timer = 0;
     lara_info->current_active = 0;
     lara_info->extra_anim = false;
     lara_info->burn = false;
+    lara_info->climb_status = false;
+    lara_info->killed_loyal_item = false;
     lara_info->mesh_effects = 0;
     lara_info->torso_rot.x = 0;
     lara_info->torso_rot.y = 0;
@@ -95,6 +123,255 @@ void Lara_Initialise(const GF_LEVEL *const level)
     }
 }
 
+void Lara_InitialiseInventory(const GF_LEVEL *const level)
+{
+    Inv_RemoveAllItems();
+
+    LARA_INFO *const lara_info = Lara_GetLaraInfo();
+    RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
+
+    const bool hold_onto_guns = TR_VERSION == 1;
+
+    if (resume != nullptr) {
+        lara_info->pistol_ammo.ammo = 1000;
+        if (resume->flags.has_pistols) {
+            Inv_AddItem(O_PISTOL_ITEM);
+        }
+
+        if (resume->flags.has_magnums) {
+            Inv_AddItem(O_MAGNUM_ITEM);
+            lara_info->magnum_ammo.ammo = resume->magnum_ammo;
+            Item_GlobalReplace(O_MAGNUM_ITEM, O_MAGNUM_AMMO_ITEM);
+        } else {
+            Inv_AddItemNTimes(
+                O_MAGNUM_AMMO_ITEM, resume->magnum_ammo / MAGNUM_AMMO_QTY);
+            lara_info->magnum_ammo.ammo = 0;
+        }
+
+        if (resume->flags.has_uzis) {
+            Inv_AddItem(O_UZI_ITEM);
+            lara_info->uzi_ammo.ammo = resume->uzi_ammo;
+            Item_GlobalReplace(O_UZI_ITEM, O_UZI_AMMO_ITEM);
+        } else {
+            Inv_AddItemNTimes(O_UZI_AMMO_ITEM, resume->uzi_ammo / UZI_AMMO_QTY);
+            lara_info->uzi_ammo.ammo = 0;
+        }
+
+        if (resume->flags.has_shotgun) {
+            Inv_AddItem(O_SHOTGUN_ITEM);
+            lara_info->shotgun_ammo.ammo = resume->shotgun_ammo;
+            Item_GlobalReplace(O_SHOTGUN_ITEM, O_SHOTGUN_AMMO_ITEM);
+        } else {
+            Inv_AddItemNTimes(
+                O_SHOTGUN_AMMO_ITEM, resume->shotgun_ammo / SHOTGUN_AMMO_QTY);
+            lara_info->shotgun_ammo.ammo = 0;
+        }
+
+        Inv_AddItemNTimes(O_SMALL_MEDIPACK_ITEM, resume->small_medipacks);
+        Inv_AddItemNTimes(O_LARGE_MEDIPACK_ITEM, resume->large_medipacks);
+#if TR_VERSION == 1
+        Inv_AddItemNTimes(O_SCION_ITEM_1, resume->num_scions);
+
+#else
+        Inv_AddItemNTimes(O_FLARE_ITEM, resume->flares);
+
+        if (resume->flags.has_m16) {
+            Inv_AddItem(O_M16_ITEM);
+            lara_info->m16_ammo.ammo = resume->m16_ammo;
+            Item_GlobalReplace(O_M16_ITEM, O_M16_AMMO_ITEM);
+        } else {
+            Inv_AddItemNTimes(O_M16_AMMO_ITEM, resume->m16_ammo / M16_AMMO_QTY);
+            lara_info->m16_ammo.ammo = 0;
+        }
+
+        if (resume->flags.has_grenade) {
+            Inv_AddItem(O_GRENADE_ITEM);
+            lara_info->grenade_ammo.ammo = resume->grenade_ammo;
+            Item_GlobalReplace(O_GRENADE_ITEM, O_GRENADE_AMMO_ITEM);
+        } else {
+            Inv_AddItemNTimes(
+                O_GRENADE_AMMO_ITEM, resume->grenade_ammo / GRENADE_AMMO_QTY);
+            lara_info->grenade_ammo.ammo = 0;
+        }
+
+        if (resume->flags.has_harpoon) {
+            Inv_AddItem(O_HARPOON_ITEM);
+            lara_info->harpoon_ammo.ammo = resume->harpoon_ammo;
+            Item_GlobalReplace(O_HARPOON_ITEM, O_HARPOON_AMMO_ITEM);
+        } else {
+            Inv_AddItemNTimes(
+                O_HARPOON_AMMO_ITEM, resume->harpoon_ammo / HARPOON_AMMO_QTY);
+            lara_info->harpoon_ammo.ammo = 0;
+        }
+
+#endif
+
+        if (hold_onto_guns) {
+            lara_info->gun_status = resume->gun_status;
+            lara_info->gun_type = resume->equipped_gun_type;
+        }
+        lara_info->last_gun_type = resume->equipped_gun_type;
+        lara_info->holsters_gun_type = resume->holsters_gun_type;
+        lara_info->back_gun_type = resume->back_gun_type;
+    }
+
+    if (!hold_onto_guns) {
+        lara_info->gun_status = LGS_ARMLESS;
+        lara_info->gun_type = lara_info->last_gun_type;
+    }
+    lara_info->request_gun_type = lara_info->last_gun_type;
+    Lara_Mesh_Initialise(level);
+    Gun_InitialiseNewWeapon();
+}
+
+void Lara_RevertToPistolsIfNeeded(void)
+{
+    if (!g_Config.gameplay.revert_to_pistols
+        || !Inv_RequestItem(O_PISTOL_ITEM)) {
+        return;
+    }
+
+    LARA_INFO *const lara_info = Lara_GetLaraInfo();
+    lara_info->last_gun_type = LGT_PISTOLS;
+    lara_info->holsters_gun_type = LGT_PISTOLS;
+
+    if (lara_info->gun_status != LGS_ARMLESS) {
+        lara_info->holsters_gun_type = LGT_UNARMED;
+        lara_info->request_gun_type = LGT_PISTOLS;
+        lara_info->gun_type = LGT_PISTOLS;
+    }
+    if (Inv_RequestItem(O_SHOTGUN_ITEM)) {
+        lara_info->back_gun_type = LGT_SHOTGUN;
+    } else {
+        lara_info->back_gun_type = LGT_UNARMED;
+    }
+    Gun_InitialiseNewWeapon();
+    Gun_SetLaraHolsterLMesh(lara_info->holsters_gun_type);
+    Gun_SetLaraHolsterRMesh(lara_info->holsters_gun_type);
+    Gun_SetLaraBackMesh(lara_info->back_gun_type);
+}
+
+void Lara_UseItem(const OBJECT_ID obj_id)
+{
+    LARA_INFO *const lara_info = Lara_GetLaraInfo();
+    ITEM *const lara_item = Lara_GetItem();
+
+    LARA_GUN_TYPE request_gun_type = LGT_UNARMED;
+    switch (obj_id) {
+    case O_PISTOL_ITEM:
+    case O_PISTOL_OPTION:
+        request_gun_type = LGT_PISTOLS;
+        break;
+
+    case O_SHOTGUN_ITEM:
+    case O_SHOTGUN_OPTION:
+        request_gun_type = LGT_SHOTGUN;
+        break;
+
+    case O_MAGNUM_ITEM:
+    case O_MAGNUM_OPTION:
+        request_gun_type = LGT_MAGNUMS;
+        break;
+
+    case O_UZI_ITEM:
+    case O_UZI_OPTION:
+        request_gun_type = LGT_UZIS;
+        break;
+
+#if TR_VERSION >= 2
+    case O_HARPOON_ITEM:
+    case O_HARPOON_OPTION:
+        request_gun_type = LGT_HARPOON;
+        break;
+
+    case O_M16_ITEM:
+    case O_M16_OPTION:
+        request_gun_type = LGT_M16;
+        break;
+
+    case O_GRENADE_ITEM:
+    case O_GRENADE_OPTION:
+        request_gun_type = LGT_GRENADE;
+        break;
+
+    case O_FLARES_ITEM:
+    case O_FLARES_OPTION:
+        lara_info->request_gun_type = LGT_FLARE;
+        break;
+#endif
+
+    case O_SMALL_MEDIPACK_ITEM:
+    case O_SMALL_MEDIPACK_OPTION:
+        if (lara_item->hit_points > 0
+            && lara_item->hit_points < LARA_MAX_HITPOINTS) {
+            lara_item->hit_points += LARA_MAX_HITPOINTS / 2;
+            CLAMPG(lara_item->hit_points, LARA_MAX_HITPOINTS);
+            Inv_RemoveItem(O_SMALL_MEDIPACK_ITEM);
+            Sound_Effect(SFX_MENU_MEDI, nullptr, SPM_ALWAYS);
+            Stats_AddMedipacksUsed(0.5);
+        }
+        break;
+
+    case O_LARGE_MEDIPACK_ITEM:
+    case O_LARGE_MEDIPACK_OPTION:
+        if (lara_item->hit_points > 0
+            && lara_item->hit_points < LARA_MAX_HITPOINTS) {
+            lara_item->hit_points = LARA_MAX_HITPOINTS;
+            Inv_RemoveItem(O_LARGE_MEDIPACK_ITEM);
+            Sound_Effect(SFX_MENU_MEDI, nullptr, SPM_ALWAYS);
+            Stats_AddMedipacksUsed(1);
+        }
+        break;
+
+    case O_KEY_ITEM_1:
+    case O_KEY_OPTION_1:
+    case O_KEY_ITEM_2:
+    case O_KEY_OPTION_2:
+    case O_KEY_ITEM_3:
+    case O_KEY_OPTION_3:
+    case O_KEY_ITEM_4:
+    case O_KEY_OPTION_4:
+    case O_PUZZLE_ITEM_1:
+    case O_PUZZLE_OPTION_1:
+    case O_PUZZLE_ITEM_2:
+    case O_PUZZLE_OPTION_2:
+    case O_PUZZLE_ITEM_3:
+    case O_PUZZLE_OPTION_3:
+    case O_PUZZLE_ITEM_4:
+    case O_PUZZLE_OPTION_4:
+    case O_LEADBAR_ITEM:
+    case O_LEADBAR_OPTION:
+    case O_SCION_ITEM_1:
+    case O_SCION_ITEM_2:
+    case O_SCION_ITEM_3:
+    case O_SCION_ITEM_4:
+    case O_SCION_OPTION: {
+        const int16_t receptacle_item_num = Object_FindReceptacle(obj_id);
+        if (receptacle_item_num == NO_ITEM
+            || lara_info->interact_target.item_num != NO_ITEM) {
+            Sound_Effect(SFX_LARA_NO, nullptr, SPM_NORMAL);
+            return;
+        }
+
+        lara_info->interact_target.item_num = receptacle_item_num;
+        lara_info->interact_target.is_moving = true;
+        lara_info->interact_target.move_count = 0;
+        break;
+    }
+
+    default:
+        break;
+    }
+
+    if (request_gun_type != LGT_UNARMED) {
+        lara_info->request_gun_type = request_gun_type;
+        if (lara_info->gun_status == LGS_ARMLESS
+            && lara_info->gun_type == request_gun_type) {
+            lara_info->gun_type = LGT_UNARMED;
+        }
+    }
+}
+
 void Lara_SetStartAnimState(const LARA_EXTRA_STATE state)
 {
     m_StartAnimState = state;
@@ -110,6 +387,21 @@ void Lara_SetControllable(const bool controllable)
     m_Controllable = controllable;
 }
 
+bool Lara_CanInterpolate(
+    const ITEM *const item, const int32_t frame_a, const int32_t frame_b)
+{
+    const LARA_ANIMATION anim_idx = Item_GetRelativeAnim(item);
+    if (!M_IsInvalidInterpAnim(LA_U(anim_idx))) {
+        return true;
+    }
+
+    // Avoid the flip 180 command having a bad effect on interpolated frames
+    // on rate 1 animations, such as neutral jump twist. TODO: improve this.
+    const ANIM *const anim = Item_GetAnim(item);
+    return !Anim_HasFXCommandBetween(
+        anim, ITEM_ACTION_TURN_180, frame_a, frame_b);
+}
+
 ITEM *Lara_GetDeathCameraTarget(void)
 {
     return Item_Get(m_DeathCameraTarget);
@@ -120,7 +412,7 @@ void Lara_SetDeathCameraTarget(const int16_t item_num)
     m_DeathCameraTarget = item_num;
 }
 
-GAME_OBJECT_ID Lara_GetAnimationObject(void)
+OBJECT_ID Lara_GetAnimationObject(void)
 {
     const LARA_INFO *const lara_info = Lara_GetLaraInfo();
     if (lara_info->extra_anim) {
@@ -261,10 +553,10 @@ const ANIM_FRAME *Lara_GetHitFrame(const ITEM *const item)
     // clang-format off
     LARA_ANIMATION anim_idx;
     switch (lara->hit_direction) {
-    case DIR_EAST:  anim_idx = LA_HIT_LEFT; break;
-    case DIR_SOUTH: anim_idx = LA_HIT_BACK; break;
-    case DIR_WEST:  anim_idx = LA_HIT_RIGHT; break;
-    default:        anim_idx = LA_HIT_FRONT; break;
+    case DIR_EAST:  anim_idx = LA(LA_HIT_LEFT); break;
+    case DIR_SOUTH: anim_idx = LA(LA_HIT_BACK); break;
+    case DIR_WEST:  anim_idx = LA(LA_HIT_RIGHT); break;
+    default:        anim_idx = LA(LA_HIT_FRONT); break;
     }
     // clang-format on
 
@@ -358,17 +650,19 @@ void Lara_AlignPosition(const ITEM *const item, const XYZ_32 *const vec)
         .z = item->pos.z + shift.z,
     };
 
-    int16_t room_num = lara->room_num;
-    const SECTOR *const sector =
-        Room_GetSector(new_pos.x, new_pos.y, new_pos.z, &room_num);
-    const int32_t height =
-        Room_GetHeight(sector, new_pos.x, new_pos.y, new_pos.z);
-    const int32_t ceiling =
-        Room_GetCeiling(sector, new_pos.x, new_pos.y, new_pos.z);
+    if (g_Config.gameplay.fix_lara_pickup_embed) {
+        int16_t room_num = lara->room_num;
+        const SECTOR *const sector =
+            Room_GetSector(new_pos.x, new_pos.y, new_pos.z, &room_num);
+        const int32_t height =
+            Room_GetHeight(sector, new_pos.x, new_pos.y, new_pos.z);
+        const int32_t ceiling =
+            Room_GetCeiling(sector, new_pos.x, new_pos.y, new_pos.z);
 
-    if (ABS(height - lara->pos.y) > STEP_L
-        || ABS(ceiling - lara->pos.y) < LARA_HEIGHT) {
-        return;
+        if (ABS(height - lara->pos.y) > STEP_L
+            || ABS(ceiling - lara->pos.y) < LARA_HEIGHT) {
+            return;
+        }
     }
 
     lara->pos = new_pos;
@@ -425,7 +719,7 @@ bool Lara_MovePosition(const ITEM *const ref_item, const XYZ_32 *const vec)
         .z = ref_item->pos.z + shift.z,
     };
 
-#if TR_VERSION == 2
+#if TR_VERSION >= 2
     if (ref_item->object_id == O_FLARE_ITEM) {
         int16_t room_num = lara_item->room_num;
         const SECTOR *const sector =
@@ -460,16 +754,16 @@ bool Lara_MovePosition(const ITEM *const ref_item, const XYZ_32 *const vec)
         && !lara_info->interact_target.is_moving) {
         if (lara_info->water_status != LWS_UNDERWATER) {
             const int16_t step_to_anim_num[4] = {
-                LA_SIDE_STEP_LEFT,
-                LA_WALK_FORWARD,
-                LA_SIDE_STEP_RIGHT,
-                LA_WALK_BACK,
+                LA(LA_SIDE_STEP_LEFT),
+                LA(LA_WALK_FORWARD),
+                LA(LA_SIDE_STEP_RIGHT),
+                LA(LA_WALK_BACK),
             };
             const int16_t step_to_anim_state[4] = {
-                LS_STEP_LEFT,
-                LS_WALK,
-                LS_STEP_RIGHT,
-                LS_WALK_BACK,
+                LS(LS_STEP_LEFT),
+                LS(LS_WALK),
+                LS(LS_STEP_RIGHT),
+                LS(LS_WALK_BACK),
             };
 
             const int32_t dx = lara_item->pos.x - new_pos.x;
@@ -590,4 +884,40 @@ void Lara_Push(
         lara_info->interact_target.is_moving = false;
         lara_info->gun_status = LGS_ARMLESS;
     }
+}
+
+LARA_ANIMATION Lara_AnimToGameID(const LARA_TRX_ANIMATION anim)
+{
+    int32_t out;
+    if (!Catalog_EnumToGameID(CATALOG_LARA_ANIMS, anim, &out)) {
+        out = -1;
+    }
+    return out;
+}
+
+LARA_STATE Lara_StateToGameID(const LARA_TRX_STATE state)
+{
+    int32_t out;
+    if (!Catalog_EnumToGameID(CATALOG_LARA_STATES, state, &out)) {
+        out = -1;
+    }
+    return out;
+}
+
+LARA_TRX_ANIMATION Lara_AnimFromGameID(const LARA_ANIMATION anim)
+{
+    int32_t out;
+    if (!Catalog_GameIDToEnum(CATALOG_LARA_ANIMS, anim, &out)) {
+        out = -1;
+    }
+    return out;
+}
+
+LARA_TRX_STATE Lara_StateFromGameID(const LARA_STATE state)
+{
+    int32_t out;
+    if (!Catalog_GameIDToEnum(CATALOG_LARA_STATES, state, &out)) {
+        out = -1;
+    }
+    return out;
 }

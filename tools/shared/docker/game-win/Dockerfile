@@ -130,7 +130,7 @@ RUN cp -rL uthash-2.3.0/* /ext/
 
 
 # GLEW
-FROM mingw as glew
+FROM mingw AS glew
 RUN git clone https://github.com/nigels-com/glew.git
 RUN apt-get install -y \
     build-essential \
@@ -149,6 +149,20 @@ RUN mkdir -p /ext/lib \
     && make \
     && make install
 RUN sed -i "s/Cflags: .*/\\0 -DGLEW_STATIC/" /ext/lib/pkgconfig/glew.pc
+
+## Lua
+FROM mingw AS lua
+RUN apt-get update && apt-get install -y wget build-essential
+RUN wget https://www.lua.org/ftp/lua-5.4.8.tar.gz \
+    && tar xzf lua-5.4.8.tar.gz \
+    && cd lua-5.4.8 \
+    && make mingw CROSS=i686-w64-mingw32- CC="i686-w64-mingw32-gcc" \
+    && make INSTALL_TOP=/ext TO_BIN="lua.exe luac.exe" install
+
+# Provide pkg-config file for Lua
+RUN mkdir -p /ext/lib/pkgconfig
+COPY tools/shared/docker/lua.pc /ext/lib/pkgconfig/lua.pc
+
 
 
 
@@ -172,6 +186,7 @@ RUN apt-get install -y \
         meson \
         ninja
 
+COPY --from=lua /ext/ /ext/
 COPY --from=pcre2 /ext/ /ext/
 COPY --from=zlib /ext/ /ext/
 COPY --from=libav /ext/ /ext/

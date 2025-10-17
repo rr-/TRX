@@ -12,6 +12,7 @@
 #include "game/pathing/lot.h"
 #include "game/savegame.h"
 #include "memory.h"
+#include "strings.h"
 
 #define MAX_STRATEGIES 2
 #define SAVES_DIR "saves"
@@ -30,12 +31,14 @@ static int32_t m_BoundSlot = -1;
 static int32_t m_StrategyCount = 0;
 static SAVEGAME_STRATEGY m_Strategies[MAX_STRATEGIES];
 
-static void M_ClearSlots(void);
-static bool M_FillSlot(
-    SAVEGAME_STRATEGY strategy, int32_t slot_num, const char *path);
-static void M_ScanSavedGamesDir(const char *dir_path);
-static void M_LoadPreprocess(void);
-static void M_LoadPostprocess(void);
+static void M_ClearSlot(SAVEGAME_INFO *const savegame_info)
+{
+    savegame_info->format = SAVEGAME_FORMAT_INVALID;
+    savegame_info->counter = -1;
+    savegame_info->level_num = -1;
+    Memory_FreePointer(&savegame_info->full_path);
+    Memory_FreePointer(&savegame_info->level_title);
+}
 
 static void M_ClearSlots(void)
 {
@@ -44,12 +47,7 @@ static void M_ClearSlots(void)
     }
 
     for (int32_t i = 0; i < m_SaveSlots; i++) {
-        SAVEGAME_INFO *const savegame_info = &m_SavegameInfo[i];
-        savegame_info->format = SAVEGAME_FORMAT_INVALID;
-        savegame_info->counter = -1;
-        savegame_info->level_num = -1;
-        Memory_FreePointer(&savegame_info->full_path);
-        Memory_FreePointer(&savegame_info->level_title);
+        M_ClearSlot(&m_SavegameInfo[i]);
     }
 }
 
@@ -65,9 +63,11 @@ static bool M_FillSlot(
     bool result = false;
     MYFILE *const fp = File_Open(path, FILE_OPEN_READ);
     if (fp != nullptr) {
-        if (strategy.fill_info_func(fp, savegame_info)) {
+        SAVEGAME_INFO tmp_savegame_info;
+        if (strategy.fill_info_func(fp, &tmp_savegame_info)) {
+            M_ClearSlot(savegame_info);
+            *savegame_info = tmp_savegame_info;
             savegame_info->format = strategy.format;
-            Memory_FreePointer(&savegame_info->full_path);
             savegame_info->full_path = Memory_DupStr(path);
             result = true;
         }
@@ -92,21 +92,27 @@ static void M_ScanSavedGamesDir(const char *const dir_path)
             continue;
         }
 
+        char *file_name_ci = String_ToUpper(file_name);
         for (int32_t i = 0; i < m_StrategyCount; i++) {
             const SAVEGAME_STRATEGY strategy = m_Strategies[i];
             if (!strategy.allow_load) {
                 continue;
             }
 
+            const char *const pattern = strategy.get_save_file_pattern_func();
+            char *pattern_ci = String_ToUpperPattern(pattern);
+
             int32_t slot = -1;
-            const int32_t parsed =
-                sscanf(file_name, strategy.get_save_file_pattern_func(), &slot);
+            const int32_t parsed = sscanf(file_name_ci, pattern_ci, &slot);
+            Memory_FreePointer(&pattern_ci);
+
             if (parsed == 1 && slot >= 0 && slot < m_SaveSlots) {
                 char *file_path = String_Format("%s/%s", dir_path, file_name);
                 M_FillSlot(strategy, slot, file_path);
                 Memory_FreePointer(&file_path);
             }
         }
+        Memory_FreePointer(&file_name_ci);
     }
 
     File_CloseDirectory(dir_handle);
@@ -143,18 +149,68 @@ static void M_LoadPostprocess(void)
 #endif
     }
 
-    MovableBlock_SetupFloor();
-
     LARA_INFO *const lara = Lara_GetLaraInfo();
 #if TR_VERSION == 1
     if (Game_GetBonusFlag() != GBF_NONE) {
         g_Config.profile.new_game_plus_unlock = true;
+        Config_Update();
     }
     LOT_ClearLOT(&lara->lot);
 #endif
     if (lara->burn && !g_Config.gameplay.enable_enhanced_saves) {
         lara->burn = false;
         Lara_CatchFire();
+    }
+}
+
+static void M_DetermineLegacyGunTypes(RESUME_INFO *const resume)
+{
+    // Fallback logic to figure out holster and back gun items for saves from
+    // TR1X 4.2 and earlier (including TombATI) and TR2X 1.2 and earlier, where
+    // these values are missing. Make educated guesses based on the type of gun
+    // equipped.
+    if (resume->holsters_gun_type == LGT_UNKNOWN) {
+        switch (resume->equipped_gun_type) {
+        case LGT_PISTOLS:
+        case LGT_MAGNUMS:
+        case LGT_UZIS:
+            resume->holsters_gun_type = resume->equipped_gun_type;
+            break;
+        case LGT_SHOTGUN:
+#if TR_VERSION >= 2
+        case LGT_M16:
+        case LGT_GRENADE:
+        case LGT_HARPOON:
+#endif
+            if (resume->flags.has_pistols) {
+                resume->holsters_gun_type = LGT_PISTOLS;
+            } else if (resume->flags.has_magnums) {
+                resume->holsters_gun_type = LGT_MAGNUMS;
+            } else if (resume->flags.has_uzis) {
+                resume->holsters_gun_type = LGT_UZIS;
+            } else {
+                resume->holsters_gun_type = LGT_UNARMED;
+            }
+            break;
+        default:
+            resume->holsters_gun_type = LGT_UNARMED;
+            break;
+        }
+    }
+    if (resume->back_gun_type == LGT_UNKNOWN) {
+        resume->back_gun_type = LGT_UNARMED;
+        if (resume->flags.has_shotgun) {
+            resume->back_gun_type = LGT_SHOTGUN;
+        }
+#if TR_VERSION >= 2
+        else if (resume->flags.has_m16) {
+            resume->back_gun_type = LGT_M16;
+        } else if (resume->flags.has_grenade) {
+            resume->back_gun_type = LGT_GRENADE;
+        } else if (resume->flags.has_harpoon) {
+            resume->back_gun_type = LGT_HARPOON;
+        }
+#endif
     }
 }
 
@@ -257,10 +313,8 @@ void Savegame_Init(void)
         resume_info->pistol_ammo = 1000;
         resume_info->gun_status = LGS_ARMLESS;
         resume_info->equipped_gun_type = LGT_PISTOLS;
-#if TR_VERSION == 1
         resume_info->holsters_gun_type = LGT_PISTOLS;
         resume_info->back_gun_type = LGT_UNARMED;
-#endif
     }
 }
 
@@ -342,8 +396,11 @@ void Savegame_PersistGameToCurrentInfo(const GF_LEVEL *const level)
 {
     RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
     LARA_INFO *const lara = Lara_GetLaraInfo();
+    const ITEM *const lara_item = Lara_GetItem();
 
-    resume->lara_hitpoints = Lara_GetItem()->hit_points;
+    if (lara_item != nullptr) {
+        resume->lara_hitpoints = lara_item->hit_points;
+    }
     resume->flags.available = true;
     resume->small_medipacks = Inv_RequestItem(O_SMALL_MEDIPACK_ITEM);
     resume->large_medipacks = Inv_RequestItem(O_LARGE_MEDIPACK_ITEM);
@@ -383,15 +440,6 @@ void Savegame_PersistGameToCurrentInfo(const GF_LEVEL *const level)
 
 #if TR_VERSION == 1
     resume->num_scions = Inv_RequestItem(O_SCION_ITEM_1);
-
-    resume->equipped_gun_type = lara->gun_type;
-    resume->holsters_gun_type = lara->holsters_gun_type;
-    resume->back_gun_type = lara->back_gun_type;
-    if (lara->gun_status == LGS_READY) {
-        resume->gun_status = LGS_READY;
-    } else {
-        resume->gun_status = LGS_ARMLESS;
-    }
 #elif TR_VERSION == 2
     if (Inv_RequestItem(O_M16_ITEM)) {
         resume->flags.has_m16 = true;
@@ -420,13 +468,133 @@ void Savegame_PersistGameToCurrentInfo(const GF_LEVEL *const level)
     }
 
     resume->flares = Inv_RequestItem(O_FLARE_ITEM);
-    if (lara->gun_type == LGT_FLARE) {
-        resume->equipped_gun_type = lara->last_gun_type;
-    } else {
-        resume->equipped_gun_type = lara->gun_type;
-    }
-    resume->gun_status = LGS_ARMLESS;
 #endif
+
+    resume->equipped_gun_type = lara->last_gun_type;
+    resume->holsters_gun_type = lara->holsters_gun_type;
+    resume->back_gun_type = lara->back_gun_type;
+    if (TR_VERSION == 1 && lara->gun_status == LGS_READY) { // TODO: TR2
+        resume->gun_status = LGS_READY;
+    } else {
+        resume->gun_status = LGS_ARMLESS;
+    }
+}
+
+void Savegame_ApplyLogicToCurrentInfo(const GF_LEVEL *const level)
+{
+    RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
+    if (resume == nullptr) {
+        return;
+    }
+
+    LOG_INFO("Applying game logic to level #%d", level->num);
+
+    if (!g_Config.gameplay.disable_healing_between_levels
+        || level == GF_GetGymLevel() || level == GF_GetFirstLevel()) {
+        resume->lara_hitpoints = g_Config.gameplay.start_lara_hitpoints;
+    }
+
+    if (level == GF_GetGymLevel()) {
+        resume->flags.available = true;
+        resume->flags.costume = TR_VERSION == 1;
+
+        resume->flags.has_pistols = false;
+        resume->flags.has_shotgun = false;
+        resume->flags.has_magnums = false;
+        resume->flags.has_uzis = false;
+
+        resume->small_medipacks = 0;
+        resume->large_medipacks = 0;
+        resume->pistol_ammo = 0;
+        resume->shotgun_ammo = 0;
+        resume->magnum_ammo = 0;
+        resume->uzi_ammo = 0;
+#if TR_VERSION == 1
+        resume->num_scions = 0;
+#else
+        resume->flags.has_harpoon = false;
+        resume->flags.has_m16 = false;
+        resume->flags.has_grenade = false;
+        resume->harpoon_ammo = 0;
+        resume->m16_ammo = 0;
+        resume->grenade_ammo = 0;
+        resume->flares = 0;
+#endif
+        resume->equipped_gun_type = LGT_UNARMED;
+        resume->holsters_gun_type = LGT_UNARMED;
+        resume->back_gun_type = LGT_UNARMED;
+        resume->gun_status = LGS_ARMLESS;
+    }
+
+    if (level == GF_GetFirstLevel()) {
+        resume->flags.available = true;
+        resume->flags.costume = false;
+
+        resume->flags.has_pistols = true;
+        resume->flags.has_shotgun = false;
+        resume->flags.has_magnums = false;
+        resume->flags.has_uzis = false;
+
+        resume->small_medipacks = 0;
+        resume->large_medipacks = 0;
+        resume->pistol_ammo = 1000;
+        resume->shotgun_ammo = 0;
+        resume->magnum_ammo = 0;
+        resume->uzi_ammo = 0;
+#if TR_VERSION == 1
+        resume->num_scions = 0;
+#else
+        resume->flags.has_harpoon = false;
+        resume->flags.has_m16 = false;
+        resume->flags.has_grenade = false;
+        resume->harpoon_ammo = 0;
+        resume->m16_ammo = 0;
+        resume->grenade_ammo = 0;
+        resume->flares = 0;
+#endif
+        resume->equipped_gun_type = LGT_PISTOLS;
+        resume->holsters_gun_type = LGT_PISTOLS;
+        resume->back_gun_type = LGT_UNARMED;
+        resume->gun_status = LGS_ARMLESS;
+    }
+
+    if (Game_IsBonusFlagSet(GBF_NGPLUS) && level != GF_GetGymLevel()) {
+        resume->flags.has_pistols = true;
+        resume->flags.has_shotgun = true;
+        resume->flags.has_magnums = true;
+        resume->flags.has_uzis = true;
+
+        resume->shotgun_ammo = 10000;
+        resume->magnum_ammo = 10000;
+        resume->uzi_ammo = 10000;
+
+#if TR_VERSION == 1
+        resume->equipped_gun_type = LGT_UZIS;
+        resume->holsters_gun_type = LGT_UZIS;
+        resume->back_gun_type = LGT_SHOTGUN;
+#else
+        resume->flags.has_m16 = true;
+        resume->flags.has_grenade = true;
+        resume->flags.has_harpoon = true;
+        resume->m16_ammo = 10000;
+        resume->grenade_ammo = 10000;
+        resume->harpoon_ammo = 10000;
+
+        resume->flares = -1;
+        resume->equipped_gun_type = LGT_GRENADE;
+        resume->holsters_gun_type = LGT_PISTOLS;
+        resume->back_gun_type = LGT_GRENADE;
+#endif
+    }
+
+#if TR_VERSION == 2
+    const STATS_COMMON default_stats = Savegame_GetDefaultStats(level);
+    resume->stats.max_secret_count = default_stats.max_secret_count;
+    resume->stats.all_secrets_mask = default_stats.all_secrets_mask;
+    resume->stats.secret_flags = 0;
+#endif
+
+    M_DetermineLegacyGunTypes(resume);
 }
 
 void Savegame_ProcessItemsBeforeSave(void)
@@ -508,7 +676,6 @@ bool Savegame_Save(const int32_t slot_idx)
 
     Savegame_PersistGameToCurrentInfo(current_level);
 
-#if TR_VERSION == 1
     const GF_LEVEL_TABLE *const level_table = GF_GetLevelTable(GFLT_MAIN);
     for (int32_t i = 0; i < level_table->count; i++) {
         const GF_LEVEL *const level = &level_table->levels[i];
@@ -516,7 +683,6 @@ bool Savegame_Save(const int32_t slot_idx)
             Savegame_SetCurrentInfo(i, current_level->num);
         }
     }
-#endif
 
     SAVEGAME_INFO *const savegame_info = &m_SavegameInfo[slot_idx];
     const bool was_slot_empty = savegame_info->full_path == nullptr;

@@ -27,15 +27,6 @@ typedef struct {
     UI_STATS_DIALOG_STATE ui_state;
 } M_PRIV;
 
-static bool M_IsFading(M_PRIV *p);
-static void M_FadeIn(M_PRIV *p);
-static void M_FadeOut(M_PRIV *p, bool force);
-
-static PHASE_CONTROL M_Start(PHASE *phase);
-static void M_End(PHASE *phase);
-static PHASE_CONTROL M_Control(PHASE *phase, int32_t num_frames);
-static void M_Draw(PHASE *phase);
-
 static bool M_IsFading(M_PRIV *const p)
 {
     return Fader_IsActive(&p->top_fader) || Fader_IsActive(&p->back_fader);
@@ -52,7 +43,9 @@ static void M_FadeIn(M_PRIV *const p)
 
 static void M_FadeOut(M_PRIV *const p, const bool force)
 {
-    if (p->args.background_type != BK_OBJECT || force) {
+    if ((p->args.background_type != BK_PATTERN_STATIC
+         && p->args.background_type != BK_PATTERN_WAVE)
+        || force) {
         Fader_Init(&p->top_fader, FADER_ANY, FADER_BLACK, 0.5);
         p->state = STATE_FADE_OUT;
     } else {
@@ -70,8 +63,11 @@ static PHASE_CONTROL M_Start(PHASE *const phase)
         } else {
             Output_LoadBackgroundFromFile(p->args.background_path);
         }
-    } else if (p->args.background_type == BK_OBJECT) {
-        Output_LoadBackgroundFromObject();
+    } else if (
+        p->args.background_type == BK_PATTERN_STATIC
+        || p->args.background_type == BK_PATTERN_WAVE) {
+        Output_LoadBackgroundFromObject(
+            p->args.background_type == BK_PATTERN_WAVE);
     } else {
         Output_UnloadBackground();
     }
@@ -79,7 +75,8 @@ static PHASE_CONTROL M_Start(PHASE *const phase)
     if (Game_IsInGym()) {
         M_FadeOut(p, false);
     } else {
-        if (p->args.background_type == BK_OBJECT) {
+        if (p->args.background_type == BK_PATTERN_STATIC
+            || p->args.background_type == BK_PATTERN_WAVE) {
             p->state = STATE_DISPLAY;
         } else {
             p->state = STATE_FADE_IN;
@@ -114,7 +111,7 @@ static void M_End(PHASE *const phase)
     Output_UnloadBackground();
 }
 
-static PHASE_CONTROL M_Control(PHASE *const phase, int32_t num_frames)
+static PHASE_CONTROL M_Control(PHASE *const phase)
 {
     M_PRIV *const p = phase->priv;
     Input_Update();
@@ -163,7 +160,8 @@ static void M_Draw(PHASE *const phase)
     } else {
         Output_DrawBackground();
     }
-    Fader_Draw(&p->back_fader);
+    UI_BeginFade(&p->back_fader, false);
+    UI_EndFade();
 
     UI_BeginFade(&p->top_fader, true);
     if (p->ui_active) {

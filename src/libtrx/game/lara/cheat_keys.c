@@ -26,39 +26,6 @@ static LARA_GUN_TYPE m_InitialGunType = LGT_UNARMED;
 static int16_t m_CheatAngle = 0;
 static int32_t m_CheatTurn = 0;
 
-static bool M_ProcessOutcome(const ITEM *lara_item);
-static void M_CompleteLevel(void);
-static void M_GiveItems(void);
-static void M_ExplodeLara(void);
-
-static bool M_ProcessOutcome(const ITEM *const lara_item)
-{
-    if (lara_item->fall_speed <= 0) {
-        return false;
-    }
-
-    const LARA_STATE state = lara_item->current_anim_state;
-#if TR_VERSION == 1
-    const bool gun_status_check = true;
-    const bool explode_status_check = state == LS_SWAN_DIVE;
-#else
-    const LARA_INFO *const lara_info = Lara_GetLaraInfo();
-    const bool gun_status_check = m_InitialGunType == LGT_FLARE
-        && lara_info->gun_type == m_InitialGunType;
-    const bool explode_status_check =
-        state == LS_JUMP_FORWARD || state == LS_JUMP_BACK;
-#endif
-
-    if (state == LS_JUMP_FORWARD && gun_status_check) {
-        M_CompleteLevel();
-    } else if (state == LS_JUMP_BACK && gun_status_check) {
-        M_GiveItems();
-    } else if (explode_status_check) {
-        M_ExplodeLara();
-    }
-    return true;
-}
-
 static void M_CompleteLevel(void)
 {
     Game_SetIsLevelComplete(true);
@@ -94,9 +61,37 @@ static void M_ExplodeLara(void)
     const LARA_INFO *const lara_info = Lara_GetLaraInfo();
     ITEM *const lara_item = Lara_GetItem();
     Item_Explode(lara_info->item_num, -1, 1);
-    Sound_Effect(SFX_EXPLOSION_CHEAT, &lara_item->pos, SPM_NORMAL);
+    Sound_Effect(SFX_EXPLOSION_1, &lara_item->pos, SPM_NORMAL);
     lara_item->hit_points = 0;
     lara_item->flags |= IF_ONE_SHOT;
+}
+
+static bool M_ProcessOutcome(const ITEM *const lara_item)
+{
+    if (lara_item->fall_speed <= 0) {
+        return false;
+    }
+
+    const LARA_STATE state = lara_item->current_anim_state;
+#if TR_VERSION == 1
+    const bool gun_status_check = true;
+    const bool explode_status_check = state == LS(LS_SWAN_DIVE);
+#else
+    const LARA_INFO *const lara_info = Lara_GetLaraInfo();
+    const bool gun_status_check = m_InitialGunType == LGT_FLARE
+        && lara_info->gun_type == m_InitialGunType;
+    const bool explode_status_check =
+        state == LS(LS_JUMP_FORWARD) || state == LS(LS_JUMP_BACK);
+#endif
+
+    if (state == LS(LS_JUMP_FORWARD) && gun_status_check) {
+        M_CompleteLevel();
+    } else if (state == LS(LS_JUMP_BACK) && gun_status_check) {
+        M_GiveItems();
+    } else if (explode_status_check) {
+        M_ExplodeLara();
+    }
+    return true;
 }
 
 void Lara_Cheat_CheckKeys(void)
@@ -111,36 +106,38 @@ void Lara_Cheat_CheckKeys(void)
 
     switch (m_CheatState) {
     case CHEAT_INITIAL:
-        m_CheatState = ls == LS_WALK ? CHEAT_STEP_FORWARD : CHEAT_INITIAL;
+        m_CheatState = ls == LS(LS_WALK) ? CHEAT_STEP_FORWARD : CHEAT_INITIAL;
         break;
 
     case CHEAT_STEP_FORWARD:
         m_InitialGunType = lara_info->gun_type;
-        if (ls != LS_WALK) {
+        if (ls != LS(LS_WALK)) {
             m_CheatState =
-                ls == LS_STOP ? CHEAT_STEP_FORWARD_STOP : CHEAT_INITIAL;
+                ls == LS(LS_STOP) ? CHEAT_STEP_FORWARD_STOP : CHEAT_INITIAL;
         }
         break;
 
     case CHEAT_STEP_FORWARD_STOP:
-        if (ls != LS_STOP) {
-            m_CheatState = ls == LS_WALK_BACK ? CHEAT_STEP_BACK : CHEAT_INITIAL;
+        if (ls != LS(LS_STOP)) {
+            m_CheatState =
+                ls == LS(LS_WALK_BACK) ? CHEAT_STEP_BACK : CHEAT_INITIAL;
         }
         break;
 
     case CHEAT_STEP_BACK:
-        if (ls != LS_WALK_BACK) {
-            m_CheatState = ls == LS_STOP ? CHEAT_STEP_BACK_STOP : CHEAT_INITIAL;
+        if (ls != LS(LS_WALK_BACK)) {
+            m_CheatState =
+                ls == LS(LS_STOP) ? CHEAT_STEP_BACK_STOP : CHEAT_INITIAL;
         }
         break;
 
     case CHEAT_STEP_BACK_STOP:
-        if (ls != LS_STOP) {
+        if (ls != LS(LS_STOP)) {
             m_CheatTurn = 0;
             m_CheatAngle = lara_item->rot.y;
-            if (ls == LS_TURN_LEFT) {
+            if (ls == LS(LS_TURN_LEFT)) {
                 m_CheatState = CHEAT_TURN_LEFT;
-            } else if (ls == LS_TURN_RIGHT) {
+            } else if (ls == LS(LS_TURN_RIGHT)) {
                 m_CheatState = CHEAT_TURN_RIGHT;
             } else {
                 m_CheatState = CHEAT_INITIAL;
@@ -149,7 +146,7 @@ void Lara_Cheat_CheckKeys(void)
         break;
 
     case CHEAT_TURN_LEFT:
-        if (ls != LS_TURN_LEFT && ls != LS_FAST_TURN) {
+        if (ls != LS(LS_TURN_LEFT) && ls != LS(LS_FAST_TURN)) {
             m_CheatState =
                 m_CheatTurn < -M_MIN_TURN ? CHEAT_TURN_STOP : CHEAT_INITIAL;
         } else {
@@ -159,7 +156,7 @@ void Lara_Cheat_CheckKeys(void)
         break;
 
     case CHEAT_TURN_RIGHT:
-        if (ls != LS_TURN_RIGHT && ls != LS_FAST_TURN) {
+        if (ls != LS(LS_TURN_RIGHT) && ls != LS(LS_FAST_TURN)) {
             m_CheatState =
                 m_CheatTurn > M_MIN_TURN ? CHEAT_TURN_STOP : CHEAT_INITIAL;
         } else {
@@ -169,8 +166,9 @@ void Lara_Cheat_CheckKeys(void)
         break;
 
     case CHEAT_TURN_STOP:
-        if (ls != LS_STOP) {
-            m_CheatState = ls == LS_COMPRESS ? CHEAT_TURN_JUMP : CHEAT_INITIAL;
+        if (ls != LS(LS_STOP)) {
+            m_CheatState =
+                ls == LS(LS_COMPRESS) ? CHEAT_TURN_JUMP : CHEAT_INITIAL;
         }
         break;
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../../game/viewport.h"
 #include "../common.h"
 #include "../config.h"
 #include "../gl/program.h"
@@ -9,7 +10,6 @@
 
 #include <GL/glew.h>
 
-#define GFX_MAX_TEXTURES 128
 #define GFX_NO_TEXTURE (-1)
 #define GFX_ENV_MAP_TEXTURE (-2)
 
@@ -18,6 +18,7 @@
 typedef enum {
     GFX_BLEND_MODE_OFF,
     GFX_BLEND_MODE_NORMAL,
+    GFX_BLEND_MODE_PRE_MULTIPLIED,
     GFX_BLEND_MODE_MULTIPLY,
 } GFX_BLEND_MODE;
 
@@ -72,4 +73,5 @@ void GFX_3D_Renderer_SetAlphaThreshold(GFX_3D_RENDERER *renderer, float value);
 void GFX_3D_Renderer_SetBrightnessMultiplier(
     GFX_3D_RENDERER *renderer, float value);
 
-void GFX_3D_Renderer_SetProjectionMatrix(GFX_3D_RENDERER *renderer);
+void GFX_3D_Renderer_SetProjectionMatrix(
+    GFX_3D_RENDERER *renderer, VIEWPORT_SPACE space);

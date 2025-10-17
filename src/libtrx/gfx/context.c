@@ -15,12 +15,9 @@
 typedef struct {
     SDL_GLContext context;
     SDL_Window *window_handle;
+    VIEWPORT_SPACE space;
 
     GFX_CONFIG config;
-
-    // Size of the OpenGL framebuffer.
-    int32_t display_width;
-    int32_t display_height;
 
     // Size of the SDL window.
     int32_t window_width;
@@ -30,12 +27,9 @@ typedef struct {
     GFX_RENDERER *renderer;
 } GFX_CONTEXT;
 
-static GFX_CONTEXT m_Context = {};
+extern RGBA_F Output_GetFogColor(void);
 
-static bool M_IsExtensionSupported(const char *name);
-static GLvoid GLAPIENTRY M_GLDebug(
-    GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
-    const GLchar *message, const void *user_param);
+static GFX_CONTEXT m_Context = {};
 
 static bool M_IsExtensionSupported(const char *name)
 {
@@ -63,31 +57,22 @@ static GLvoid GLAPIENTRY M_GLDebug(
     if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
         return;
     }
-    LOG_INFO("%d %s", source, message);
+    size_t len = strlen(message);
+    if (len > 0 && message[len - 1] == '\n') {
+        len--;
+    }
+    LOG_INFO("%d %*s", source, len, message);
 }
 
-void GFX_Context_SwitchToWindowViewport(void)
+void GFX_Context_SwitchToViewport(const VIEWPORT_SPACE space)
 {
-    const VIEWPORT_RECT rect = Viewport_GetRect(VIEWPORT_WINDOW);
+    const VIEWPORT_RECT rect = Viewport_GetRect(space);
+    m_Context.space = space;
     glViewport(rect.x, rect.y, rect.width, rect.height);
     GFX_GL_CheckError();
 }
 
-void GFX_Context_SwitchToWindowViewportAR(void)
-{
-    const VIEWPORT_RECT rect = Viewport_GetRect(VIEWPORT_TARGET);
-    glViewport(rect.x, rect.y, rect.width, rect.height);
-    GFX_GL_CheckError();
-}
-
-void GFX_Context_SwitchToDisplayViewport(void)
-{
-    const VIEWPORT_RECT rect = Viewport_GetRect(VIEWPORT_GAME);
-    glViewport(rect.x, rect.y, rect.width, rect.height);
-    GFX_GL_CheckError();
-}
-
-bool GFX_Context_Attach(void *window_handle, GFX_GL_BACKEND backend)
+bool GFX_Context_Attach(void *window_handle)
 {
     const char *shading_ver;
 
@@ -103,13 +88,10 @@ bool GFX_Context_Attach(void *window_handle, GFX_GL_BACKEND backend)
         return false;
     }
 
-    m_Context.config.backend = backend;
     m_Context.config.line_width = 1;
     m_Context.config.enable_wireframe = false;
     SDL_GetWindowSize(
         window_handle, &m_Context.window_width, &m_Context.window_height);
-    m_Context.display_width = m_Context.window_width;
-    m_Context.display_height = m_Context.window_height;
 
     m_Context.window_handle = window_handle;
 
@@ -118,8 +100,14 @@ bool GFX_Context_Attach(void *window_handle, GFX_GL_BACKEND backend)
             "Can't activate OpenGL context: %s", SDL_GetError());
     }
 
-    if (glewInit() != GLEW_OK) {
-        Shell_ExitSystem("Can't initialize GLEW for OpenGL extension loading");
+    const GLenum err = glewInit();
+    if (err != GLEW_OK) {
+        if (err != 4) {
+            Shell_ExitSystemFmt(
+                "Can't initialize GLEW for OpenGL extension loading: %d", err);
+        }
+        // https://github.com/nigels-com/glew/issues/417
+        LOG_WARNING("GLEW failed to init: %d", err);
     }
 
     LOG_INFO("OpenGL vendor string:   %s", glGetString(GL_VENDOR));
@@ -140,8 +128,10 @@ bool GFX_Context_Attach(void *window_handle, GFX_GL_BACKEND backend)
     // VSync defaults to on unless user disabled it in runtime json
     SDL_GL_SetSwapInterval(1);
 
-#if DEBUG && !defined(__APPLE__)
-    glDebugMessageCallback(M_GLDebug, nullptr);
+#if DEBUG
+    if (glDebugMessageCallback != nullptr) {
+        glDebugMessageCallback(M_GLDebug, nullptr);
+    }
     glEnable(GL_DEBUG_OUTPUT);
 #endif
 
@@ -198,65 +188,22 @@ void GFX_Context_SetVSync(bool vsync)
     SDL_GL_SetSwapInterval(vsync);
 }
 
-void GFX_Context_SetWindowSize(int32_t width, int32_t height)
-{
-    m_Context.window_width = width;
-    m_Context.window_height = height;
-}
-
-void GFX_Context_SetDisplaySize(int32_t width, int32_t height)
-{
-    if (width == m_Context.display_width
-        && height == m_Context.display_height) {
-        return;
-    }
-
-    if (width <= 0 || height <= 0) {
-        LOG_INFO("invalid size, ignoring");
-        return;
-    }
-
-    m_Context.display_width = width;
-    m_Context.display_height = height;
-
-    if (m_Context.renderer != nullptr && m_Context.renderer->reset != nullptr) {
-        m_Context.renderer->reset(m_Context.renderer);
-    }
-}
-
 void *GFX_Context_GetWindowHandle(void)
 {
     return m_Context.window_handle;
 }
 
-int32_t GFX_Context_GetWindowWidth(void)
-{
-    return m_Context.window_width;
-}
-
-int32_t GFX_Context_GetWindowHeight(void)
-{
-    return m_Context.window_height;
-}
-
-int32_t GFX_Context_GetDisplayWidth(void)
-{
-    return m_Context.display_width;
-}
-
-int32_t GFX_Context_GetDisplayHeight(void)
-{
-    return m_Context.display_height;
-}
-
 void GFX_Context_Clear(void)
 {
-    if (m_Context.config.enable_wireframe) {
-        glClearColor(1.0, 1.0, 1.0, 0.0);
-    } else {
-        glClearColor(0.0, 0.0, 0.0, 0.0);
-    }
-    glClear(GL_COLOR_BUFFER_BIT);
+    const RGBA_F white = { 1.0f, 1.0f, 1.0f, 0.0f };
+    const RGBA_F fog = Output_GetFogColor();
+    const RGBA_F black = { 0.0f, 0.0f, 0.0f, 0.0f };
+    const RGBA_F color =
+        m_Context.space == VIEWPORT_GAME && m_Context.config.enable_wireframe
+        ? white
+        : m_Context.space == VIEWPORT_GAME ? fog
+                                           : black;
+    glClearBufferfv(GL_COLOR, 0, &color.r);
 }
 
 void GFX_Context_SwapBuffers(void)

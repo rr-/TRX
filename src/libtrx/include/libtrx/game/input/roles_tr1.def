@@ -1,2 +1,0 @@
-INPUT_ROLE_DEFINE(BILINEAR,       toggle_bilinear_filter)
-INPUT_ROLE_DEFINE(CHANGE_TARGET,  change_target)

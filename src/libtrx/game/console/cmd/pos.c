@@ -12,10 +12,12 @@
 
 #include <string.h>
 
-static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *ctx);
-
 static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
 {
+    if (!Game_IsLoaded()) {
+        return CR_UNAVAILABLE;
+    }
+
     if (!String_IsEmpty(ctx->args)) {
         return CR_BAD_INVOCATION;
     }
@@ -46,21 +48,23 @@ static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
         String_FormatStatic(level_type_fmt, current_level->num + reindex);
 
     const ITEM *const lara_item = Lara_GetItem();
-    int16_t room_num = lara_item->room_num;
-    const ROOM *const room = Room_Get(room_num);
-    if (Room_GetFlipStatus() && room->flipped_room != NO_ROOM) {
-        room_num = room->flipped_room;
+    const char *details;
+    if (lara_item == nullptr) {
+        details = String_FormatStatic("%s", GS(OSD_POS_LARA_MISSING));
+    } else {
+        int16_t room_num = lara_item->room_num;
+        const ROOM *const room = Room_Get(room_num);
+        if (Room_GetFlipStatus() && room->flipped_room != NO_ROOM) {
+            room_num = room->flipped_room;
+        }
+        details = String_FormatStatic(
+            GS(OSD_POS_LARA_POS_FMT), room_num,
+            lara_item->pos.x / (float)WALL_L, lara_item->pos.y / (float)WALL_L,
+            lara_item->pos.z / (float)WALL_L,
+            lara_item->rot.x * 360.0f / (float)DEG_360,
+            lara_item->rot.y * 360.0f / (float)DEG_360,
+            lara_item->rot.z * 360.0f / (float)DEG_360);
     }
-    const char *const details = lara_item == nullptr
-        ? String_FormatStatic("%s", GS(OSD_POS_LARA_MISSING))
-        : String_FormatStatic(
-              GS(OSD_POS_LARA_POS_FMT), room_num,
-              lara_item->pos.x / (float)WALL_L,
-              lara_item->pos.y / (float)WALL_L,
-              lara_item->pos.z / (float)WALL_L,
-              lara_item->rot.x * 360.0f / (float)DEG_360,
-              lara_item->rot.y * 360.0f / (float)DEG_360,
-              lara_item->rot.z * 360.0f / (float)DEG_360);
     const char *const glue = lara_item == nullptr ? "\n" : "  ";
 
     const char *const message = current_level->title != nullptr

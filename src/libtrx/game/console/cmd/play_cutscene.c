@@ -4,8 +4,6 @@
 #include "game/game_string.h"
 #include "strings.h"
 
-static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *ctx);
-
 static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
 {
     int32_t cutscene_to_load = -1;
@@ -16,7 +14,7 @@ static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
         const GF_LEVEL_TABLE *const level_table =
             GF_GetLevelTable(GFLT_CUTSCENES);
         if (cutscene_to_load < 0 || cutscene_to_load >= level_table->count) {
-            Console_Log(GS(OSD_INVALID_CUTSCENE));
+            Console_LogError(GS(OSD_INVALID_CUTSCENE));
             return CR_FAILURE;
         }
         const GF_LEVEL *const level = &level_table->levels[cutscene_to_load];

@@ -6,27 +6,22 @@
 #include "game/rooms.h"
 #include "game/sound.h"
 #include "utils.h"
+#include "version.h"
 
 #define M_LIGHT_INTENSITY 11
 #define M_LIGHT_FALLOFF 10
 #define M_DAMAGE_PROXIMITY 600
-#if TR_VERSION == 1
-    #define M_IGNITE_PROXIMITY 300
-    #define M_TOO_NEAR_DAMAGE 3
-    #define M_ON_FIRE_DAMAGE 5
-#else
-    #define M_IGNITE_PROXIMITY 450
-    #define M_TOO_NEAR_DAMAGE 5
-    #define M_ON_FIRE_DAMAGE 7
-#endif
-
-static void M_DoEffects(const EFFECT *effect);
-static void M_Setup(OBJECT *obj);
-static void M_Control(int16_t effect_num);
+#define M_IGNITE_PROXIMITY (g_TRVersion == 1 ? 300 : 450)
+#define M_TOO_NEAR_DAMAGE (g_TRVersion == 1 ? 3 : 5)
+#define M_ON_FIRE_DAMAGE (g_TRVersion == 1 ? 5 : 7)
 
 static void M_DoEffects(const EFFECT *const effect)
 {
-    Sound_Effect(SFX_LOOP_FOR_SMALL_FIRES, &effect->pos, SPM_ALWAYS);
+    if (!Object_Get(O_FLAME)->loaded) {
+        return;
+    }
+
+    Sound_Effect(SFX_LOOP_FOR_SMALL_FIRES, &effect->pos, SPM_NORMAL);
     if (!g_Config.visuals.enable_fire_lighting) {
         return;
     }
@@ -47,12 +42,6 @@ static void M_DoEffects(const EFFECT *const effect)
         Output_AddDynamicLight(
             light_pos, M_LIGHT_INTENSITY, M_LIGHT_FALLOFF / 2);
     }
-}
-
-static void M_Setup(OBJECT *const obj)
-{
-    obj->control_func = M_Control;
-    obj->semi_transparent = true;
 }
 
 static void M_Control(const int16_t effect_num)
@@ -109,6 +98,12 @@ static void M_Control(const int16_t effect_num)
             lara_info->burn = true;
         }
     }
+}
+
+static void M_Setup(OBJECT *const obj)
+{
+    obj->control_func = M_Control;
+    obj->semi_transparent = true;
 }
 
 REGISTER_OBJECT(O_FLAME, M_Setup)

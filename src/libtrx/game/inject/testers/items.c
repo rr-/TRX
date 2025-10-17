@@ -2,12 +2,10 @@
 #include "game/items.h"
 #include "game/objects/common.h"
 
-static bool M_TestItemMeta(const INJECTION *injection);
-
 static bool M_TestItemMeta(const INJECTION *const injection)
 {
     const int32_t item_num = VFile_ReadS32(injection->fp);
-    const INJECTION_OBJECT_INFO obj_info = Inject_ReadObjectPtr(injection->fp);
+    const INJECTION_OBJECT_INFO obj_info = Inject_ReadObjectPtr(injection);
     const XYZ_32 pos = {
         .x = VFile_ReadS32(injection->fp),
         .y = VFile_ReadS32(injection->fp),

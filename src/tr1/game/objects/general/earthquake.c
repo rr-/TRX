@@ -1,18 +1,8 @@
 #include "game/objects/common.h"
-#include "game/random.h"
-#include "game/sound.h"
 
 #include <libtrx/game/camera.h>
-
-static void M_Setup(OBJECT *obj);
-static void M_Control(int16_t effect_num);
-
-static void M_Setup(OBJECT *const obj)
-{
-    obj->control_func = M_Control;
-    obj->draw_func = Object_DrawDummyItem;
-    obj->save_flags = true;
-}
+#include <libtrx/game/random.h>
+#include <libtrx/game/sound.h>
 
 static void M_Control(const int16_t item_num)
 {
@@ -23,9 +13,16 @@ static void M_Control(const int16_t item_num)
             Sound_Effect(SFX_ROLLING_BALL, nullptr, SPM_NORMAL);
         } else if (Random_GetControl() < 0x400) {
             g_Camera.bounce = 50;
-            Sound_Effect(SFX_T_REX_FOOTSTOMP, nullptr, SPM_NORMAL);
+            Sound_Effect(SFX_T_REX_STOMP, nullptr, SPM_NORMAL);
         }
     }
+}
+
+static void M_Setup(OBJECT *const obj)
+{
+    obj->control_func = M_Control;
+    obj->draw_func = nullptr;
+    obj->save_flags = true;
 }
 
 REGISTER_OBJECT(O_EARTHQUAKE, M_Setup)

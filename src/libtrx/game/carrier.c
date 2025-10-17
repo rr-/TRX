@@ -16,18 +16,9 @@
 
 static int16_t m_AnimatingCount = 0;
 
-static ITEM *M_GetCarrier(int16_t item_num);
-static bool M_IsCarrierType(GAME_OBJECT_ID obj_id);
-static CARRIED_ITEM *M_GetFirstDropItem(const ITEM *carrier);
-static void M_AnimateDrop(CARRIED_ITEM *item);
-static void M_InitialiseDataDrops(void);
-static void M_InitialiseGameFlowDrops(const GF_LEVEL *level);
-
 static const GAME_OBJECT_PAIR m_LegacyMap[] = {
-#if TR_VERSION == 1
     { O_PIERRE, O_SCION_ITEM_2 }, { O_COWBOY, O_MAGNUM_ITEM },
     { O_SKATEKID, O_UZI_ITEM },   { O_BALDY, O_SHOTGUN_ITEM },
-#endif
     { NO_OBJECT, NO_OBJECT },
 };
 
@@ -53,10 +44,9 @@ static ITEM *M_GetCarrier(const int16_t item_num)
     return item;
 }
 
-static bool M_IsCarrierType(const GAME_OBJECT_ID obj_id)
+static bool M_IsCarrierType(const OBJECT_ID obj_id)
 {
     bool is_enemy = Object_IsType(obj_id, g_EnemyObjects);
-#if TR_VERSION == 2
     // Eels are hostile but cannot be killed, so must be excluded. Monks may be
     // allocated drop items whether or not they are hostile. Drop items must be
     // assigned to the skidoo and not the rider to avoid issues with /kill, and
@@ -64,27 +54,24 @@ static bool M_IsCarrierType(const GAME_OBJECT_ID obj_id)
     // also creates issues with /kill, hence a separate check is required here.
     is_enemy &= obj_id != O_EEL && obj_id != O_BIG_EEL;
     is_enemy &= obj_id != O_SKIDOO_DRIVER;
-    is_enemy |= obj_id == O_MONK_1 || obj_id == O_MONK_2;
+    is_enemy |= Object_IsType(obj_id, g_AllyObjects);
     is_enemy |= obj_id == O_DRAGON_BACK || obj_id == O_SKIDOO_ARMED;
-#endif
     return is_enemy;
 }
 
 static CARRIED_ITEM *M_GetFirstDropItem(const ITEM *const carrier)
 {
     bool can_drop = carrier->hit_points <= 0;
-#if TR_VERSION == 1
-    // Qualopec mummy can drop items just from having touched it. Runaway Pierre
-    // can never drop items.
+    // Qualopec mummy can drop items just from having touched it.
     can_drop |=
         carrier->object_id == O_MUMMY && carrier->status == IS_DEACTIVATED;
+    // Runaway Pierre can never drop items.
     can_drop &=
         (carrier->object_id != O_PIERRE || (carrier->flags & IF_ONE_SHOT) != 0);
-#else
+    // Only alive dragons can drop items.
     can_drop &=
         (carrier->object_id != O_DRAGON_BACK
          || carrier->status == IS_DEACTIVATED);
-#endif
     return can_drop ? carrier->carried_item : nullptr;
 }
 
@@ -323,7 +310,7 @@ void Carrier_TestItemDrops(const int16_t item_num)
             continue;
         }
 
-        GAME_OBJECT_ID obj_id = item->object_id;
+        OBJECT_ID obj_id = item->object_id;
 #if TR_VERSION == 1
         if (g_GameFlow.convert_dropped_guns
             && Object_IsType(obj_id, g_GunObjects) && Inv_RequestItem(obj_id)
@@ -369,7 +356,7 @@ void Carrier_TestLegacyDrops(const int16_t item_num)
     // the OG enemy will still spawn items if Lara hasn't yet collected
     // them by using a test cognate in each case. Ensure also that
     // collected items do not re-spawn now or in future saves.
-    const GAME_OBJECT_ID test_id =
+    const OBJECT_ID test_id =
         Object_GetCognate(carrier->object_id, m_LegacyMap);
     if (test_id == NO_OBJECT) {
         return;

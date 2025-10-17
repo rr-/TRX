@@ -1,6 +1,7 @@
 #include "game/phase/phase_game.h"
 
 #include "game/game.h"
+#include "game/lua/events.h"
 #include "game/output.h"
 #include "memory.h"
 
@@ -8,12 +9,6 @@ typedef struct {
     const GF_LEVEL *level;
     GF_SEQUENCE_CONTEXT seq_ctx;
 } M_PRIV;
-
-static PHASE_CONTROL M_Start(PHASE *phase);
-static void M_End(PHASE *phase);
-static void M_Resume(PHASE *const phase);
-static PHASE_CONTROL M_Control(PHASE *phase, int32_t n_frames);
-static void M_Draw(PHASE *phase);
 
 static PHASE_CONTROL M_Start(PHASE *const phase)
 {
@@ -38,26 +33,24 @@ static void M_End(PHASE *const phase)
 
 static void M_Suspend(PHASE *const phase)
 {
-    Game_Suspend();
     Game_SetIsPlaying(false);
 }
 
 static void M_Resume(PHASE *const phase)
 {
-    Game_Resume();
     Game_SetIsPlaying(true);
 }
 
-static PHASE_CONTROL M_Control(PHASE *const phase, const int32_t num_frames)
+static PHASE_CONTROL M_Control(PHASE *const phase)
 {
-    for (int32_t i = 0; i < num_frames; i++) {
-        const GF_COMMAND gf_cmd = Game_Control(false);
-        if (gf_cmd.action != GF_NOOP) {
-            return (PHASE_CONTROL) {
-                .action = PHASE_ACTION_END,
-                .gf_cmd = gf_cmd,
-            };
-        }
+    Lua_FireEvent(LUA_EVENT_CONTROL_PRE, 0);
+    const GF_COMMAND gf_cmd = Game_Control(false);
+    Lua_FireEvent(LUA_EVENT_CONTROL_POST, 0);
+    if (gf_cmd.action != GF_NOOP) {
+        return (PHASE_CONTROL) {
+            .action = PHASE_ACTION_END,
+            .gf_cmd = gf_cmd,
+        };
     }
     return (PHASE_CONTROL) { .action = PHASE_ACTION_CONTINUE };
 }

@@ -3,39 +3,24 @@
 #include "game/effects.h"
 #include "game/game.h"
 #include "game/game_flow.h"
-#include "game/input.h"
-#include "game/lara/common.h"
-#include "game/level.h"
-#include "game/output.h"
+#include "game/lara.h"
 #include "game/shell.h"
-#include "game/sound.h"
 #include "global/types.h"
-#include "global/vars.h"
 
 #include <libtrx/debug.h>
 #include <libtrx/game/camera.h>
+#include <libtrx/game/input.h>
 #include <libtrx/game/interpolation.h>
 #include <libtrx/game/lara/hair.h>
+#include <libtrx/game/level.h>
 #include <libtrx/game/music.h>
+#include <libtrx/game/output.h>
+#include <libtrx/game/sound.h>
 #include <libtrx/memory.h>
-
-static void M_FixAudioDrift(void);
-static void M_InitialiseLara(const GF_LEVEL *level);
-
-static void M_FixAudioDrift(void)
-{
-    const int32_t audio_frame_idx = Music_GetTimestamp() * LOGIC_FPS;
-    const int32_t game_frame_idx = Camera_GetCineData()->frame_idx;
-    const int32_t audio_drift = ABS(audio_frame_idx - game_frame_idx);
-    if (audio_drift >= LOGIC_FPS * 0.2) {
-        LOG_DEBUG("Detected audio drift: %d frames", audio_drift);
-        Music_SeekTimestamp(game_frame_idx / (double)LOGIC_FPS);
-    }
-}
 
 static void M_InitialiseLara(const GF_LEVEL *const level)
 {
-    const GAME_OBJECT_ID lara_type = level->lara_type;
+    const OBJECT_ID lara_type = level->lara_type;
     Lara_Hair_SetLaraType(lara_type);
     if (!Lara_Hair_IsActive()) {
         return;
@@ -60,10 +45,11 @@ static void M_InitialiseLara(const GF_LEVEL *const level)
     Lara_InitialiseLoad(lara_item_num);
     Lara_Initialise(level);
 
-    Item_SwitchToObjAnim(g_LaraItem, 0, 0, lara_type);
-    const ANIM *const cut_anim = Item_GetAnim(g_LaraItem);
-    g_LaraItem->current_anim_state = g_LaraItem->goal_anim_state =
-        g_LaraItem->required_anim_state = cut_anim->current_anim_state;
+    ITEM *const lara_item = Lara_GetItem();
+    Item_SwitchToObjAnim(lara_item, 0, 0, lara_type);
+    const ANIM *const cut_anim = Item_GetAnim(lara_item);
+    lara_item->current_anim_state = lara_item->goal_anim_state =
+        lara_item->required_anim_state = cut_anim->current_anim_state;
 }
 
 bool Cutscene_Start(const int32_t level_num)
@@ -89,19 +75,23 @@ bool Cutscene_Start(const int32_t level_num)
     }
 
     Camera_GetCineData()->frame_idx = 0;
+
+    if (level->music_track != MX_INACTIVE) {
+        Music_Play_Direct(level->music_track, MPM_ALWAYS);
+    }
+
     return true;
 }
 
 void Cutscene_End(void)
 {
     Music_Stop();
-    Sound_StopAll();
 }
 
 GF_COMMAND Cutscene_Control(void)
 {
     Interpolation_Remember();
-    M_FixAudioDrift();
+    Music_SyncTimestamp(Camera_GetCineData()->frame_idx / (double)LOGIC_FPS);
 
     Input_Update();
     Shell_ProcessInput();

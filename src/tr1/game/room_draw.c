@@ -1,27 +1,19 @@
 #include "game/room_draw.h"
 
 #include "game/effects.h"
-#include "game/lara/draw.h"
-#include "game/output.h"
-#include "game/output/sprites.h"
 #include "game/shell.h"
-#include "game/viewport.h"
-#include "global/types.h"
 #include "global/vars.h"
 
 #include <libtrx/config.h>
 #include <libtrx/game/camera.h>
+#include <libtrx/game/lara/draw.h>
 #include <libtrx/game/matrix.h>
+#include <libtrx/game/output.h>
+#include <libtrx/game/viewport.h>
 #include <libtrx/log.h>
 
 static int32_t m_RoomNumStack[MAX_ROOMS_TO_DRAW] = {};
 static int32_t m_RoomNumStackIdx = 0;
-
-static void M_PrintDrawStack(void);
-static bool M_SetBounds(const PORTAL *portal, const ROOM *parent);
-static void M_GetBounds(int16_t room_num);
-static void M_PrepareToDraw(int16_t room_num);
-static void M_DrawSkybox(void);
 
 static void M_PrintDrawStack(void)
 {
@@ -190,25 +182,6 @@ static void M_GetBounds(int16_t room_num)
     m_RoomNumStackIdx--;
 }
 
-void Room_DrawAllRooms(int16_t base_room, int16_t target_room)
-{
-    g_PhdLeft = Viewport_GetMinX(VIEWPORT_GAME);
-    g_PhdTop = Viewport_GetMinY(VIEWPORT_GAME);
-    g_PhdRight = Viewport_GetMaxX(VIEWPORT_GAME);
-    g_PhdBottom = Viewport_GetMaxY(VIEWPORT_GAME);
-
-    Room_DrawReset();
-
-    M_PrepareToDraw(base_room);
-    M_PrepareToDraw(target_room);
-    M_DrawSkybox();
-
-    for (int32_t i = 0; i < Room_DrawGetCount(); i++) {
-        Room_DrawSingleRoom(Room_DrawGetRoom(i));
-    }
-    Output_SetupAboveWater(false);
-}
-
 static void M_PrepareToDraw(int16_t room_num)
 {
     ROOM *const room = Room_Get(room_num);
@@ -256,7 +229,28 @@ static void M_DrawSkybox(void)
     Matrix_Pop();
 }
 
-void Room_DrawSingleRoom(int16_t room_num)
+void Room_DrawAllRooms(int16_t base_room, int16_t target_room)
+{
+    g_PhdLeft = Viewport_GetMinX(VIEWPORT_GAME);
+    g_PhdTop = Viewport_GetMinY(VIEWPORT_GAME);
+    g_PhdRight = Viewport_GetMaxX(VIEWPORT_GAME);
+    g_PhdBottom = Viewport_GetMaxY(VIEWPORT_GAME);
+
+    Room_DrawReset();
+
+    M_PrepareToDraw(base_room);
+    if (!Room_CheckOverlap(base_room, target_room)) {
+        M_PrepareToDraw(target_room);
+    }
+    M_DrawSkybox();
+
+    for (int32_t i = 0; i < Room_DrawGetCount(); i++) {
+        Room_DrawSingleRoom(Room_DrawGetRoom(i));
+    }
+    Output_SetupAboveWater(false);
+}
+
+void Room_DrawSingleRoom(const int16_t room_num)
 {
     ROOM *const room = Room_Get(room_num);
     if (room->flags & RF_UNDERWATER) {
@@ -275,13 +269,21 @@ void Room_DrawSingleRoom(int16_t room_num)
     g_PhdTop = room->bound_top;
     g_PhdBottom = room->bound_bottom;
 
-    Output_DrawRoomMesh(room);
+    if (g_Config.debug.enable_debug_room_clip) {
+        Output_DrawScreenFrame(
+            g_PhdLeft, g_PhdTop, g_PhdRight - g_PhdLeft, g_PhdBottom - g_PhdTop,
+            (RGBA_8888) { 0, 255, 0, 128 }, (RGBA_8888) { 0, 255, 0, 128 }, 1);
+    }
+
+    Output_LightRoom(room);
+    Output_DrawRoom(room, false);
 
     int16_t item_num = room->item_num;
     while (item_num != NO_ITEM) {
-        ITEM *const item = Item_Get(item_num);
-        if (item->status != IS_INVISIBLE) {
-            Object_Get(item->object_id)->draw_func(item);
+        const ITEM *const item = Item_Get(item_num);
+        const OBJECT *const obj = Object_Get(item->object_id);
+        if (item->status != IS_INVISIBLE && obj->draw_func != nullptr) {
+            obj->draw_func(item);
         }
         item_num = item->next_item;
     }
@@ -297,10 +299,13 @@ void Room_DrawSingleRoom(int16_t room_num)
         Matrix_Push();
         Matrix_TranslateAbs32(mesh->pos);
         Matrix_RotY(mesh->rot.y);
-        int32_t clip = Output_GetObjectBounds(&obj->draw_bounds);
-        if (clip != 0) {
+        const CLIP clip = Output_CheckBoundsClip(&obj->draw_bounds);
+        if (clip != CLIP_NOT_VISIBLE) {
             Output_CalculateStaticMeshLight(mesh->pos, mesh->shade, room);
             Object_DrawMesh(obj->mesh_idx, clip, false);
+            if (g_Config.debug.enable_debug_cuboids) {
+                Output_DrawCuboid(&obj->draw_bounds);
+            }
         }
         Matrix_Pop();
     }
@@ -310,17 +315,6 @@ void Room_DrawSingleRoom(int16_t room_num)
         Effect_Draw(i);
     }
 
-    if (g_Config.debug.enable_debug_triggers) {
-        Output_DrawRoomTriggers(room);
-    }
-    if (g_Config.debug.enable_debug_portals) {
-        Output_DrawRoomPortals(room);
-    }
-
-    Output_RememberState();
-    Output_Sprites_RenderRoomSprites(g_MatrixPtr, Output_GetTint(), room);
-    Output_Sprites_Flush();
-    Output_RestoreState();
     Matrix_Pop();
 
     room->bound_left = Viewport_GetMaxX(VIEWPORT_GAME);

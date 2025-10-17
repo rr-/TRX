@@ -4,6 +4,8 @@ typedef enum {
     HT_WALL = 0,
     HT_SMALL_SLOPE = 1,
     HT_BIG_SLOPE = 2,
+    HT_DIAGONAL = 3,
+    HT_SPLIT_TRI = 4,
 } HEIGHT_TYPE;
 
 typedef enum {
@@ -35,10 +37,35 @@ typedef enum {
     FT_ROOF = 3,
     FT_TRIGGER = 4,
     FT_LAVA = 5,
-#if TR_VERSION == 2
     FT_CLIMB = 6,
-#endif
+    FT_FLOOR_NWSE_SOLID = 7,
+    FT_FLOOR_NESW_SOLID = 8,
+    FT_ROOF_NWSE_SOLID = 9,
+    FT_ROOF_NESW_SOLID = 10,
+    FT_FLOOR_NWSE_PORTAL_SW = 11,
+    FT_FLOOR_NWSE_PORTAL_NE = 12,
+    FT_FLOOR_NESW_PORTAL_SE = 13,
+    FT_FLOOR_NESW_PORTAL_NW = 14,
+    FT_ROOF_NWSE_PORTAL_SW = 15,
+    FT_ROOF_NWSE_PORTAL_NE = 16,
+    FT_ROOF_NESW_PORTAL_NW = 17,
+    FT_ROOF_NESW_PORTAL_SE = 18,
 } FLOOR_TYPE;
+
+typedef enum {
+    SPLIT_NONE,
+    SPLIT_NWSE_SOLID,
+    SPLIT_NESW_SOLID,
+    SPLIT_NWSE_PORTAL_SW,
+    SPLIT_NWSE_PORTAL_NE,
+    SPLIT_NESW_PORTAL_SE,
+    SPLIT_NESW_PORTAL_NW,
+} SPLIT_TYPE;
+
+typedef enum {
+    SURFACE_FLOOR,
+    SURFACE_CEILING,
+} SURFACE_TYPE;
 
 typedef enum {
     TO_OBJECT = 0,
@@ -70,7 +97,6 @@ typedef enum {
     TT_ANTITRIGGER = 9,
 } TRIGGER_TYPE;
 
-#if TR_VERSION == 2
 typedef enum {
     LADDER_NONE = 0,
     LADDER_NORTH = 1 << 0,
@@ -78,4 +104,3 @@ typedef enum {
     LADDER_SOUTH = 1 << 2,
     LADDER_WEST = 1 << 3,
 } LADDER_DIRECTION;
-#endif

@@ -1,10 +1,10 @@
 #include "game/los.h"
 
-#include "game/objects/vars.h"
-#include "global/vars.h"
-
 #include <libtrx/debug.h>
+#include <libtrx/game/const.h>
 #include <libtrx/game/math.h>
+#include <libtrx/game/objects/vars.h>
+#include <libtrx/game/rooms.h>
 #include <libtrx/utils.h>
 
 static int32_t m_LOSRooms[200] = {};
@@ -285,107 +285,4 @@ bool LOS_Check(const GAME_VECTOR *const start, GAME_VECTOR *const target)
         return true;
     }
     return false;
-}
-
-int32_t LOS_CheckSmashable(
-    const GAME_VECTOR *const start, const GAME_VECTOR *const target)
-{
-    const int32_t dx = target->x - start->x;
-    const int32_t dy = target->y - start->y;
-    const int32_t dz = target->z - start->z;
-
-    for (int32_t i = 0; i < m_LOSNumRooms; i++) {
-        for (int16_t item_num = Room_Get(m_LOSRooms[i])->item_num;
-             item_num != NO_ITEM; item_num = Item_Get(item_num)->next_item) {
-            const ITEM *const item = Item_Get(item_num);
-            if (item->status == IS_DEACTIVATED) {
-                continue;
-            }
-
-            if (!Object_IsType(item->object_id, g_SmashableObjects)) {
-                continue;
-            }
-
-            const DIRECTION direction = Math_GetDirection(item->rot.y);
-            const BOUNDS_16 *const bounds = Item_GetBoundsAccurate(item);
-            int16_t x_extent[2];
-            int16_t z_extent[2];
-            switch (direction) {
-            case DIR_EAST:
-            case DIR_WEST:
-                x_extent[0] = bounds->min.z;
-                x_extent[1] = bounds->max.z;
-                z_extent[0] = bounds->min.x;
-                z_extent[1] = bounds->max.x;
-                break;
-            case DIR_NORTH:
-            case DIR_SOUTH:
-                x_extent[0] = bounds->min.x;
-                x_extent[1] = bounds->max.x;
-                z_extent[0] = bounds->min.z;
-                z_extent[1] = bounds->max.z;
-                break;
-            default:
-                ASSERT_FAIL();
-                break;
-            }
-
-            int32_t failure = 0;
-            if (ABS(dz) > ABS(dx)) {
-                int32_t distance = item->pos.z + z_extent[0] - start->z;
-                for (int32_t j = 0; j < 2; j++) {
-                    if ((distance >= 0) == (dz >= 0)) {
-                        const int32_t y = dy * distance / dz;
-                        if (y <= item->pos.y + bounds->min.y - start->y
-                            || y >= item->pos.y + bounds->max.y - start->y) {
-                            continue;
-                        }
-
-                        const int32_t x = dx * distance / dz;
-                        if (x < item->pos.x + x_extent[0] - start->x) {
-                            failure |= 1;
-                        } else if (x > item->pos.x + x_extent[1] - start->x) {
-                            failure |= 2;
-                        } else {
-                            return item_num;
-                        }
-                    }
-
-                    distance = item->pos.z + z_extent[1] - start->z;
-                }
-
-                if (failure == 3) {
-                    return item_num;
-                }
-            } else {
-                int32_t distance = item->pos.x + x_extent[0] - start->x;
-                for (int32_t j = 0; j < 2; j++) {
-                    if ((distance >= 0) == (dx >= 0)) {
-                        const int32_t y = dy * distance / dx;
-                        if (y <= item->pos.y + bounds->min.y - start->y
-                            || y >= item->pos.y + bounds->max.y - start->y) {
-                            continue;
-                        }
-
-                        const int32_t z = dz * distance / dx;
-                        if (z < item->pos.z + z_extent[0] - start->z) {
-                            failure |= 1;
-                        } else if (z > item->pos.z + z_extent[1] - start->z) {
-                            failure |= 2;
-                        } else {
-                            return item_num;
-                        }
-                    }
-
-                    distance = item->pos.x + x_extent[1] - start->x;
-                }
-
-                if (failure == 3) {
-                    return item_num;
-                }
-            }
-        }
-    }
-
-    return NO_ITEM;
 }

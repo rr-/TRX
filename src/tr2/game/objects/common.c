@@ -1,63 +1,11 @@
 #include "game/objects/common.h"
 
-#include "game/output.h"
-#include "game/viewport.h"
-#include "global/vars.h"
+#include "game/inventory.h"
 
+#include <libtrx/config.h>
 #include <libtrx/debug.h>
-#include <libtrx/game/collision.h>
-#include <libtrx/game/lara.h>
 #include <libtrx/game/matrix.h>
-#include <libtrx/utils.h>
-
-void Object_DrawDummyItem(const ITEM *const item)
-{
-}
-
-void Object_DrawAnimatingItem(const ITEM *item)
-{
-    ANIM_FRAME *frames[2];
-    int32_t rate;
-    int32_t frac = Item_GetFrames(item, frames, &rate);
-    const OBJECT *const obj = Object_Get(item->object_id);
-
-    if (obj->shadow_size != 0) {
-        Output_InsertShadow(obj->shadow_size, &frames[0]->bounds, item);
-    }
-
-    Matrix_Push();
-    Matrix_TranslateAbs32(item->interp.result.pos);
-    Matrix_Rot16(item->interp.result.rot);
-
-    const int32_t clip = Output_GetObjectBounds(&frames[0]->bounds);
-    if (!clip) {
-        Matrix_Pop();
-        return;
-    }
-
-    Output_CalculateObjectLighting(item, &frames[0]->bounds);
-
-    const int16_t *extra_rotation = item->data;
-
-    Object_DrawInterpolatedObject(
-        obj, item->mesh_bits, extra_rotation, frames[0], frames[1], frac, rate);
-    Matrix_Pop();
-}
-
-void Object_DrawUnclippedItem(const ITEM *const item)
-{
-    const VIEWPORT old_vp = *Viewport_Get();
-
-    VIEWPORT new_vp = old_vp;
-    new_vp.game_vars.win_top = 0;
-    new_vp.game_vars.win_left = 0;
-    new_vp.game_vars.win_bottom = new_vp.game_vars.win_max_y;
-    new_vp.game_vars.win_right = new_vp.game_vars.win_max_x;
-
-    Viewport_Restore(&new_vp);
-    Object_DrawAnimatingItem(item);
-    Viewport_Restore(&old_vp);
-}
+#include <libtrx/game/output.h>
 
 void Object_DrawSpriteItem(const ITEM *const item)
 {
@@ -71,43 +19,102 @@ void Object_DrawSpriteItem(const ITEM *const item)
     const OBJECT *const obj = Object_Get(item->object_id);
 
     Output_DrawSprite(
-        SPRITE_ABS | (obj->semi_transparent ? SPRITE_SEMI_TRANS : 0)
-            | SPRITE_SHADE,
         item->interp.result.pos.x, item->interp.result.pos.y,
         item->interp.result.pos.z, obj->mesh_idx - item->frame_num,
-        Output_GetLightAdder() + SHADE_NEUTRAL, 0);
+        Output_GetLightAdder() + SHADE_NEUTRAL, (RGB_F) { 1.0f, 1.0f, 1.0f });
 }
 
-void Object_Collision(
-    const int16_t item_num, ITEM *const lara_item, COLL_INFO *const coll)
+void Object_DrawPickupItem(const ITEM *const item)
 {
-    ITEM *const item = Item_Get(item_num);
-
-    if (!Item_TestBoundsCollide(item, lara_item, coll->radius)) {
+    if (item->flags & IF_INVISIBLE) {
         return;
     }
 
-    if (!Collide_TestCollision(item, lara_item)) {
+    if (!g_Config.visuals.enable_3d_pickups
+        || !Object_Get(item->object_id)->loaded) {
+        Object_DrawSpriteItem(item);
         return;
     }
 
-    if (coll->enable_baddie_push) {
-        Lara_Push(item, coll, false, true);
+    // Convert item to menu display item.
+    const OBJECT_ID inv_object_id = Inv_GetItemOption(item->object_id);
+    if (inv_object_id == NO_OBJECT) {
+        Object_DrawSpriteItem(item);
+        return;
     }
-}
 
-void Object_Collision_Trap(
-    const int16_t item_num, ITEM *const lara_item, COLL_INFO *const coll)
-{
-    ITEM *const item = Item_Get(item_num);
+    const OBJECT *const obj = Object_Get(inv_object_id);
+    if (!obj->loaded || obj->mesh_count < 0) {
+        Object_DrawSpriteItem(item);
+        return;
+    }
 
-    if (item->status == IS_ACTIVE) {
-        if (Item_TestBoundsCollide(item, lara_item, coll->radius)) {
-            Collide_TestCollision(item, lara_item);
+    // Get the first frame of the first animation, and its bounding box.
+    int16_t offset;
+    BOUNDS_16 bounds;
+    const ANIM_FRAME *frame = nullptr;
+
+    // Some items, such as the Prayer Wheel in Barkhang Monastery, do not have
+    // animations, and for such items we need to calculate this information
+    // manually.
+    if (obj->anim_idx != -1) {
+        frame = obj->frame_base;
+        bounds = frame->bounds;
+        const int16_t y_off = frame->offset.y - bounds.max.y;
+        bounds.max.y -= bounds.max.y;
+        bounds.min.y -= bounds.max.y;
+        offset = item->interp.result.pos.y + y_off;
+    } else {
+        bounds = Object_GetBoundingBox(obj, nullptr, item->mesh_bits);
+        offset = item->pos.y - (bounds.max.y - bounds.min.y) / 2;
+    }
+
+    Matrix_Push();
+    Matrix_TranslateAbs(
+        item->interp.result.pos.x, offset, item->interp.result.pos.z);
+    Matrix_Rot16(item->interp.result.rot);
+
+    Output_CalculateLight(item->pos, item->room_num);
+
+    const CLIP clip = Output_CheckBoundsClip(&bounds);
+    if (clip != CLIP_NOT_VISIBLE) {
+        int32_t bit = 1;
+
+        const XYZ_16 *const mesh_rots =
+            frame != nullptr ? frame->mesh_rots : nullptr;
+        if (mesh_rots != nullptr) {
+            Matrix_Rot16(mesh_rots[0]);
         }
-    } else if (item->status != IS_INVISIBLE) {
-        Object_Collision(item_num, lara_item, coll);
+
+        if (item->mesh_bits & bit) {
+            Object_DrawMesh(obj->mesh_idx, clip, false);
+        }
+
+        for (int i = 1; i < obj->mesh_count; i++) {
+            const ANIM_BONE *const bone = Object_GetBone(obj, i - 1);
+            if (bone->matrix_pop) {
+                Matrix_Pop();
+            }
+
+            if (bone->matrix_push) {
+                Matrix_Push();
+            }
+
+            Matrix_TranslateRel32(bone->pos);
+            if (mesh_rots != nullptr) {
+                Matrix_Rot16(mesh_rots[i]);
+            }
+
+            // Extra rotation is ignored in this case as it's not needed.
+
+            bit <<= 1;
+            if (item->mesh_bits & bit) {
+                Object_DrawMesh(obj->mesh_idx + i, clip, false);
+            }
+        }
     }
+
+    Matrix_Pop();
 }
 
 BOUNDS_16 Object_GetBoundingBox(
@@ -198,18 +205,7 @@ BOUNDS_16 Object_GetBoundingBox(
     return new_bounds;
 }
 
-void Object_DrawMesh(
-    const int32_t mesh_idx, const int32_t clip, const bool interpolated)
-{
-    const OBJECT_MESH *const mesh = Object_GetMesh(mesh_idx);
-    if (interpolated) {
-        Output_DrawObjectMesh_I(mesh, clip);
-    } else {
-        Output_DrawObjectMesh(mesh, clip);
-    }
-}
-
-void Object_SetReflective(const GAME_OBJECT_ID obj_id, const bool enabled)
+void Object_SetReflective(const OBJECT_ID obj_id, const bool enabled)
 {
     ASSERT_FAIL();
 }

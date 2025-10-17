@@ -8,7 +8,6 @@
 #include "game/shell.h"
 #include "game/sound.h"
 #include "game/ui/elements/anchor.h"
-#include "game/ui/elements/bar.h"
 #include "game/ui/elements/frame.h"
 #include "game/ui/elements/hide.h"
 #include "game/ui/elements/label.h"
@@ -34,18 +33,6 @@ typedef enum {
     M_PHASE_EXIT,
 } M_PHASE;
 
-#if TR_VERSION == 1
-static bool M_AreNumericKeysEnabled(void);
-#endif
-static bool M_AreCheatsEnabled(void);
-
-#if TR_VERSION == 1
-static bool M_AreNumericKeysEnabled(void)
-{
-    return g_Config.input.enable_numeric_keys;
-}
-#endif
-
 static bool M_AreCheatsEnabled(void)
 {
     return g_Config.gameplay.enable_cheats;
@@ -61,12 +48,13 @@ static const UI_CONTROLS_EDITOR_GROUP m_Groups[] = {
                 { .role = INPUT_ROLE_LEFT },
                 { .role = INPUT_ROLE_RIGHT },
                 { .role = INPUT_ROLE_JUMP },
-                { .role = INPUT_ROLE_STEP_L },
-                { .role = INPUT_ROLE_STEP_R },
+                { .role = INPUT_ROLE_STEP_LEFT },
+                { .role = INPUT_ROLE_STEP_RIGHT },
                 { .role = INPUT_ROLE_ROLL },
                 { .role = INPUT_ROLE_SLOW },
+                { .role = INPUT_ROLE_SPRINT },
                 { .role = INPUT_ROLE_ACTION },
-                { .role = INPUT_ROLE_DRAW },
+                { .role = INPUT_ROLE_DRAW_WEAPON },
                 { .role = INPUT_ROLE_LOOK },
                 { .role = (INPUT_ROLE)-1 },
             },
@@ -76,27 +64,16 @@ static const UI_CONTROLS_EDITOR_GROUP m_Groups[] = {
         .header_gs = GS_ID(CONTROLS_SECTION_ITEMS),
         .rows =
             (UI_CONTROLS_EDITOR_ROW[]) {
-#if TR_VERSION == 1
-                { .role = INPUT_ROLE_USE_SMALL_MEDI,
-                  .is_available = M_AreNumericKeysEnabled },
-                { .role = INPUT_ROLE_USE_BIG_MEDI,
-                  .is_available = M_AreNumericKeysEnabled },
-                { .role = INPUT_ROLE_EQUIP_PISTOLS,
-                  .is_available = M_AreNumericKeysEnabled },
-                { .role = INPUT_ROLE_EQUIP_SHOTGUN,
-                  .is_available = M_AreNumericKeysEnabled },
-                { .role = INPUT_ROLE_EQUIP_MAGNUMS,
-                  .is_available = M_AreNumericKeysEnabled },
-                { .role = INPUT_ROLE_EQUIP_UZIS,
-                  .is_available = M_AreNumericKeysEnabled },
-#else
+#if TR_VERSION >= 2
                 { .role = INPUT_ROLE_USE_FLARE },
+#endif
                 { .role = INPUT_ROLE_USE_SMALL_MEDI },
                 { .role = INPUT_ROLE_USE_BIG_MEDI },
                 { .role = INPUT_ROLE_EQUIP_PISTOLS },
                 { .role = INPUT_ROLE_EQUIP_SHOTGUN },
                 { .role = INPUT_ROLE_EQUIP_MAGNUMS },
                 { .role = INPUT_ROLE_EQUIP_UZIS },
+#if TR_VERSION >= 2
                 { .role = INPUT_ROLE_EQUIP_HARPOON },
                 { .role = INPUT_ROLE_EQUIP_M16 },
                 { .role = INPUT_ROLE_EQUIP_GRENADE_LAUNCHER },
@@ -109,9 +86,7 @@ static const UI_CONTROLS_EDITOR_GROUP m_Groups[] = {
         .header_gs = GS_ID(CONTROLS_SECTION_MISC),
         .rows =
             (UI_CONTROLS_EDITOR_ROW[]) {
-#if TR_VERSION == 1
                 { .role = INPUT_ROLE_CHANGE_TARGET },
-#endif
                 { .role = INPUT_ROLE_CAMERA_UP },
                 { .role = INPUT_ROLE_CAMERA_DOWN },
                 { .role = INPUT_ROLE_CAMERA_LEFT },
@@ -134,7 +109,7 @@ static const UI_CONTROLS_EDITOR_GROUP m_Groups[] = {
         .header_gs = GS_ID(CONTROLS_SECTION_SYSTEM),
         .rows =
             (UI_CONTROLS_EDITOR_ROW[]) {
-                { .role = INPUT_ROLE_OPTION },
+                { .role = INPUT_ROLE_INVENTORY },
                 { .role = INPUT_ROLE_SAVE },
                 { .role = INPUT_ROLE_LOAD },
                 { .role = INPUT_ROLE_PAUSE },
@@ -145,20 +120,12 @@ static const UI_CONTROLS_EDITOR_GROUP m_Groups[] = {
                 { .role = INPUT_ROLE_ENTER_CONSOLE },
                 { .role = INPUT_ROLE_TOGGLE_PHOTO_MODE },
                 { .role = INPUT_ROLE_TOGGLE_UI },
-#if TR_VERSION == 1
-                { .role = INPUT_ROLE_BILINEAR },
-#elif TR_VERSION == 2
                 { .role = INPUT_ROLE_TOGGLE_BILINEAR_FILTER },
-// { .role = INPUT_ROLE_TOGGLE_PERSPECTIVE_FILTER }, // handled specially
-#endif
                 { .role = INPUT_ROLE_TOGGLE_TRAPEZOID_FILTER },
-#if TR_VERSION == 2
-                { .role = INPUT_ROLE_SWITCH_INTERNAL_SCREEN_SIZE },
-                { .role = INPUT_ROLE_SWITCH_RESOLUTION },
-                { .role = INPUT_ROLE_TOGGLE_Z_BUFFER },
+                { .role = INPUT_ROLE_SWITCH_UPSCALING },
+                { .role = INPUT_ROLE_SWITCH_BORDERS },
+                { .role = INPUT_ROLE_TOGGLE_WIREFRAME },
                 { .role = INPUT_ROLE_CYCLE_LIGHTING_CONTRAST },
-                { .role = INPUT_ROLE_TOGGLE_RENDERING_MODE },
-#endif
                 { .role = (INPUT_ROLE)-1 },
             },
     },
@@ -198,8 +165,8 @@ static void M_Footer(UI_CONTROLS_EDITOR_STATE *s);
 
 static int32_t M_GetVisibleRows(void)
 {
-    const int32_t res_h = Scaler_CalcInverse(
-        Viewport_GetHeight(VIEWPORT_GAME), SCALER_TARGET_TEXT);
+    const int32_t res_h =
+        Scaler_CalcInverse(Viewport_GetHeight(VIEWPORT_UI), SCALER_TARGET_TEXT);
     if (res_h <= 240) {
         return 5;
     } else if (res_h <= 252) {
@@ -249,7 +216,7 @@ static void M_ResetLayout(void *const arg)
     Sound_Effect(SFX_MENU_SPINOUT, nullptr, SPM_NORMAL);
 #endif
     Input_ResetLayout(s->backend, s->active_layout);
-    Config_Write();
+    Config_Update();
 }
 
 static void M_UnbindKey(void *const arg)
@@ -261,7 +228,7 @@ static void M_UnbindKey(void *const arg)
     Sound_Effect(SFX_MENU_SPINOUT, nullptr, SPM_NORMAL);
 #endif
     Input_UnassignRole(s->backend, s->active_layout, s->active_role);
-    Config_Write();
+    Config_Update();
 }
 
 static bool M_CanResetLayout(const UI_CONTROLS_EDITOR_STATE *const s)
@@ -376,7 +343,6 @@ static UI_CONTROLS_CHOICE M_NavigateInputs(UI_CONTROLS_EDITOR_STATE *const s)
 static UI_CONTROLS_CHOICE M_NavigateInputsDebounce(
     UI_CONTROLS_EDITOR_STATE *const s)
 {
-    Shell_ProcessEvents();
     Input_Update();
     if (g_Input.any) {
         return UI_CONTROLS_CHOICE_NOOP;
@@ -639,6 +605,7 @@ void UI_ControlsEditor(UI_CONTROLS_EDITOR_STATE *const s)
     UI_BeginStackEx((UI_STACK_SETTINGS) {
         .orientation = UI_STACK_VERTICAL,
         .align = { .h = UI_STACK_H_ALIGN_SPAN },
+        .spacing = { .v = 4.0f },
     });
     M_CurrentLayout(s);
     M_GroupsHeader(s);

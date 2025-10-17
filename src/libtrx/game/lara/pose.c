@@ -7,16 +7,15 @@
 #include "game/items.h"
 #include "game/lara/hair.h"
 #include "game/objects.h"
-#include "json.h"
+#include "json_file.h"
 #include "memory.h"
 #include "vector.h"
 
+#define M_NO_POSE (-1)
+
 static const char *const m_Path = "cfg/poses.json5";
 static VECTOR *m_Poses = nullptr;
-static int32_t m_ActivePose = -1;
-
-static bool M_ReadXYZ16(JSON_VALUE *value, XYZ_16 *target);
-static void M_LoadPoses(void);
+static int32_t m_ActivePose = M_NO_POSE;
 
 static bool M_ReadXYZ16(JSON_VALUE *const value, XYZ_16 *const target)
 {
@@ -42,26 +41,8 @@ static void M_LoadPoses(void)
     m_Poses = Vector_Create(sizeof(LARA_POSE));
     ASSERT(m_Poses != nullptr);
 
-    char *json_data = nullptr;
-    size_t json_size = 0;
-    if (!File_Load(m_Path, &json_data, &json_size)) {
-        LOG_ERROR("Failed to load poses from %s", m_Path);
-        return;
-    }
-
-    JSON_PARSE_RESULT parse_result;
-    JSON_VALUE *const root = JSON_ParseEx(
-        json_data, json_size, JSON_PARSE_FLAGS_ALLOW_JSON5, nullptr, nullptr,
-        &parse_result);
-    if (root == nullptr) {
-        LOG_ERROR(
-            "Failed to parse %s: %s at line %zu char %zu", m_Path,
-            JSON_GetErrorDescription(parse_result.error),
-            parse_result.error_line_no, parse_result.error_row_no);
-        goto cleanup;
-    }
-
-    JSON_ARRAY *const poses = JSON_ValueAsArray(root);
+    JSON_VALUE *const doc = JSONFile_Read(m_Path);
+    JSON_ARRAY *const poses = JSON_ValueAsArray(doc);
     if (poses == nullptr) {
         LOG_WARNING("Error while reading poses: root object must be an array");
         goto cleanup;
@@ -103,10 +84,7 @@ static void M_LoadPoses(void)
     }
 
 cleanup:
-    if (root != nullptr) {
-        JSON_ValueFree(root);
-    }
-    Memory_FreePointer(&json_data);
+    JSON_ValueFree(doc);
 }
 
 void Lara_Pose_Init(void)
@@ -132,10 +110,10 @@ bool Lara_Pose_IsAvailable(void)
 
 void Lara_Pose_Clear(void)
 {
-    if (m_ActivePose != -1) {
+    if (m_ActivePose != M_NO_POSE) {
         LOG_DEBUG("Clearing Lara's pose");
     }
-    m_ActivePose = -1;
+    m_ActivePose = M_NO_POSE;
 }
 
 void Lara_Pose_Cycle(const int32_t dir)
@@ -143,12 +121,13 @@ void Lara_Pose_Cycle(const int32_t dir)
     if (!Lara_Pose_IsAvailable()) {
         return;
     }
-    if (m_ActivePose < 0) {
-        m_ActivePose = 0;
+    if (m_ActivePose == M_NO_POSE) {
+        m_ActivePose = (dir > 0) ? 0 : m_Poses->count - 1;
+    } else {
+        m_ActivePose += dir;
+        m_ActivePose += m_Poses->count;
+        m_ActivePose %= m_Poses->count;
     }
-    m_ActivePose += dir;
-    m_ActivePose += m_Poses->count;
-    m_ActivePose %= m_Poses->count;
 
     LOG_DEBUG("Active Lara pose: %d", m_ActivePose);
     Lara_Hair_Control(true);
@@ -157,7 +136,7 @@ void Lara_Pose_Cycle(const int32_t dir)
 
 const LARA_POSE *Lara_Pose_Get(void)
 {
-    if (m_ActivePose < 0) {
+    if (m_ActivePose == M_NO_POSE) {
         return nullptr;
     }
     return Vector_Get(m_Poses, m_ActivePose);

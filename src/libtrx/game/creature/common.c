@@ -29,12 +29,19 @@
 
 static bool m_AlliesHostile = false;
 
-static ITEM *M_ChooseEnemy(const ITEM *item);
-static bool M_SwitchToWater(
-    int16_t item_num, int32_t wh, const HYBRID_INFO *info);
-static bool M_SwitchToLand(
-    int16_t item_num, int32_t wh, const HYBRID_INFO *info);
-static bool M_TestSwitchOrKill(int16_t item_num, GAME_OBJECT_ID target_id);
+static bool M_TestSwitchOrKill(
+    const int16_t item_num, const OBJECT_ID target_id)
+{
+    if (Object_Get(target_id)->loaded) {
+        return true;
+    }
+
+    LOG_WARNING(
+        "Object %d is not loaded; item %d cannot be converted.", target_id,
+        item_num);
+    Item_Kill(item_num);
+    return false;
+}
 
 static void M_GetBaddieTarget(const int16_t item_num, const bool goody)
 {
@@ -51,11 +58,11 @@ static void M_GetBaddieTarget(const int16_t item_num, const bool goody)
         }
 
         ITEM *const target = Item_Get(target_item_num);
-        const GAME_OBJECT_ID obj_id = target->object_id;
+        const OBJECT_ID obj_id = target->object_id;
 #if TR_VERSION == 2
-        if (goody && obj_id != O_BANDIT_1 && obj_id != O_BANDIT_2) {
+        if (goody && !Creature_IsAllyTargetingEnemy(target)) {
             continue;
-        } else if (!goody && obj_id != O_MONK_1 && obj_id != O_MONK_2) {
+        } else if (!goody && !Creature_IsAlly(target)) {
             continue;
         }
 #endif
@@ -107,22 +114,12 @@ static void M_GetBaddieTarget(const int16_t item_num, const bool goody)
 static ITEM *M_ChooseEnemy(const ITEM *const item)
 {
     CREATURE *const creature = item->data;
-    switch (item->object_id) {
-#if TR_VERSION == 2
-    case O_BANDIT_1:
-    case O_BANDIT_2:
-        M_GetBaddieTarget(creature->item_num, false);
-        break;
-
-    case O_MONK_1:
-    case O_MONK_2:
+    if (Creature_IsAlly(item)) {
         M_GetBaddieTarget(creature->item_num, true);
-        break;
-#endif
-
-    default:
+    } else if (Creature_IsAllyTargetingEnemy(item)) {
+        M_GetBaddieTarget(creature->item_num, false);
+    } else {
         creature->enemy = Lara_GetItem();
-        break;
     }
 
     if (creature->enemy != nullptr) {
@@ -200,20 +197,6 @@ static bool M_SwitchToLand(
     }
 
     return true;
-}
-
-static bool M_TestSwitchOrKill(
-    const int16_t item_num, const GAME_OBJECT_ID target_id)
-{
-    if (Object_Get(target_id)->loaded) {
-        return true;
-    }
-
-    LOG_WARNING(
-        "Object %d is not loaded; item %d cannot be converted.", target_id,
-        item_num);
-    Item_Kill(item_num);
-    return false;
 }
 
 void Creature_Initialise(const int16_t item_num)
@@ -854,15 +837,12 @@ bool Creature_Animate(
                 Room_GetCeiling(sector, item->pos.x, y, item->pos.z);
             int32_t min_y = bounds->min.y;
             switch (item->object_id) {
-#if TR_VERSION == 1
             case O_ALLIGATOR:
                 min_y = 0;
                 break;
-#elif TR_VERSION == 2
             case O_SHARK:
                 min_y = 128;
                 break;
-#endif
             default:
                 break;
             }
@@ -975,7 +955,6 @@ void Creature_Die(const int16_t item_num, const bool explode)
     ITEM *const item = Item_Get(item_num);
 
     switch (item->object_id) {
-#if TR_VERSION == 2
     case O_DRAGON_FRONT:
         item->hit_points = 0;
         return;
@@ -989,7 +968,6 @@ void Creature_Die(const int16_t item_num, const bool explode)
         ITEM *const vehicle_item = Item_Get(vehicle_item_num);
         vehicle_item->hit_points = 0;
         return;
-#endif
 
     default:
         break;
@@ -1087,6 +1065,11 @@ void Creature_SetAlliesHostile(bool enable)
 
 bool Creature_IsAlive(const ITEM *const item)
 {
+    const OBJECT *const obj = Object_Get(item->object_id);
+    if (obj->intelligent && Object_IsType(item->object_id, g_WaterObjects)) {
+        return item->hit_points > 0;
+    }
+
     return (item->hit_points > 0)
         || (item->hit_points == DONT_TARGET && item->active);
 }
@@ -1102,12 +1085,19 @@ bool Creature_IsAlly(const ITEM *const item)
     return Object_IsType(item->object_id, g_AllyObjects);
 }
 
+bool Creature_IsAllyTargetingEnemy(const ITEM *const item)
+{
+    return Object_IsType(item->object_id, g_AllyTargetingEnemies);
+}
+
 bool Creature_IsTargetable(const ITEM *const item)
 {
 #if TR_VERSION == 1
     return true;
 #else
     return item->hit_points != DONT_TARGET
+        && (!Object_Get(item->object_id)->intelligent
+            || item->status == IS_ACTIVE)
         && (g_Config.gameplay.enable_ally_targeting || !Creature_IsAlly(item));
 #endif
 }

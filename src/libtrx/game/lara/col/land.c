@@ -31,30 +31,12 @@
 #define M_LF_WADE_STEP_L_START 3
 #define M_LF_WADE_STEP_L_END 14
 
+#define M_LF_SPRINT_STEP_L_START 4
+#define M_LF_SPRINT_STEP_L_END 13
+
+#define M_CONTROLLED_DROP_MIN_HEIGHT (LARA_HEIGHT + (STEP_L * 3) / 4) // 954
+
 static int16_t m_OldSlideAngle = 1;
-
-static bool M_TestWall(
-    const ITEM *item, int32_t front, int32_t right, int32_t down);
-static bool M_Fallen(ITEM *item, const COLL_INFO *coll);
-static bool M_TestSlide(ITEM *item, COLL_INFO *coll);
-static bool M_DeflectEdge(ITEM *item, COLL_INFO *coll);
-static bool M_TestCeiling(ITEM *item, const COLL_INFO *coll);
-static void M_CollideStop(ITEM *item, const COLL_INFO *coll);
-
-static void M_Default(ITEM *item, COLL_INFO *coll);
-static void M_Walk(ITEM *item, COLL_INFO *coll);
-static void M_WalkBack(ITEM *item, COLL_INFO *coll);
-static void M_SideStep(ITEM *item, COLL_INFO *coll);
-static void M_Run(ITEM *item, COLL_INFO *coll);
-static void M_Stop(ITEM *item, COLL_INFO *coll);
-static void M_FastBack(ITEM *item, COLL_INFO *coll);
-static void M_Turn(ITEM *item, COLL_INFO *coll);
-static void M_Death(ITEM *item, COLL_INFO *coll);
-static void M_Splat(ITEM *item, COLL_INFO *coll);
-static void M_Slide(ITEM *item, COLL_INFO *coll);
-static void M_Roll(ITEM *item, COLL_INFO *coll);
-static void M_RollContinue(ITEM *item, COLL_INFO *coll);
-static void M_Wade(ITEM *item, COLL_INFO *coll);
 
 static bool M_TestWall(
     const ITEM *const item, const int32_t front, const int32_t right,
@@ -111,6 +93,49 @@ static bool M_TestWall(
     return true;
 }
 
+static bool M_CanControlDrop(
+    const ITEM *const item, const COLL_INFO *const coll)
+{
+    const LARA_INFO *const lara = Lara_GetLaraInfo();
+    if (!g_Input.action || lara->gun_status != LGS_ARMLESS
+        || !g_Config.gameplay.enable_controlled_drops
+        || coll->side_mid.floor < M_CONTROLLED_DROP_MIN_HEIGHT) {
+        return false;
+    }
+
+    COLL_INFO old_coll = {
+        .facing = lara->move_angle,
+        .bad_pos = STEPUP_HEIGHT,
+        .bad_neg = -STEPUP_HEIGHT,
+        .slopes_are_pits = 1,
+        .slopes_are_walls = 1,
+    };
+    Collide_GetCollisionInfo(
+        &old_coll, coll->old.x, coll->old.y, coll->old.z, item->room_num,
+        LARA_HEIGHT);
+
+    if (old_coll.side_mid.floor != 0) {
+        return false;
+    }
+
+    const DIRECTION dir =
+        Math_GetDirectionCone(item->rot.y + DEG_180, LARA_HANG_ANGLE);
+    if (dir == DIR_UNKNOWN) {
+        return false;
+    }
+
+    switch (old_coll.quadrant) {
+    case DIR_NORTH:
+    case DIR_SOUTH:
+        return ABS(old_coll.tilt_x) < 2;
+    case DIR_EAST:
+    case DIR_WEST:
+        return ABS(old_coll.tilt_z) < 2;
+    default:
+        return false;
+    }
+}
+
 static bool M_Fallen(ITEM *const item, const COLL_INFO *const coll)
 {
     const LARA_INFO *const lara = Lara_GetLaraInfo();
@@ -118,9 +143,16 @@ static bool M_Fallen(ITEM *const item, const COLL_INFO *const coll)
         || lara->water_status == LWS_WADE) {
         return false;
     }
-    item->current_anim_state = LS_JUMP_FORWARD;
-    item->goal_anim_state = LS_JUMP_FORWARD;
-    Item_SwitchToAnim(item, LA_FALL_START, 0);
+    if (M_CanControlDrop(item, coll)) {
+        item->current_anim_state = LS(LS_REACH);
+        item->goal_anim_state = LS(LS_REACH);
+        Item_SwitchToAnim(item, LA(LA_CONTROLLED_DROP), 0);
+        item->speed = 2;
+    } else {
+        item->current_anim_state = LS(LS_JUMP_FORWARD);
+        item->goal_anim_state = LS(LS_JUMP_FORWARD);
+        Item_SwitchToAnim(item, LA(LA_FALL_START), 0);
+    }
     item->gravity = true;
     item->fall_speed = 0;
     return true;
@@ -149,21 +181,22 @@ static bool M_TestSlide(ITEM *const item, COLL_INFO *const coll)
     Lara_Col_Shift(coll);
 
     if (angle_dif >= -DEG_90 && angle_dif <= DEG_90) {
-        if (item->current_anim_state == LS_SLIDE && m_OldSlideAngle == angle) {
-            return true;
-        }
-        item->goal_anim_state = LS_SLIDE;
-        item->current_anim_state = LS_SLIDE;
-        Item_SwitchToAnim(item, LA_SLIDE_FORWARD, 0);
-        item->rot.y = angle;
-    } else {
-        if (item->current_anim_state == LS_SLIDE_BACK
+        if (item->current_anim_state == LS(LS_SLIDE)
             && m_OldSlideAngle == angle) {
             return true;
         }
-        item->goal_anim_state = LS_SLIDE_BACK;
-        item->current_anim_state = LS_SLIDE_BACK;
-        Item_SwitchToAnim(item, LA_SLIDE_BACKWARD_START, 0);
+        item->goal_anim_state = LS(LS_SLIDE);
+        item->current_anim_state = LS(LS_SLIDE);
+        Item_SwitchToAnim(item, LA(LA_SLIDE_FORWARD), 0);
+        item->rot.y = angle;
+    } else {
+        if (item->current_anim_state == LS(LS_SLIDE_BACK)
+            && m_OldSlideAngle == angle) {
+            return true;
+        }
+        item->goal_anim_state = LS(LS_SLIDE_BACK);
+        item->current_anim_state = LS(LS_SLIDE_BACK);
+        Item_SwitchToAnim(item, LA(LA_SLIDE_BACKWARD_START), 0);
         item->rot.y = angle + DEG_180;
     }
 
@@ -179,8 +212,8 @@ static bool M_DeflectEdge(ITEM *const item, COLL_INFO *const coll)
     case COLL_FRONT:
     case COLL_TOP_FRONT:
         Lara_Col_Shift(coll);
-        item->goal_anim_state = LS_STOP;
-        item->current_anim_state = LS_STOP;
+        item->goal_anim_state = LS(LS_STOP);
+        item->current_anim_state = LS(LS_STOP);
         item->gravity = false;
         item->speed = 0;
         return true;
@@ -207,9 +240,9 @@ static bool M_TestCeiling(ITEM *const item, const COLL_INFO *const coll)
     }
 
     item->pos = coll->old;
-    item->goal_anim_state = LS_STOP;
-    item->current_anim_state = LS_STOP;
-    Item_SwitchToAnim(item, LA_STAND_STILL, 0);
+    item->goal_anim_state = LS(LS_STOP);
+    item->current_anim_state = LS(LS_STOP);
+    Item_SwitchToAnim(item, LA(LA_STAND_STILL), 0);
     item->speed = 0;
     item->gravity = false;
     item->fall_speed = 0;
@@ -219,7 +252,7 @@ static bool M_TestCeiling(ITEM *const item, const COLL_INFO *const coll)
 static void M_CollideStop(ITEM *const item, const COLL_INFO *const coll)
 {
     if (g_Config.gameplay.enable_smooth_wall_deflect) {
-        switch (coll->old_anim_state) {
+        switch (LS_U(coll->old_anim_state)) {
         case LS_STOP:
         case LS_TURN_RIGHT:
         case LS_TURN_LEFT:
@@ -228,18 +261,20 @@ static void M_CollideStop(ITEM *const item, const COLL_INFO *const coll)
             item->anim_num = coll->old_anim_num;
             item->frame_num = coll->old_frame_num;
             if (g_Input.left) {
-                item->goal_anim_state = LS_TURN_LEFT;
+                item->goal_anim_state = LS(LS_TURN_LEFT);
             } else if (g_Input.right) {
-                item->goal_anim_state = LS_TURN_RIGHT;
+                item->goal_anim_state = LS(LS_TURN_RIGHT);
             } else {
-                item->goal_anim_state = LS_STOP;
+                item->goal_anim_state = LS(LS_STOP);
             }
             Lara_Animate(item);
             return;
+        default:
+            break;
         }
     }
 
-    Item_SwitchToAnim(item, LA_STAND_STILL, 0);
+    Item_SwitchToAnim(item, LA(LA_STAND_STILL), 0);
 }
 
 static void M_Default(ITEM *const item, COLL_INFO *const coll)
@@ -266,17 +301,17 @@ static void M_Walk(ITEM *const item, COLL_INFO *const coll)
     }
 
     if (M_DeflectEdge(item, coll)) {
-        if (Item_TestAnimEqual(item, LA_WALK_FORWARD)
+        if (Item_TestAnimEqual(item, LA(LA_WALK_FORWARD))
             && Item_TestFrameRange(
                 item, M_LF_WALK_STEP_R_START, M_LF_WALK_STEP_R_END)) {
-            Item_SwitchToAnim(item, LA_WALK_STOP_RIGHT, 0);
+            Item_SwitchToAnim(item, LA(LA_WALK_STOP_RIGHT), 0);
         } else if (
-            Item_TestAnimEqual(item, LA_WALK_FORWARD)
+            Item_TestAnimEqual(item, LA(LA_WALK_FORWARD))
             && (Item_TestFrameRange(
                     item, M_LF_WALK_STEP_L_START, M_LF_WALK_STEP_L_END)
                 || Item_TestFrameRange(
                     item, M_LF_WALK_STEP_L_2_START, M_LF_WALK_STEP_L_2_END))) {
-            Item_SwitchToAnim(item, LA_WALK_STOP_LEFT, 0);
+            Item_SwitchToAnim(item, LA(LA_WALK_STOP_LEFT), 0);
         } else {
             M_CollideStop(item, coll);
         }
@@ -287,23 +322,23 @@ static void M_Walk(ITEM *const item, COLL_INFO *const coll)
     }
 
     if (coll->side_mid.floor > STEP_L / 2) {
-        if (Item_TestAnimEqual(item, LA_WALK_FORWARD)
+        if (Item_TestAnimEqual(item, LA(LA_WALK_FORWARD))
             && Item_TestFrameRange(
                 item, M_LF_WALK_STEP_L_END, M_LF_WALK_STEP_R_NEAR_END)) {
-            Item_SwitchToAnim(item, LA_WALK_DOWN_LEFT, 0);
+            Item_SwitchToAnim(item, LA(LA_WALK_DOWN_LEFT), 0);
         } else {
-            Item_SwitchToAnim(item, LA_WALK_DOWN_RIGHT, 0);
+            Item_SwitchToAnim(item, LA(LA_WALK_DOWN_RIGHT), 0);
         }
     }
 
     if (coll->side_mid.floor >= -STEPUP_HEIGHT
         && coll->side_mid.floor < -STEP_L / 2) {
-        if (Item_TestAnimEqual(item, LA_WALK_FORWARD)
+        if (Item_TestAnimEqual(item, LA(LA_WALK_FORWARD))
             && Item_TestFrameRange(
                 item, M_LF_WALK_STEP_L_NEAR_END, M_LF_WALK_STEP_R_MID)) {
-            Item_SwitchToAnim(item, LA_WALK_UP_STEP_LEFT, 0);
+            Item_SwitchToAnim(item, LA(LA_WALK_UP_STEP_LEFT), 0);
         } else {
-            Item_SwitchToAnim(item, LA_WALK_UP_STEP_RIGHT, 0);
+            Item_SwitchToAnim(item, LA(LA_WALK_UP_STEP_RIGHT), 0);
         }
     }
 
@@ -329,6 +364,7 @@ static void M_WalkBack(ITEM *const item, COLL_INFO *const coll)
     coll->slopes_are_walls = 1;
     coll->bad_neg = -STEPUP_HEIGHT;
     coll->bad_ceiling = 0;
+    coll->lava_is_pit = 1;
 
     Lara_Col_GetInfo(item, coll);
     if (M_TestCeiling(item, coll)) {
@@ -347,9 +383,9 @@ static void M_WalkBack(ITEM *const item, COLL_INFO *const coll)
         && coll->side_mid.floor < STEPUP_HEIGHT) {
         if (Item_TestFrameRange(
                 item, M_LF_WALK_BACK_R_START, M_LF_WALK_BACK_R_END)) {
-            Item_SwitchToAnim(item, LA_WALK_DOWN_BACK_RIGHT, 0);
+            Item_SwitchToAnim(item, LA(LA_WALK_DOWN_BACK_RIGHT), 0);
         } else {
-            Item_SwitchToAnim(item, LA_WALK_DOWN_BACK_LEFT, 0);
+            Item_SwitchToAnim(item, LA(LA_WALK_DOWN_BACK_LEFT), 0);
         }
     }
 
@@ -361,7 +397,7 @@ static void M_WalkBack(ITEM *const item, COLL_INFO *const coll)
 static void M_SideStep(ITEM *const item, COLL_INFO *const coll)
 {
     LARA_INFO *const lara = Lara_GetLaraInfo();
-    if (item->current_anim_state == LS_STEP_RIGHT) {
+    if (item->current_anim_state == LS(LS_STEP_RIGHT)) {
         lara->move_angle = item->rot.y + DEG_90;
     } else {
         lara->move_angle = item->rot.y - DEG_90;
@@ -378,6 +414,7 @@ static void M_SideStep(ITEM *const item, COLL_INFO *const coll)
     coll->slopes_are_walls = 1;
     coll->bad_neg = -STEP_L / 2;
     coll->bad_ceiling = 0;
+    coll->lava_is_pit = 1;
 
     Lara_Col_GetInfo(item, coll);
     if (M_TestCeiling(item, coll)) {
@@ -419,18 +456,18 @@ static void M_Run(ITEM *const item, COLL_INFO *const coll)
     if (M_DeflectEdge(item, coll)) {
         item->rot.z = 0;
         if (M_TestWall(item, STEP_L, 0, -STEP_L * 5 / 2)) {
-            item->current_anim_state = LS_SPLAT;
-            const bool is_run_anim = Item_TestAnimEqual(item, LA_RUN);
+            item->current_anim_state = LS(LS_SPLAT);
+            const bool is_run_anim = Item_TestAnimEqual(item, LA(LA_RUN));
             if (is_run_anim
                 && Item_TestFrameRange(
                     item, M_LF_RUN_L_START, M_LF_RUN_L_END)) {
-                Item_SwitchToAnim(item, LA_WALL_SMASH_LEFT, 0);
+                Item_SwitchToAnim(item, LA(LA_WALL_SMASH_LEFT), 0);
                 return;
             }
             if (is_run_anim
                 && Item_TestFrameRange(
                     item, M_LF_RUN_R_START, M_LF_RUN_R_END)) {
-                Item_SwitchToAnim(item, LA_WALL_SMASH_RIGHT, 0);
+                Item_SwitchToAnim(item, LA(LA_WALL_SMASH_RIGHT), 0);
                 return;
             }
         }
@@ -450,9 +487,9 @@ static void M_Run(ITEM *const item, COLL_INFO *const coll)
         } else {
             if (Item_TestFrameRange(
                     item, M_LF_RUN_L_HEEL_GROUND, M_LF_RUN_R_FOOT_GROUND)) {
-                Item_SwitchToAnim(item, LA_RUN_UP_STEP_LEFT, 0);
+                Item_SwitchToAnim(item, LA(LA_RUN_UP_STEP_LEFT), 0);
             } else {
-                Item_SwitchToAnim(item, LA_RUN_UP_STEP_RIGHT, 0);
+                Item_SwitchToAnim(item, LA(LA_RUN_UP_STEP_RIGHT), 0);
             }
         }
     }
@@ -476,9 +513,9 @@ static void M_Stop(ITEM *const item, COLL_INFO *const coll)
     }
 
     if (g_Config.gameplay.fix_step_glitch && coll->side_mid.floor > 100) {
-        item->current_anim_state = LS_JUMP_FORWARD;
-        item->goal_anim_state = LS_JUMP_FORWARD;
-        Item_SwitchToAnim(item, LA_FALL_START, 0);
+        item->current_anim_state = LS(LS_JUMP_FORWARD);
+        item->goal_anim_state = LS(LS_JUMP_FORWARD);
+        Item_SwitchToAnim(item, LA(LA_FALL_START), 0);
         item->gravity = true;
         item->fall_speed = 0;
         return;
@@ -511,9 +548,9 @@ static void M_FastBack(ITEM *const item, COLL_INFO *const coll)
         }
         item->pos.y += coll->side_mid.floor;
     } else {
-        Item_SwitchToAnim(item, LA_FALL_BACK, 0);
-        item->current_anim_state = LS_FALL_BACK;
-        item->goal_anim_state = LS_FALL_BACK;
+        Item_SwitchToAnim(item, LA(LA_FALL_BACK), 0);
+        item->current_anim_state = LS(LS_FALL_BACK);
+        item->goal_anim_state = LS(LS_FALL_BACK);
         item->gravity = true;
         item->fall_speed = 0;
     }
@@ -530,9 +567,9 @@ static void M_Turn(ITEM *const item, COLL_INFO *const coll)
             item->pos.y += coll->side_mid.floor;
         }
     } else {
-        Item_SwitchToAnim(item, LA_FALL_START, 0);
-        item->current_anim_state = LS_JUMP_FORWARD;
-        item->goal_anim_state = LS_JUMP_FORWARD;
+        Item_SwitchToAnim(item, LA(LA_FALL_START), 0);
+        item->current_anim_state = LS(LS_JUMP_FORWARD);
+        item->goal_anim_state = LS(LS_JUMP_FORWARD);
         item->gravity = true;
         item->fall_speed = 0;
     }
@@ -572,7 +609,7 @@ static void M_Slide(ITEM *const item, COLL_INFO *const coll)
 {
     LARA_INFO *const lara = Lara_GetLaraInfo();
     lara->move_angle = item->rot.y;
-    if (item->current_anim_state == LS_SLIDE_BACK) {
+    if (item->current_anim_state == LS(LS_SLIDE_BACK)) {
         lara->move_angle += DEG_180;
     }
 
@@ -588,14 +625,21 @@ static void M_Slide(ITEM *const item, COLL_INFO *const coll)
     M_DeflectEdge(item, coll);
 
     if (coll->side_mid.floor > 200) {
-        if (item->current_anim_state == LS_SLIDE) {
-            item->goal_anim_state = LS_JUMP_FORWARD;
-            item->current_anim_state = LS_JUMP_FORWARD;
-            Item_SwitchToAnim(item, LA_FALL_START, 0);
+        if (item->current_anim_state == LS(LS_SLIDE)) {
+            if (M_CanControlDrop(item, coll)) {
+                item->current_anim_state = LS(LS_REACH);
+                item->goal_anim_state = LS(LS_REACH);
+                Item_SwitchToAnim(item, LA(LA_CONTROLLED_DROP), 2);
+                item->speed = 2;
+            } else {
+                item->goal_anim_state = LS(LS_JUMP_FORWARD);
+                item->current_anim_state = LS(LS_JUMP_FORWARD);
+                Item_SwitchToAnim(item, LA(LA_FALL_START), 0);
+            }
         } else {
-            item->goal_anim_state = LS_FALL_BACK;
-            item->current_anim_state = LS_FALL_BACK;
-            Item_SwitchToAnim(item, LA_FALL_BACK, 0);
+            item->goal_anim_state = LS(LS_FALL_BACK);
+            item->current_anim_state = LS(LS_FALL_BACK);
+            Item_SwitchToAnim(item, LA(LA_FALL_BACK), 0);
         }
         item->gravity = true;
         item->fall_speed = 0;
@@ -605,7 +649,7 @@ static void M_Slide(ITEM *const item, COLL_INFO *const coll)
     M_TestSlide(item, coll);
     item->pos.y += coll->side_mid.floor;
     if (ABS(coll->tilt_x) <= 2 && ABS(coll->tilt_z) <= 2) {
-        item->goal_anim_state = LS_STOP;
+        item->goal_anim_state = LS(LS_STOP);
     }
 }
 
@@ -627,9 +671,9 @@ static void M_Roll(ITEM *const item, COLL_INFO *const coll)
 
     if (g_Config.gameplay.enable_step_roll_boost) {
         if (coll->side_mid.floor > 200) {
-            item->current_anim_state = LS_JUMP_FORWARD;
-            item->goal_anim_state = LS_JUMP_FORWARD;
-            Item_SwitchToAnim(item, LA_FALL_START, 0);
+            item->current_anim_state = LS(LS_JUMP_FORWARD);
+            item->goal_anim_state = LS(LS_JUMP_FORWARD);
+            Item_SwitchToAnim(item, LA(LA_FALL_START), 0);
             item->gravity = true;
             item->fall_speed = 0;
             return;
@@ -659,9 +703,9 @@ static void M_RollContinue(ITEM *const item, COLL_INFO *const coll)
     }
 
     if (coll->side_mid.floor > 200) {
-        Item_SwitchToAnim(item, LA_FALL_BACK, 0);
-        item->current_anim_state = LS_FALL_BACK;
-        item->goal_anim_state = LS_FALL_BACK;
+        Item_SwitchToAnim(item, LA(LA_FALL_BACK), 0);
+        item->current_anim_state = LS(LS_FALL_BACK);
+        item->goal_anim_state = LS(LS_FALL_BACK);
         item->gravity = true;
         item->fall_speed = 0;
     } else {
@@ -687,17 +731,18 @@ static void M_Wade(ITEM *const item, COLL_INFO *const coll)
     if (M_DeflectEdge(item, coll)) {
         item->rot.z = 0;
         if (g_Config.gameplay.fix_wade_wall_hit
-            && coll->side_front.type == HT_WALL
+            && (coll->side_front.type == HT_WALL
+                || coll->side_front.type == HT_SPLIT_TRI)
             && coll->side_front.floor < -STEP_L * 5 / 2
-            && coll->old_anim_state == LS_WADE
-            && Item_TestAnimEqual(item, LA_WADE)) {
-            item->current_anim_state = LS_SPLAT;
+            && coll->old_anim_state == LS(LS_WADE)
+            && Item_TestAnimEqual(item, LA(LA_WADE))) {
+            item->current_anim_state = LS(LS_SPLAT);
             if (Item_TestFrameRange(item, M_LF_WADE_L_START, M_LF_WADE_L_END)) {
-                Item_SwitchToAnim(item, LA_WALL_SMASH_LEFT, 0);
+                Item_SwitchToAnim(item, LA(LA_WALL_SMASH_LEFT), 0);
                 return;
             }
             if (Item_TestFrameRange(item, M_LF_WADE_R_START, M_LF_WADE_R_END)) {
-                Item_SwitchToAnim(item, LA_WALL_SMASH_RIGHT, 0);
+                Item_SwitchToAnim(item, LA(LA_WALL_SMASH_RIGHT), 0);
                 return;
             }
         }
@@ -712,9 +757,9 @@ static void M_Wade(ITEM *const item, COLL_INFO *const coll)
         && coll->side_mid.floor < -STEP_L / 2) {
         if (Item_TestFrameRange(
                 item, M_LF_WADE_STEP_L_START, M_LF_WADE_STEP_L_END)) {
-            Item_SwitchToAnim(item, LA_RUN_UP_STEP_LEFT, 0);
+            Item_SwitchToAnim(item, LA(LA_RUN_UP_STEP_LEFT), 0);
         } else {
-            Item_SwitchToAnim(item, LA_RUN_UP_STEP_RIGHT, 0);
+            Item_SwitchToAnim(item, LA(LA_RUN_UP_STEP_RIGHT), 0);
         }
     }
 
@@ -723,6 +768,96 @@ static void M_Wade(ITEM *const item, COLL_INFO *const coll)
     }
 
     item->pos.y += MIN(coll->side_mid.floor, 50);
+}
+
+static void M_Sprint(ITEM *const item, COLL_INFO *const coll)
+{
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    lara->move_angle = item->rot.y;
+    coll->bad_pos = NO_BAD_POS;
+    coll->bad_neg = -STEPUP_HEIGHT;
+    coll->bad_ceiling = 0;
+    coll->slopes_are_walls = 1;
+
+    Lara_Col_GetInfo(item, coll);
+    if (M_TestCeiling(item, coll) || Lara_Col_TestVault(item, coll)) {
+        return;
+    }
+
+    if (M_DeflectEdge(item, coll)) {
+        item->rot.z = 0;
+        if (M_TestWall(item, STEP_L, 0, -STEP_L * 5 / 2)) {
+            Item_SwitchToAnim(item, LA(LA_WALL_SMASH_LEFT), 0);
+            return;
+        }
+
+        M_CollideStop(item, coll);
+    }
+
+    if (M_Fallen(item, coll)) {
+        return;
+    }
+
+    if (!g_Config.gameplay.enable_responsive_sprint
+        && coll->side_mid.floor >= -STEPUP_HEIGHT
+        && coll->side_mid.floor < -STEP_L / 2) {
+        if (Item_TestFrameRange(
+                item, M_LF_SPRINT_STEP_L_START, M_LF_SPRINT_STEP_L_END)) {
+            Item_SwitchToAnim(item, LA(LA_RUN_UP_STEP_LEFT), 0);
+        } else {
+            Item_SwitchToAnim(item, LA(LA_RUN_UP_STEP_RIGHT), 0);
+        }
+    }
+
+    if (M_TestSlide(item, coll)) {
+        return;
+    }
+
+    item->pos.y += MIN(coll->side_mid.floor, 50);
+}
+
+static void M_SprintRoll(ITEM *const item, COLL_INFO *const coll)
+{
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    lara->move_angle = item->rot.y;
+    if (item->speed < 0) {
+        lara->move_angle += DEG_180;
+    }
+    coll->bad_pos = NO_BAD_POS;
+    coll->bad_neg = -STEP_L;
+    coll->bad_ceiling = STEPUP_HEIGHT / 2;
+    coll->slopes_are_walls = 1;
+
+    Lara_Col_GetInfo(item, coll);
+    Lara_Col_DeflectEdgeJump(item, coll);
+    if (M_Fallen(item, coll)) {
+        return;
+    }
+
+    if (item->speed < 0) {
+        lara->move_angle = item->rot.y;
+    }
+
+    if (coll->side_mid.floor <= 0 && item->fall_speed > 0) {
+        if (Lara_Col_LandedBad(item)) {
+            item->goal_anim_state = LS(LS_DEATH);
+        } else if (
+            lara->water_status == LWS_WADE || !g_Input.forward
+            || g_Input.slow) {
+            item->goal_anim_state = LS(LS_STOP);
+        } else {
+            item->goal_anim_state = LS(LS_RUN);
+        }
+
+        item->fall_speed = 0;
+        item->gravity = false;
+        item->speed = 0;
+        item->pos.y += coll->side_mid.floor;
+        Lara_Animate(item);
+    }
+
+    Lara_Col_Shift(coll);
+    item->pos.y += coll->side_mid.floor;
 }
 
 // clang-format off
@@ -739,11 +874,8 @@ REGISTER_LARA_COL(LS_DIE_MIDAS,    M_Default)
 REGISTER_LARA_COL(LS_GYMNAST,      M_Default)
 REGISTER_LARA_COL(LS_WATER_OUT,    M_Default)
 REGISTER_LARA_COL(LS_PULL_UP,      M_Default)
-#if TR_VERSION == 1
 REGISTER_LARA_COL(LS_CONTROLLED,   M_Default)
-#else
 REGISTER_LARA_COL(LS_FLARE_PICKUP, M_Default)
-#endif
 REGISTER_LARA_COL(LS_WALK,         M_Walk)
 REGISTER_LARA_COL(LS_WALK_BACK,    M_WalkBack)
 REGISTER_LARA_COL(LS_STEP_RIGHT,   M_SideStep)
@@ -751,6 +883,8 @@ REGISTER_LARA_COL(LS_STEP_LEFT,    M_SideStep)
 REGISTER_LARA_COL(LS_RUN,          M_Run)
 REGISTER_LARA_COL(LS_STOP,         M_Stop)
 REGISTER_LARA_COL(LS_POSE,         M_Stop)
+REGISTER_LARA_COL(LS_POSE_START,   M_Stop)
+REGISTER_LARA_COL(LS_POSE_END,     M_Stop)
 REGISTER_LARA_COL(LS_LAND,         M_Stop)
 REGISTER_LARA_COL(LS_FAST_TURN,    M_Stop)
 REGISTER_LARA_COL(LS_FAST_BACK,    M_FastBack)
@@ -763,4 +897,6 @@ REGISTER_LARA_COL(LS_SLIDE_BACK,   M_Slide)
 REGISTER_LARA_COL(LS_ROLL,         M_Roll)
 REGISTER_LARA_COL(LS_ROLL_CONT,    M_RollContinue)
 REGISTER_LARA_COL(LS_WADE,         M_Wade)
+REGISTER_LARA_COL(LS_SPRINT,       M_Sprint)
+REGISTER_LARA_COL(LS_SPRINT_ROLL,  M_SprintRoll)
 // clang-format on

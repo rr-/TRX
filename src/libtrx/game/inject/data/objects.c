@@ -5,12 +5,6 @@
 
 static VECTOR *m_ProcessedMeshes = nullptr;
 
-static void M_ReadBounds16(BOUNDS_16 *bounds, VFILE *file);
-static void M_HandleObjectData(INJECTION_CHUNK chunk);
-static void M_ReadObject(INJECTION_CHUNK chunk);
-static void M_ReadStaticObject3D(INJECTION_CHUNK chunk);
-static void M_AlignTextureReferences(OBJECT_MESH *mesh, int32_t tex_info_base);
-
 static void M_ReadBounds16(BOUNDS_16 *const bounds, VFILE *const file)
 {
     bounds->min.x = VFile_ReadS16(file);
@@ -21,36 +15,38 @@ static void M_ReadBounds16(BOUNDS_16 *const bounds, VFILE *const file)
     bounds->max.z = VFile_ReadS16(file);
 }
 
-static void M_HandleObjectData(const INJECTION_CHUNK chunk)
+static void M_AlignTextureReferences(
+    OBJECT_MESH *const mesh, const int32_t tex_info_base)
 {
-    ASSERT(chunk.num_blocks == 1);
-    const INJECTION_DATA_TYPE data_type = VFile_ReadS32(chunk.injection->fp);
-    const int32_t data_count = VFile_ReadS32(chunk.injection->fp);
-    VFile_Skip(chunk.injection->fp, sizeof(int32_t));
+    if (Vector_Contains(m_ProcessedMeshes, (void *)mesh)) {
+        return;
+    }
+    Vector_Add(m_ProcessedMeshes, (void *)mesh);
 
-    m_ProcessedMeshes = Vector_Create(sizeof(OBJECT_MESH *));
-    for (int32_t i = 0; i < data_count; i++) {
-        switch (data_type) {
-        case IDT_OBJECTS:
-            M_ReadObject(chunk);
-            break;
-        case IDT_STATIC_OBJECTS:
-            M_ReadStaticObject3D(chunk);
-            break;
-        default:
-            LOG_WARNING("Unrecognised object data type %d", data_type);
-            break;
-        }
+    for (int32_t j = 0; j < mesh->num_tex_face4s; j++) {
+        mesh->tex_face4s[j].texture_idx += tex_info_base;
     }
 
-    Vector_Free(m_ProcessedMeshes);
+    for (int32_t j = 0; j < mesh->num_tex_face3s; j++) {
+        mesh->tex_face3s[j].texture_idx += tex_info_base;
+    }
+
+    for (int32_t j = 0; j < mesh->num_flat_face4s; j++) {
+        FACE4 *const face = &mesh->flat_face4s[j];
+        face->palette_idx = Inject_GetPaletteIndex(face->palette_idx);
+    }
+
+    for (int32_t j = 0; j < mesh->num_flat_face3s; j++) {
+        FACE3 *const face = &mesh->flat_face3s[j];
+        face->palette_idx = Inject_GetPaletteIndex(face->palette_idx);
+    }
 }
 
 static void M_ReadObject(const INJECTION_CHUNK chunk)
 {
     const LEVEL_INFO cached_info = Inject_GetCachedInfo();
     const INJECTION_OBJECT_INFO obj_info =
-        Inject_ReadObjectPtr(chunk.injection->fp);
+        Inject_ReadObjectPtr(chunk.injection);
     OBJECT *const obj = Object_Get(obj_info.id);
 
     const int16_t num_meshes = VFile_ReadS16(chunk.injection->fp);
@@ -66,13 +62,19 @@ static void M_ReadObject(const INJECTION_CHUNK chunk)
         obj->bone_idx = bone_idx + cached_info.anims.bone_count;
     }
 
-    obj->frame_ofs = VFile_ReadU32(chunk.injection->fp);
-    obj->frame_base = nullptr;
-    obj->anim_idx = VFile_ReadS16(chunk.injection->fp);
-    if (obj->anim_idx != -1) {
-        obj->anim_idx += cached_info.anims.anim_count;
+    // Ommitted animation data marks that existing related object data should be
+    // retained i.e. mesh replacement only.
+    const uint32_t frame_ofs = VFile_ReadU32(chunk.injection->fp);
+    const int16_t anim_idx = VFile_ReadS16(chunk.injection->fp);
+    if ((int32_t)frame_ofs != -1) {
+        obj->frame_ofs = frame_ofs;
+        obj->frame_base = nullptr;
+        obj->anim_idx = anim_idx;
+        if (obj->anim_idx != -1) {
+            obj->anim_idx += cached_info.anims.anim_count;
+        }
+        obj->loaded = true;
     }
-    obj->loaded = true;
 
     for (int32_t i = 0; i < num_meshes; i++) {
         OBJECT_MESH *const mesh = Object_GetMesh(obj->mesh_idx + i);
@@ -101,31 +103,32 @@ static void M_ReadStaticObject3D(const INJECTION_CHUNK chunk)
     M_AlignTextureReferences(mesh, cached_info.textures.object_count);
 }
 
-static void M_AlignTextureReferences(
-    OBJECT_MESH *const mesh, const int32_t tex_info_base)
+static void M_HandleObjectData(const INJECTION_CHUNK chunk)
 {
-    if (Vector_Contains(m_ProcessedMeshes, (void *)mesh)) {
-        return;
-    }
-    Vector_Add(m_ProcessedMeshes, (void *)mesh);
+    m_ProcessedMeshes = Vector_Create(sizeof(OBJECT_MESH *));
+    for (int32_t i = 0; i < chunk.num_blocks; i++) {
+        const INJECTION_DATA_TYPE data_type =
+            VFile_ReadS32(chunk.injection->fp);
+        const int32_t data_count = VFile_ReadS32(chunk.injection->fp);
+        const int32_t data_size = VFile_ReadS32(chunk.injection->fp);
 
-    for (int32_t j = 0; j < mesh->num_tex_face4s; j++) {
-        mesh->tex_face4s[j].texture_idx += tex_info_base;
+        for (int32_t j = 0; j < data_count; j++) {
+            switch (data_type) {
+            case IDT_OBJECTS:
+                M_ReadObject(chunk);
+                break;
+            case IDT_STATIC_OBJECTS:
+                M_ReadStaticObject3D(chunk);
+                break;
+            default:
+                LOG_WARNING("Unrecognised object data type %d", data_type);
+                VFile_Skip(chunk.injection->fp, data_size);
+                break;
+            }
+        }
     }
 
-    for (int32_t j = 0; j < mesh->num_tex_face3s; j++) {
-        mesh->tex_face3s[j].texture_idx += tex_info_base;
-    }
-
-    for (int32_t j = 0; j < mesh->num_flat_face4s; j++) {
-        FACE4 *const face = &mesh->flat_face4s[j];
-        face->palette_idx = Inject_GetPaletteIndex(face->palette_idx);
-    }
-
-    for (int32_t j = 0; j < mesh->num_flat_face3s; j++) {
-        FACE3 *const face = &mesh->flat_face3s[j];
-        face->palette_idx = Inject_GetPaletteIndex(face->palette_idx);
-    }
+    Vector_Free(m_ProcessedMeshes);
 }
 
 REGISTER_INJECTOR(ICT_OBJECT_DATA, M_HandleObjectData)

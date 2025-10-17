@@ -47,12 +47,14 @@ typedef enum {
     GBUF_SAMPLE_INFOS,
     GBUF_SAMPLES,
     GBUF_DEMO_BUFFER,
+    GBUF_WALKABLES,
     GBUF_NUM_MALLOC_TYPES,
     // clang-format on
 } GAME_BUFFER;
 
 void GameBuf_Init(void);
 void GameBuf_Shutdown(void);
+void GameBuf_ResetSingle(GAME_BUFFER buffer);
 void GameBuf_Reset(void);
 
 void *GameBuf_Alloc(size_t alloc_size, GAME_BUFFER buffer);

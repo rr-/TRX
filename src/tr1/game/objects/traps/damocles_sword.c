@@ -1,29 +1,13 @@
-#include "game/lara/common.h"
-#include "game/random.h"
-#include "game/sound.h"
-#include "game/spawn.h"
-#include "global/vars.h"
+#include "game/lara.h"
 
+#include <libtrx/game/random.h>
+#include <libtrx/game/rooms.h>
+#include <libtrx/game/sound.h>
+#include <libtrx/game/spawn.h>
 #include <libtrx/utils.h>
 
 #define DAMOCLES_SWORD_ACTIVATE_DIST ((WALL_L * 3) / 2)
 #define DAMOCLES_SWORD_DAMAGE 100
-
-static void M_Setup(OBJECT *obj);
-static void M_Initialise(int16_t item_num);
-static void M_Control(int16_t item_num);
-static void M_Collision(int16_t item_num, ITEM *lara_item, COLL_INFO *coll);
-
-static void M_Setup(OBJECT *const obj)
-{
-    obj->initialise_func = M_Initialise;
-    obj->control_func = M_Control;
-    obj->collision_func = M_Collision;
-    obj->shadow_size = UNIT_SHADOW;
-    obj->save_position = true;
-    obj->save_anim = true;
-    obj->save_flags = true;
-}
 
 static void M_Initialise(const int16_t item_num)
 {
@@ -66,9 +50,10 @@ static void M_Control(const int16_t item_num)
         }
     } else if (item->pos.y != item->floor) {
         item->rot.y += item->required_anim_state;
-        int32_t x = g_LaraItem->pos.x - item->pos.x;
-        int32_t y = g_LaraItem->pos.y - item->pos.y;
-        int32_t z = g_LaraItem->pos.z - item->pos.z;
+        const ITEM *const lara_item = Lara_GetItem();
+        const int32_t x = lara_item->pos.x - item->pos.x;
+        const int32_t y = lara_item->pos.y - item->pos.y;
+        const int32_t z = lara_item->pos.z - item->pos.z;
         if (ABS(x) <= DAMOCLES_SWORD_ACTIVATE_DIST
             && ABS(z) <= DAMOCLES_SWORD_ACTIVATE_DIST && y > 0
             && y < WALL_L * 3) {
@@ -97,6 +82,17 @@ static void M_Collision(
         int32_t d = lara_item->rot.y + (Random_GetControl() - 0x4000) / 8;
         Spawn_Blood(x, y, z, lara_item->speed, d, lara_item->room_num);
     }
+}
+
+static void M_Setup(OBJECT *const obj)
+{
+    obj->initialise_func = M_Initialise;
+    obj->control_func = M_Control;
+    obj->collision_func = M_Collision;
+    obj->shadow_size = UNIT_SHADOW;
+    obj->save_position = true;
+    obj->save_anim = true;
+    obj->save_flags = true;
 }
 
 REGISTER_OBJECT(O_DAMOCLES_SWORD, M_Setup)

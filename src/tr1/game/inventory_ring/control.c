@@ -1,31 +1,31 @@
 #include "game/inventory_ring/control.h"
 
-#include "game/console/common.h"
 #include "game/game.h"
 #include "game/game_flow.h"
 #include "game/game_string.h"
-#include "game/input.h"
 #include "game/inventory.h"
 #include "game/inventory_ring/vars.h"
-#include "game/lara/common.h"
+#include "game/lara.h"
 #include "game/option/option_compass.h"
-#include "game/output.h"
-#include "game/overlay.h"
 #include "game/savegame.h"
 #include "game/shell.h"
-#include "game/sound.h"
 #include "game/stats.h"
-#include "game/viewport.h"
 #include "global/vars.h"
 
 #include <libtrx/config.h>
 #include <libtrx/game/camera.h>
+#include <libtrx/game/console.h>
 #include <libtrx/game/gun/const.h>
+#include <libtrx/game/input.h>
 #include <libtrx/game/interpolation.h>
 #include <libtrx/game/inventory_ring/priv.h>
 #include <libtrx/game/music.h>
 #include <libtrx/game/option.h>
 #include <libtrx/game/option/examine.h>
+#include <libtrx/game/output.h>
+#include <libtrx/game/overlay.h>
+#include <libtrx/game/sound.h>
+#include <libtrx/game/viewport.h>
 #include <libtrx/memory.h>
 
 #define M_INV_RING_FADE_TIME_FAST                                              \
@@ -38,20 +38,7 @@
 
 static CLOCK_TIMER m_DemoTimer = { .type = CLOCK_TIMER_SIM };
 static int32_t m_StartLevel;
-static GAME_OBJECT_ID m_InvChosen = NO_OBJECT;
-
-static void M_ShowAmmoQuantity(const char *fmt, int32_t qty);
-
-static void M_RingIsOpen(INV_RING *ring);
-static void M_RingIsNotOpen(INV_RING *ring);
-static void M_RingNotActive(const INVENTORY_ITEM *inv_item);
-static void M_RingActive(INV_RING *ring);
-
-static bool M_AnimateInventoryItem(INVENTORY_ITEM *inv_item);
-
-static GF_COMMAND M_Finish(INV_RING *ring, bool apply_changes);
-static GF_COMMAND M_Control(INV_RING *ring);
-static bool M_CheckDemoTimer(const INV_RING *ring);
+static OBJECT_ID m_InvChosen = NO_OBJECT;
 
 static void M_ShowAmmoQuantity(const char *const fmt, const int32_t qty)
 {
@@ -71,26 +58,27 @@ static void M_RingIsNotOpen(INV_RING *const ring)
     InvRing_ShowExamine(false);
 }
 
-static void M_RingNotActive(const INVENTORY_ITEM *const inv_item)
+static void M_RingNotActive(
+    const INV_RING *const ring, const INVENTORY_ITEM *const inv_item)
 {
     InvRing_ShowItemName(inv_item);
 
     const int32_t qty = Inv_RequestItem(inv_item->object_id);
-    bool enable_examine = false;
 
+    const LARA_INFO *const lara = Lara_GetLaraInfo();
     switch (inv_item->object_id) {
     case O_SHOTGUN_OPTION:
         M_ShowAmmoQuantity(
             "%5d \\{ammo shotgun}",
-            g_Lara.shotgun_ammo.ammo / SHOTGUN_AMMO_CLIP);
+            lara->shotgun_ammo.ammo / SHOTGUN_AMMO_CLIP);
         break;
 
     case O_MAGNUM_OPTION:
-        M_ShowAmmoQuantity("%5d \\{ammo magnums}", g_Lara.magnum_ammo.ammo);
+        M_ShowAmmoQuantity("%5d \\{ammo magnums}", lara->magnum_ammo.ammo);
         break;
 
     case O_UZI_OPTION:
-        M_ShowAmmoQuantity("%5d \\{ammo uzis}", g_Lara.uzi_ammo.ammo);
+        M_ShowAmmoQuantity("%5d \\{ammo uzis}", lara->uzi_ammo.ammo);
         break;
 
     case O_SHOTGUN_AMMO_OPTION:
@@ -126,15 +114,15 @@ static void M_RingNotActive(const INVENTORY_ITEM *const inv_item)
             InvRing_ShowItemQuantity("%d", qty);
         }
 
-        enable_examine = !Option_Examine_IsActive()
-            && Option_Examine_CanExamine(inv_item->object_id);
         break;
 
     default:
         break;
     }
 
-    InvRing_ShowExamine(enable_examine);
+    InvRing_ShowExamine(
+        ring->motion.status == RNG_OPEN
+        && Option_Examine_CanExamine(inv_item->object_id));
 }
 
 static void M_RingActive(INV_RING *const ring)
@@ -277,6 +265,23 @@ static GF_COMMAND M_Finish(INV_RING *const ring, const bool apply_changes)
     return (GF_COMMAND) { .action = GF_NOOP };
 }
 
+static bool M_CheckDemoTimer(const INV_RING *const ring)
+{
+    if (!g_Config.gameplay.enable_demo
+        || GF_GetLevelTable(GFLT_DEMOS)->count == 0) {
+        return false;
+    }
+
+    if (ring->mode != INV_TITLE_MODE || g_Input.any || g_InputDB.any
+        || Console_IsOpened()) {
+        ClockTimer_Sync(&m_DemoTimer);
+        return false;
+    }
+
+    return ring->motion.status == RNG_OPEN
+        && ClockTimer_CheckElapsed(&m_DemoTimer, g_GameFlow.demo_delay);
+}
+
 static GF_COMMAND M_Control(INV_RING *const ring)
 {
     if (ring->motion.status == RNG_OPENING) {
@@ -336,7 +341,8 @@ static GF_COMMAND M_Control(INV_RING *const ring)
 
     m_StartLevel = Game_IsLevelComplete() ? g_GameInfo.select_level_num : -1;
 
-    if (g_Config.gameplay.enable_timer_in_inventory) {
+    if (g_Config.gameplay.enable_timer_in_inventory
+        && !(TR_VERSION >= 2 && Game_IsInGym())) {
         Stats_UpdateTimer();
     }
 
@@ -420,10 +426,15 @@ static GF_COMMAND M_Control(INV_RING *const ring)
             INVENTORY_ITEM *const inv_item =
                 g_InvRing_Source[ring->type].items[ring->current_object];
 
-            inv_item->goal_frame = inv_item->open_frame;
-            inv_item->anim_direction = 1;
-            inv_item->action = examine ? ACTION_EXAMINE : ACTION_USE;
-
+            if (examine) {
+                inv_item->action = ACTION_EXAMINE;
+                inv_item->goal_frame = 0;
+                inv_item->anim_direction = 1;
+            } else {
+                inv_item->action = ACTION_USE;
+                inv_item->goal_frame = inv_item->open_frame;
+                inv_item->anim_direction = 1;
+            }
             InvRing_MotionSetup(
                 ring, RNG_SELECTING, RNG_SELECTED, M_SELECTING_FRAMES);
             InvRing_MotionRotation(
@@ -726,9 +737,11 @@ static GF_COMMAND M_Control(INV_RING *const ring)
         || ring->motion.status == RNG_DESELECTING
         || ring->motion.status == RNG_DESELECT
         || ring->motion.status == RNG_CLOSING_ITEM) {
-        if (!ring->rotating && !g_Input.menu_left && !g_Input.menu_right) {
+        if (!ring->rotating
+            && ((!g_Input.menu_left && !g_Input.menu_right)
+                || ring->number_of_objects <= 1)) {
             INVENTORY_ITEM *const inv_item = ring->list[ring->current_object];
-            M_RingNotActive(inv_item);
+            M_RingNotActive(ring, inv_item);
         }
         M_RingIsOpen(ring);
     } else {
@@ -746,23 +759,6 @@ static GF_COMMAND M_Control(INV_RING *const ring)
 
     Interpolation_Remember();
     return (GF_COMMAND) { .action = GF_NOOP };
-}
-
-static bool M_CheckDemoTimer(const INV_RING *const ring)
-{
-    if (!g_Config.gameplay.enable_demo
-        || GF_GetLevelTable(GFLT_DEMOS)->count == 0) {
-        return false;
-    }
-
-    if (ring->mode != INV_TITLE_MODE || g_Input.any || g_InputDB.any
-        || Console_IsOpened()) {
-        ClockTimer_Sync(&m_DemoTimer);
-        return false;
-    }
-
-    return ring->motion.status == RNG_OPEN
-        && ClockTimer_CheckElapsed(&m_DemoTimer, g_GameFlow.demo_delay);
 }
 
 void InvRing_RemoveAllText(void)
@@ -812,9 +808,6 @@ INV_RING *InvRing_Open(const INVENTORY_MODE mode)
     if (!g_Config.audio.enable_music_in_inventory && mode != INV_TITLE_MODE) {
         Music_Pause();
         Sound_PauseAll();
-    } else {
-        Sound_ResetAmbient();
-        Sound_UpdateEffects();
     }
 
     INV_RING *const ring = Memory_Alloc(sizeof(INV_RING));
@@ -855,9 +848,6 @@ INV_RING *InvRing_Open(const INVENTORY_MODE mode)
 
     g_Inv_Mode = mode;
     Interpolation_Remember();
-    if (g_Config.gameplay.enable_timer_in_inventory) {
-        Stats_StartTimer();
-    }
 
     if (mode == INV_TITLE_MODE) {
         Output_LoadBackgroundFromFile(g_GameFlow.main_menu_background_path);
@@ -899,17 +889,11 @@ void InvRing_Close(INV_RING *const ring)
     Memory_Free(ring);
 }
 
-GF_COMMAND InvRing_Control(INV_RING *const ring, const int32_t num_frames)
+GF_COMMAND InvRing_Control(INV_RING *const ring)
 {
     InvRing_AdjustMusicVolume(ring);
-    GF_COMMAND gf_cmd = { .action = GF_NOOP };
-    for (int32_t i = 0; i < num_frames; i++) {
-        gf_cmd = M_Control(ring);
-        if (gf_cmd.action != GF_NOOP) {
-            break;
-        }
-    }
-
+    const GF_COMMAND gf_cmd = M_Control(ring);
+    Overlay_Animate(1);
     return gf_cmd;
 }
 

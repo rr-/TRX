@@ -7,8 +7,6 @@
 #include "game/lara/misc.h"
 #include "strings.h"
 
-static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *ctx);
-
 static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
 {
     if (!String_IsEmpty(ctx->args)) {
@@ -21,7 +19,7 @@ static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
 
     ITEM *const lara_item = Lara_GetItem();
     if (lara_item->hit_points == LARA_MAX_HITPOINTS) {
-        Console_Log(GS(OSD_HEAL_ALREADY_FULL_HP));
+        Console_LogWarning(GS(OSD_HEAL_ALREADY_FULL_HP));
         return CR_SUCCESS;
     }
 

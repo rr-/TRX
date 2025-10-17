@@ -7,15 +7,13 @@
 #include "game/ui/elements/resize.h"
 #include "game/viewport.h"
 
-static int32_t M_GetVisibleRows(void);
-
 static int32_t M_GetVisibleRows(void)
 {
     if (TR_VERSION == 2) {
         return 10;
     } else {
         const int32_t res_h = Scaler_CalcInverse(
-            Viewport_GetHeight(VIEWPORT_GAME), SCALER_TARGET_TEXT);
+            Viewport_GetHeight(VIEWPORT_UI), SCALER_TARGET_TEXT);
         if (res_h <= 240) {
             return 5;
         } else if (res_h <= 384) {

@@ -11,6 +11,7 @@
 #include "game/objects/names.h"
 #include "game/output.h"
 #include "game/overlay.h"
+#include "game/sound.h"
 #include "game/ui.h"
 #include "strings.h"
 
@@ -28,16 +29,14 @@ typedef enum {
     PASS_MESH_BACK     = 1 << 4,
     PASS_MESH_IN_BACK  = 1 << 5,
     PASS_MESH_PAGE_1   = 1 << 6,
-    PASS_MESH_COMMON   = PASS_MESH_SPINE | PASS_MESH_BACK | PASS_MESH_FRONT,
+    PASS_MESH_COMMON   = PASS_MESH_SPINE | PASS_MESH_BACK | PASS_MESH_IN_BACK | PASS_MESH_FRONT,
     // clang-format on
 } PASS_MESH;
 
 static bool m_ShowExamine = false;
 static char *m_CountText = nullptr;
 static size_t m_CountTextCap = 0;
-static GAME_OBJECT_ID m_RequestedObjectID = NO_OBJECT;
-
-static void M_HandleRequestedObject(INV_RING *ring);
+static OBJECT_ID m_RequestedObjectID = NO_OBJECT;
 
 static void M_HandleRequestedObject(INV_RING *const ring)
 {
@@ -46,7 +45,7 @@ static void M_HandleRequestedObject(INV_RING *const ring)
     }
 
     for (int32_t i = 0; i < ring->number_of_objects; i++) {
-        const GAME_OBJECT_ID item_id = ring->list[i]->object_id;
+        const OBJECT_ID item_id = ring->list[i]->object_id;
         if (item_id == m_RequestedObjectID && Inv_RequestItem(item_id) > 0) {
             ring->current_object = i;
             break;
@@ -63,13 +62,18 @@ void InvRing_AdjustMusicVolume(const INV_RING *const ring)
     }
     const bool is_ambient =
         Music_GetCurrentPlayingTrack() == Music_GetCurrentLoopedTrack();
+    const double base_volume = is_ambient ? g_Config.audio.ambient_volume
+                                          : g_Config.audio.music_volume;
     const double multiplier = is_ambient
         ? g_Config.audio.inventory_ambient_volume
         : g_Config.audio.inventory_music_volume;
-    Music_SetVolume(g_Config.audio.music_volume * multiplier);
+    Music_SetVolume(base_volume * multiplier);
+
+    Sound_ResetAmbient();
+    Sound_UpdateEffects();
 }
 
-void InvRing_SetRequestedObjectID(const GAME_OBJECT_ID obj_id)
+void InvRing_SetRequestedObjectID(const OBJECT_ID obj_id)
 {
     m_RequestedObjectID = obj_id;
 }

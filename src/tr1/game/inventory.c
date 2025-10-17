@@ -1,34 +1,30 @@
 #include "game/inventory.h"
 
-#include "game/gun.h"
 #include "game/inventory_ring/vars.h"
-#include "game/objects/common.h"
-#include "game/objects/vars.h"
-#include "global/types.h"
-#include "global/vars.h"
 
-#include <libtrx/utils.h>
+#include <libtrx/game/gun.h>
+#include <libtrx/game/lara.h>
+#include <libtrx/game/objects/vars.h>
 
-#include <stdint.h>
-
-bool Inv_AddItem(const GAME_OBJECT_ID obj_id)
+bool Inv_AddItem(const OBJECT_ID obj_id)
 {
-    const GAME_OBJECT_ID inv_obj_id = Inv_GetItemOption(obj_id);
+    const OBJECT_ID inv_obj_id = Inv_GetItemOption(obj_id);
     const OBJECT *const object =
         Object_Get(inv_obj_id == NO_OBJECT ? obj_id : inv_obj_id);
     if (!object->loaded) {
         return false;
     }
 
+    LARA_INFO *const lara = Lara_GetLaraInfo();
     if (Object_IsType(obj_id, g_GunObjects)) {
         Gun_UpdateLaraMeshes(obj_id);
-        if (g_Lara.gun_type == LGT_UNARMED) {
-            g_Lara.gun_type = Gun_GetType(obj_id);
-            const bool hands_busy = g_Lara.gun_status == LGS_HANDS_BUSY;
-            g_Lara.gun_status = LGS_ARMLESS;
+        if (lara->gun_type == LGT_UNARMED) {
+            lara->gun_type = Gun_GetType(obj_id);
+            const bool hands_busy = lara->gun_status == LGS_HANDS_BUSY;
+            lara->gun_status = LGS_ARMLESS;
             Gun_InitialiseNewWeapon();
             if (hands_busy) {
-                g_Lara.gun_status = LGS_HANDS_BUSY;
+                lara->gun_status = LGS_HANDS_BUSY;
             }
         }
     }
@@ -48,76 +44,49 @@ bool Inv_AddItem(const GAME_OBJECT_ID obj_id)
     case O_PISTOL_ITEM:
     case O_PISTOL_OPTION:
         Inv_InsertItem(&g_InvRing_Item_Pistols);
+        if (lara->last_gun_type == LGT_UNARMED) {
+            lara->last_gun_type = LGT_PISTOLS;
+        }
         return true;
 
     case O_SHOTGUN_ITEM:
     case O_SHOTGUN_OPTION:
-        for (int32_t i = Inv_RequestItem(O_SHOTGUN_AMMO_ITEM); i > 0; i--) {
-            Inv_RemoveItem(O_SHOTGUN_AMMO_ITEM);
-            Inv_AddAmmo(&g_Lara.shotgun_ammo, SHOTGUN_AMMO_QTY);
-        }
-        Inv_AddAmmo(&g_Lara.shotgun_ammo, SHOTGUN_AMMO_QTY);
-        Inv_InsertItem(&g_InvRing_Item_Shotgun);
-        Item_GlobalReplace(O_SHOTGUN_ITEM, O_SHOTGUN_AMMO_ITEM);
+        Inv_AddGun(LGT_SHOTGUN);
         return false;
 
     case O_MAGNUM_ITEM:
     case O_MAGNUM_OPTION:
-        for (int32_t i = Inv_RequestItem(O_MAGNUM_AMMO_ITEM); i > 0; i--) {
-            Inv_RemoveItem(O_MAGNUM_AMMO_ITEM);
-            Inv_AddAmmo(&g_Lara.magnum_ammo, MAGNUM_AMMO_QTY);
-        }
-        Inv_AddAmmo(&g_Lara.magnum_ammo, MAGNUM_AMMO_QTY);
-        Inv_InsertItem(&g_InvRing_Item_Magnum);
-        Item_GlobalReplace(O_MAGNUM_ITEM, O_MAGNUM_AMMO_ITEM);
+        Inv_AddGun(LGT_MAGNUMS);
         return false;
 
     case O_UZI_ITEM:
     case O_UZI_OPTION:
-        for (int32_t i = Inv_RequestItem(O_UZI_AMMO_ITEM); i > 0; i--) {
-            Inv_RemoveItem(O_UZI_AMMO_ITEM);
-            Inv_AddAmmo(&g_Lara.uzi_ammo, UZI_AMMO_QTY);
-        }
-        Inv_AddAmmo(&g_Lara.uzi_ammo, UZI_AMMO_QTY);
-        Inv_InsertItem(&g_InvRing_Item_Uzi);
-        Item_GlobalReplace(O_UZI_ITEM, O_UZI_AMMO_ITEM);
+        Inv_AddGun(LGT_UZIS);
         return false;
 
     case O_SHOTGUN_AMMO_ITEM:
     case O_SHOTGUN_AMMO_OPTION:
-        if (Inv_RequestItem(O_SHOTGUN_ITEM)) {
-            Inv_AddAmmo(&g_Lara.shotgun_ammo, SHOTGUN_AMMO_QTY);
-        } else {
-            Inv_InsertItem(&g_InvRing_Item_ShotgunAmmo);
-        }
+        Inv_AddAmmo(LGT_SHOTGUN);
         return false;
 
     case O_MAGNUM_AMMO_ITEM:
     case O_MAGNUM_AMMO_OPTION:
-        if (Inv_RequestItem(O_MAGNUM_ITEM)) {
-            Inv_AddAmmo(&g_Lara.magnum_ammo, MAGNUM_AMMO_QTY);
-        } else {
-            Inv_InsertItem(&g_InvRing_Item_MagnumAmmo);
-        }
+        Inv_AddAmmo(LGT_MAGNUMS);
         return false;
 
     case O_UZI_AMMO_ITEM:
     case O_UZI_AMMO_OPTION:
-        if (Inv_RequestItem(O_UZI_ITEM)) {
-            Inv_AddAmmo(&g_Lara.uzi_ammo, UZI_AMMO_QTY);
-        } else {
-            Inv_InsertItem(&g_InvRing_Item_UziAmmo);
-        }
+        Inv_AddAmmo(LGT_UZIS);
         return false;
 
     case O_SMALL_MEDIPACK_ITEM:
     case O_SMALL_MEDIPACK_OPTION:
-        Inv_InsertItem(&g_InvRing_Item_Medi);
+        Inv_InsertItem(&g_InvRing_Item_SmallMedi);
         return true;
 
     case O_LARGE_MEDIPACK_ITEM:
     case O_LARGE_MEDIPACK_OPTION:
-        Inv_InsertItem(&g_InvRing_Item_BigMedi);
+        Inv_InsertItem(&g_InvRing_Item_LargeMedi);
         return true;
 
     case O_PUZZLE_ITEM_1:

@@ -1,51 +1,11 @@
 #include "game/objects/common.h"
 
 #include "game/inventory.h"
-#include "game/lara/common.h"
-#include "game/objects/vars.h"
-#include "game/output.h"
-#include "game/output/meshes/objects.h"
-#include "game/viewport.h"
-#include "global/vars.h"
 
 #include <libtrx/config.h>
 #include <libtrx/debug.h>
-#include <libtrx/game/collision.h>
 #include <libtrx/game/matrix.h>
-#include <libtrx/utils.h>
-
-void Object_Collision(int16_t item_num, ITEM *lara_item, COLL_INFO *coll)
-{
-    ITEM *const item = Item_Get(item_num);
-
-    if (!Lara_TestBoundsCollide(item, coll->radius)) {
-        return;
-    }
-    if (!Collide_TestCollision(item, lara_item)) {
-        return;
-    }
-
-    if (coll->enable_baddie_push) {
-        Lara_Push(item, coll, 0, 1);
-    }
-}
-
-void Object_CollisionTrap(int16_t item_num, ITEM *lara_item, COLL_INFO *coll)
-{
-    ITEM *const item = Item_Get(item_num);
-
-    if (item->status == IS_ACTIVE) {
-        if (Lara_TestBoundsCollide(item, coll->radius)) {
-            Collide_TestCollision(item, lara_item);
-        }
-    } else if (item->status != IS_INVISIBLE) {
-        Object_Collision(item_num, lara_item, coll);
-    }
-}
-
-void Object_DrawDummyItem(const ITEM *const item)
-{
-}
+#include <libtrx/game/output.h>
 
 void Object_DrawSpriteItem(const ITEM *const item)
 {
@@ -164,8 +124,8 @@ void Object_DrawPickupItem(const ITEM *const item)
     Output_CalculateLight(item->pos, room_num);
 
     frame = obj->frame_base;
-    int32_t clip = Output_GetObjectBounds(&frame->bounds);
-    if (clip) {
+    const CLIP clip = Output_CheckBoundsClip(&frame->bounds);
+    if (clip != CLIP_NOT_VISIBLE) {
         // From this point on the function is a slightly customised version
         // of the code in DrawAnimatingItem starting with the line that
         // matches the following line.
@@ -203,51 +163,8 @@ void Object_DrawPickupItem(const ITEM *const item)
     Matrix_Pop();
 }
 
-void Object_DrawAnimatingItem(const ITEM *const item)
-{
-    ANIM_FRAME *frmptr[2];
-    int32_t rate;
-    int32_t frac = Item_GetFrames(item, frmptr, &rate);
-    const OBJECT *const obj = Object_Get(item->object_id);
-
-    if (obj->shadow_size) {
-        Output_DrawShadow(obj->shadow_size, &frmptr[0]->bounds, item);
-    }
-
-    Matrix_Push();
-    Matrix_TranslateAbs32(item->interp.result.pos);
-    Matrix_Rot16(item->interp.result.rot);
-
-    Output_CalculateObjectLighting(item, &frmptr[0]->bounds);
-    const int16_t *extra_rotation = item->data ? item->data : nullptr;
-
-    Object_DrawInterpolatedObject(
-        obj, item->mesh_bits, extra_rotation, frmptr[0], frmptr[1], frac, rate);
-    Matrix_Pop();
-}
-
-void Object_DrawUnclippedItem(const ITEM *const item)
-{
-    int32_t left = g_PhdLeft;
-    int32_t top = g_PhdTop;
-    int32_t right = g_PhdRight;
-    int32_t bottom = g_PhdBottom;
-
-    g_PhdLeft = Viewport_GetMinX(VIEWPORT_GAME);
-    g_PhdTop = Viewport_GetMinY(VIEWPORT_GAME);
-    g_PhdRight = Viewport_GetMaxX(VIEWPORT_GAME);
-    g_PhdBottom = Viewport_GetMaxY(VIEWPORT_GAME);
-
-    Object_DrawAnimatingItem(item);
-
-    g_PhdLeft = left;
-    g_PhdTop = top;
-    g_PhdRight = right;
-    g_PhdBottom = bottom;
-}
-
 void Object_SetMeshReflective(
-    const GAME_OBJECT_ID obj_id, const int32_t mesh_idx, const bool enabled)
+    const OBJECT_ID obj_id, const int32_t mesh_idx, const bool enabled)
 {
     const OBJECT *const obj = Object_Get(obj_id);
     if (!obj->loaded) {
@@ -268,24 +185,13 @@ void Object_SetMeshReflective(
     for (int32_t i = 0; i < mesh->num_flat_face3s; i++) {
         mesh->flat_face3s[i].enable_reflections = enabled;
     }
-    Output_Meshes_ObserveObjectMeshUpdate(mesh);
+    Output_DispatchObjectMeshUpdate(obj->mesh_idx + mesh_idx);
 }
 
-void Object_SetReflective(const GAME_OBJECT_ID obj_id, const bool enabled)
+void Object_SetReflective(const OBJECT_ID obj_id, const bool enabled)
 {
     const OBJECT *const obj = Object_Get(obj_id);
     for (int32_t i = 0; i < obj->mesh_count; i++) {
         Object_SetMeshReflective(obj_id, i, enabled);
-    }
-}
-
-void Object_DrawMesh(
-    const int32_t mesh_idx, const int32_t clip, const bool interpolated)
-{
-    const OBJECT_MESH *const mesh = Object_GetMesh(mesh_idx);
-    if (interpolated) {
-        Output_DrawObjectMesh_I(mesh, clip);
-    } else {
-        Output_DrawObjectMesh(mesh, clip);
     }
 }

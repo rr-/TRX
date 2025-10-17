@@ -1,10 +1,9 @@
-#include "game/input.h"
-#include "game/lara/control.h"
-#include "game/sound.h"
-#include "global/vars.h"
-
 #include <libtrx/game/game_buf.h>
+#include <libtrx/game/input.h>
+#include <libtrx/game/lara.h>
 #include <libtrx/game/math.h>
+#include <libtrx/game/rooms.h>
+#include <libtrx/game/sound.h>
 
 #define ZIPLINE_MAX_SPEED 100
 #define ZIPLINE_ACCELERATION 5
@@ -32,26 +31,9 @@ static const OBJECT_BOUNDS m_ZiplineHandleBounds = {
     },
 };
 
-static const OBJECT_BOUNDS *M_Bounds(void);
-static void M_Setup(OBJECT *obj);
-static void M_Initialise(int16_t item_num);
-static void M_Control(int16_t item_num);
-static void M_Collision(int16_t item_num, ITEM *lara_item, COLL_INFO *coll);
-
 static const OBJECT_BOUNDS *M_Bounds(void)
 {
     return &m_ZiplineHandleBounds;
-}
-
-static void M_Setup(OBJECT *const obj)
-{
-    obj->initialise_func = M_Initialise;
-    obj->control_func = M_Control;
-    obj->collision_func = M_Collision;
-    obj->bounds_func = M_Bounds;
-    obj->save_position = true;
-    obj->save_flags = true;
-    obj->save_anim = true;
 }
 
 static void M_Initialise(const int16_t item_num)
@@ -103,9 +85,11 @@ static void M_Control(const int16_t item_num)
     Room_GetSector(item->pos.x, item->pos.y, item->pos.z, &room_num);
     Item_UpdateRoom(item_num, room_num);
 
-    const bool lara_on_zipline = g_LaraItem->current_anim_state == LS_ZIPLINE;
+    ITEM *const lara_item = Lara_GetItem();
+    const bool lara_on_zipline =
+        lara_item->current_anim_state == LS(LS_ZIPLINE);
     if (lara_on_zipline) {
-        g_LaraItem->pos = item->pos;
+        lara_item->pos = item->pos;
     }
 
     const int32_t x = item->pos.x + ((s * WALL_L) >> W2V_SHIFT);
@@ -120,11 +104,11 @@ static void M_Control(const int16_t item_num)
     }
 
     if (lara_on_zipline) {
-        g_LaraItem->goal_anim_state = LS_JUMP_FORWARD;
-        Lara_Animate(g_LaraItem);
-        g_LaraItem->gravity = 1;
-        g_LaraItem->speed = item->fall_speed;
-        g_LaraItem->fall_speed = item->fall_speed >> 2;
+        lara_item->goal_anim_state = LS(LS_JUMP_FORWARD);
+        Lara_Animate(lara_item);
+        lara_item->gravity = 1;
+        lara_item->speed = item->fall_speed;
+        lara_item->fall_speed = item->fall_speed >> 2;
     }
     Sound_Effect(SFX_ZIPLINE_STOP, &item->pos, SPM_ALWAYS);
     Item_RemoveActive(item_num);
@@ -135,8 +119,9 @@ static void M_Control(const int16_t item_num)
 static void M_Collision(
     const int16_t item_num, ITEM *const lara_item, COLL_INFO *const coll)
 {
-    if (!g_Input.action || g_Lara.gun_status != LGS_ARMLESS
-        || lara_item->gravity || lara_item->current_anim_state != LS_STOP) {
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    if (!g_Input.action || lara->gun_status != LGS_ARMLESS || lara_item->gravity
+        || lara_item->current_anim_state != LS(LS_STOP)) {
         return;
     }
 
@@ -151,12 +136,12 @@ static void M_Collision(
     }
 
     Lara_AlignPosition(item, &m_ZiplineHandlePosition);
-    g_Lara.gun_status = LGS_HANDS_BUSY;
+    lara->gun_status = LGS_HANDS_BUSY;
 
-    lara_item->goal_anim_state = LS_ZIPLINE;
+    lara_item->goal_anim_state = LS(LS_ZIPLINE);
     do {
         Item_Animate(lara_item);
-    } while (lara_item->current_anim_state != LS_PULL_UP);
+    } while (lara_item->current_anim_state != LS(LS_PULL_UP));
 
     if (!item->active) {
         Item_AddActive(item_num);
@@ -164,6 +149,17 @@ static void M_Collision(
 
     item->status = IS_ACTIVE;
     item->flags |= IF_ONE_SHOT;
+}
+
+static void M_Setup(OBJECT *const obj)
+{
+    obj->initialise_func = M_Initialise;
+    obj->control_func = M_Control;
+    obj->collision_func = M_Collision;
+    obj->bounds_func = M_Bounds;
+    obj->save_position = true;
+    obj->save_flags = true;
+    obj->save_anim = true;
 }
 
 REGISTER_OBJECT(O_ZIPLINE_HANDLE, M_Setup)

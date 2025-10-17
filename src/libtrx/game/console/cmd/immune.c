@@ -5,18 +5,18 @@
 #include "game/game_string.h"
 #include "strings.h"
 
-static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *ctx);
-
 static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
 {
     bool enable;
     if (String_ParseBool(ctx->args, &enable)) {
         g_Config.debug.enable_invulnerability = enable;
+        Config_Update();
     } else if (!String_IsEmpty(ctx->args)) {
         return CR_BAD_INVOCATION;
     } else {
         g_Config.debug.enable_invulnerability =
             !g_Config.debug.enable_invulnerability;
+        Config_Update();
     }
 
     Console_Log(

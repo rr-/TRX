@@ -1,4 +1,5 @@
 #include "game/console/registry.h"
+#include "game/game.h"
 #include "game/items.h"
 #include "game/lara/common.h"
 #include "game/objects/common.h"
@@ -6,15 +7,13 @@
 #include "game/sound.h"
 #include "strings.h"
 
-static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *ctx);
-
 static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
 {
     if (!String_IsEmpty(ctx->args)) {
         return CR_BAD_INVOCATION;
     }
 
-    if (!Object_Get(O_LARA)->loaded) {
+    if (!Game_IsPlayable()) {
         return CR_UNAVAILABLE;
     }
 
@@ -25,7 +24,7 @@ static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
     }
 
     Sound_Effect(SFX_LARA_FALL, &lara_item->pos, SPM_NORMAL);
-    Sound_Effect(SFX_EXPLOSION_CHEAT, &lara_item->pos, SPM_NORMAL);
+    Sound_Effect(SFX_EXPLOSION_1, &lara_item->pos, SPM_NORMAL);
     Item_Explode(lara->item_num, -1, 1);
 
     lara_item->hit_points = 0;

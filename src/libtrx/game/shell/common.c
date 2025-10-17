@@ -1,3 +1,4 @@
+#include "config.h"
 #include "debug.h"
 #include "game/shell.h"
 #include "log.h"
@@ -8,6 +9,8 @@
     #include <windows.h>
 #endif
 
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_messagebox.h>
 #include <libavcodec/version.h>
 #include <libavutil/log.h>
 #include <stdio.h>
@@ -66,8 +69,22 @@ bool Shell_IsFullscreen(void)
     return (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0;
 }
 
+SHELL_SIZE Shell_GetCurrentSize(void)
+{
+    return Shell_IsFullscreen() ? Shell_GetCurrentDisplaySize()
+                                : Shell_GetWindowSize();
+}
+
+SHELL_SIZE Shell_GetDefaultSize(void)
+{
+    return (SHELL_SIZE) { SHELL_HEADLESS_WIDTH, SHELL_HEADLESS_HEIGHT };
+}
+
 SHELL_SIZE Shell_GetWindowSize(void)
 {
+    if (Shell_GetArgs()->headless) {
+        return Shell_GetDefaultSize();
+    }
     SDL_Window *const window = Shell_GetWindow();
     SHELL_SIZE result = { .w = -1, .h = -1 };
     if (window != nullptr) {
@@ -76,14 +93,11 @@ SHELL_SIZE Shell_GetWindowSize(void)
     return result;
 }
 
-SHELL_SIZE Shell_GetCurrentSize(void)
-{
-    return Shell_IsFullscreen() ? Shell_GetCurrentDisplaySize()
-                                : Shell_GetWindowSize();
-}
-
 SHELL_SIZE Shell_GetCurrentDisplaySize(void)
 {
+    if (Shell_GetArgs()->headless) {
+        return Shell_GetDefaultSize();
+    }
     int32_t display_idx = 0;
     SDL_Window *const window = Shell_GetWindow();
     if (window != nullptr) {

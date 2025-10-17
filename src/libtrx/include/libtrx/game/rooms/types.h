@@ -37,23 +37,43 @@ typedef struct {
     PORTAL portal[];
 } PORTALS;
 
+typedef struct WALKABLE {
+    int16_t item_num;
+    XYZ_32 pos;
+    struct WALKABLE *next;
+} WALKABLE;
+
+typedef struct {
+    SPLIT_TYPE type;
+    uint8_t tilts[4];
+    int8_t h1;
+    int8_t h2;
+} SPLIT;
+
+typedef struct {
+    SURFACE_TYPE type;
+    int16_t height;
+    bool is_split;
+    union {
+        int16_t tilt;
+        SPLIT split;
+    };
+} SURFACE;
+
 typedef struct {
     uint16_t idx;
     int16_t box;
     bool is_death_sector;
-#if TR_VERSION == 2
     LADDER_DIRECTION ladder;
-#endif
     TRIGGER *trigger;
+    WALKABLE *walkable;
     struct {
         int16_t pit;
         int16_t sky;
         int16_t wall;
     } portal_room;
-    struct {
-        int16_t height;
-        int16_t tilt;
-    } floor, ceiling;
+    SURFACE floor;
+    SURFACE ceiling;
 } SECTOR;
 
 typedef struct {
@@ -66,12 +86,8 @@ typedef struct {
     XYZ_16 pos;
     int16_t light_base;
     int16_t light_adder;
-#if TR_VERSION == 1
     uint16_t flags;
-#elif TR_VERSION == 2
     uint8_t light_table_value;
-    uint8_t flags;
-#endif
 } ROOM_VERTEX;
 
 typedef struct {

@@ -7,6 +7,7 @@
 #include "game/gym.h"
 #include "game/input.h"
 #include "game/lara.h"
+#include "game/level/settings.h"
 #include "game/music.h"
 #include "game/pathing.h"
 #include "game/rooms.h"
@@ -33,15 +34,6 @@
 
 static int32_t m_OpenDoorsCheatCooldown = 0;
 
-static SECTOR *M_GetCurrentSector(void);
-static void M_UpdateEnvironment(void);
-static void M_HandleEnvironment(void);
-static void M_HandleAboveWater(COLL_INFO *coll);
-static void M_HandleUnderwater(COLL_INFO *coll);
-static void M_HandleSurface(COLL_INFO *coll);
-static void M_ObjectCollision(COLL_INFO *coll);
-static void M_WaterCurrent(COLL_INFO *coll);
-
 #if TR_VERSION >= 2
 extern bool Skidoo_Control(void);
 #endif
@@ -52,6 +44,161 @@ static SECTOR *M_GetCurrentSector(void)
     int16_t room_num = lara_item->room_num;
     return Room_GetSector(
         lara_item->pos.x, MAX_HEIGHT, lara_item->pos.z, &room_num);
+}
+
+static void M_Cheat(void)
+{
+    if (!g_Config.gameplay.enable_cheats) {
+        return;
+    }
+
+    if (g_InputDB.level_skip_cheat) {
+        Lara_Cheat_EndLevel();
+    }
+
+    if (g_InputDB.item_cheat) {
+        Lara_Cheat_GiveAllItems();
+    }
+
+    const LARA_INFO *const lara_info = Lara_GetLaraInfo();
+    if (lara_info->water_status != LWS_CHEAT && g_InputDB.fly_cheat) {
+        Lara_Cheat_EnterFlyMode();
+    }
+}
+
+static void M_WaterCurrent(COLL_INFO *const coll)
+{
+    ITEM *const item = Lara_GetItem();
+    LARA_INFO *const lara_info = Lara_GetLaraInfo();
+
+    int16_t room_num = item->room_num;
+    const ROOM *const room = Room_Get(item->room_num);
+    item->box_num = Room_GetWorldSector(room, item->pos.x, item->pos.z)->box;
+
+    XYZ_32 target;
+    if (Box_CalculateTarget(&target, item, &lara_info->lot) == TARGET_NONE) {
+        return;
+    }
+
+#define L_SHIFT(_axis)                                                         \
+    do {                                                                       \
+        target._axis -= item->pos._axis;                                       \
+        if (target._axis > lara_info->current_active) {                        \
+            item->pos._axis += lara_info->current_active;                      \
+        } else if (target._axis < -lara_info->current_active) {                \
+            item->pos._axis -= lara_info->current_active;                      \
+        } else {                                                               \
+            item->pos._axis += target._axis;                                   \
+        }                                                                      \
+    } while (0)
+
+    L_SHIFT(x);
+    L_SHIFT(y);
+    L_SHIFT(z);
+#undef L_SHIFT
+
+    lara_info->current_active = 0;
+    coll->facing =
+        Math_Atan(item->pos.z - coll->old.z, item->pos.x - coll->old.x);
+    Collide_GetCollisionInfo(
+        coll, item->pos.x, item->pos.y + LARA_HEIGHT_UW / 2, item->pos.z,
+        room_num, LARA_HEIGHT_UW);
+
+    switch (coll->coll_type) {
+    case COLL_FRONT:
+        if (item->rot.x > 35 * DEG_1) {
+            item->rot.x += LARA_UW_WALL_DEFLECT;
+        } else if (item->rot.x < -35 * DEG_1) {
+            item->rot.x -= LARA_UW_WALL_DEFLECT;
+        } else {
+            item->fall_speed = 0;
+        }
+        break;
+
+    case COLL_TOP:
+        item->rot.x -= LARA_UW_WALL_DEFLECT;
+        break;
+
+    case COLL_TOP_FRONT:
+        item->fall_speed = 0;
+        break;
+
+    case COLL_LEFT:
+        item->rot.y += 5 * DEG_1;
+        break;
+
+    case COLL_RIGHT:
+        item->rot.y -= 5 * DEG_1;
+        break;
+
+    default:
+        break;
+    }
+
+    if (coll->side_mid.floor < 0) {
+        item->pos.y += coll->side_mid.floor;
+        item->rot.x += LARA_UW_WALL_DEFLECT;
+    }
+    Lara_Col_Shift(coll);
+
+    coll->old = item->pos;
+}
+
+static void M_ObjectCollision(COLL_INFO *const coll)
+{
+    ITEM *const lara_item = Lara_GetItem();
+    LARA_INFO *const lara_info = Lara_GetLaraInfo();
+    lara_info->hit_direction = -1;
+    lara_item->hit_status = false;
+    if (lara_item->hit_points <= 0) {
+        return;
+    }
+
+    int16_t nearby_rooms[M_MAX_COLL_ROOMS];
+    const int32_t room_count = Room_GetAdjoiningRooms(
+        lara_item->room_num, nearby_rooms, M_MAX_COLL_ROOMS);
+
+    for (int32_t i = 0; i < room_count; i++) {
+        int16_t item_num = Room_Get(nearby_rooms[i])->item_num;
+        while (item_num != NO_ITEM) {
+            const ITEM *const item = Item_Get(item_num);
+            // The collision routine can destroy the item - need to store the
+            // next item beforehand.
+            const int16_t next_item_num = item->next_item;
+
+            if (lara_info->water_status == LWS_CHEAT
+                && !Object_IsType(item->object_id, g_PickupObjects)
+                && !Object_IsType(item->object_id, g_SwitchObjects)) {
+                goto loop_end;
+            }
+            if (!item->collidable || item->status == IS_INVISIBLE) {
+                goto loop_end;
+            }
+
+            const OBJECT *const obj = Object_Get(item->object_id);
+            if (obj->collision_func == nullptr
+                || !Item_IsNearby(lara_item, item, M_COLL_DIST)) {
+                goto loop_end;
+            }
+
+            obj->collision_func(item_num, lara_item, coll);
+
+        loop_end:
+            item_num = next_item_num;
+        }
+    }
+
+    if (lara_info->hit_effect_count != 0 && lara_info->hit_effect != nullptr
+        && coll->enable_hit) {
+        const int32_t dx = lara_info->hit_effect->pos.x - lara_item->pos.x;
+        const int32_t dz = lara_info->hit_effect->pos.z - lara_item->pos.z;
+        Lara_TakeHit(lara_item, dx, dz);
+        lara_info->hit_effect_count--;
+    }
+
+    if (lara_info->hit_direction == -1) {
+        lara_info->hit_frame = 0;
+    }
 }
 
 static void M_UpdateEnvironment(void)
@@ -77,6 +224,16 @@ static void M_UpdateEnvironment(void)
         water_height == NO_HEIGHT ? NO_HEIGHT : item->pos.y - water_height;
     lara_info->water_surface_dist = -water_height_diff;
 
+    // Create splash if Lara lands in wading height water. TR3+ feature.
+    if (wading_enabled) {
+        const BOUNDS_16 *const bounds = &Item_GetBestFrame(item)->bounds;
+        if (item->pos.y + bounds->min.y <= water_height
+            && item->pos.y + bounds->max.y >= water_height
+            && item->fall_speed > 0 && water_depth < M_SWIM_DEPTH - STEP_L) {
+            Spawn_Splash(item);
+        }
+    }
+
     switch (lara_info->water_status) {
     case LWS_ABOVE_WATER: {
         if (wading_enabled
@@ -89,7 +246,7 @@ static void M_UpdateEnvironment(void)
             if (water_height_diff > M_WADE_DEPTH) {
                 lara_info->water_status = LWS_WADE;
                 if (!item->gravity) {
-                    item->goal_anim_state = LS_STOP;
+                    item->goal_anim_state = LS(LS_STOP);
                 }
             }
         } else if (room_submerged) {
@@ -99,21 +256,21 @@ static void M_UpdateEnvironment(void)
             item->pos.y += 100;
             Lara_UpdateRoomToHeight(0);
             Sound_StopEffect(SFX_LARA_FALL);
-            if (item->current_anim_state == LS_SWAN_DIVE) {
+            if (item->current_anim_state == LS(LS_SWAN_DIVE)) {
                 item->rot.x = -M_DIVE_TILT_MED;
-                item->goal_anim_state = LS_DIVE;
+                item->goal_anim_state = LS(LS_DIVE);
                 Lara_Animate(item);
                 item->fall_speed *= 2;
-            } else if (item->current_anim_state == LS_FAST_DIVE) {
+            } else if (item->current_anim_state == LS(LS_FAST_DIVE)) {
                 item->rot.x = -M_DIVE_TILT_MAX;
-                item->goal_anim_state = LS_DIVE;
+                item->goal_anim_state = LS(LS_DIVE);
                 Lara_Animate(item);
                 item->fall_speed *= 2;
             } else {
                 item->rot.x = -M_DIVE_TILT_MED;
-                Item_SwitchToAnim(item, LA_FREEFALL_TO_UNDERWATER, 0);
-                item->current_anim_state = LS_DIVE;
-                item->goal_anim_state = LS_SWIM;
+                Item_SwitchToAnim(item, LA(LA_FREEFALL_TO_UNDERWATER), 0);
+                item->current_anim_state = LS(LS_DIVE);
+                item->goal_anim_state = LS(LS_SWIM);
                 item->fall_speed = (item->fall_speed * 3) / 2;
             }
             lara_info->head_rot.x = 0;
@@ -133,9 +290,9 @@ static void M_UpdateEnvironment(void)
 
         if (water_depth == NO_HEIGHT || ABS(water_height_diff) >= STEP_L) {
             lara_info->water_status = LWS_ABOVE_WATER;
-            Item_SwitchToAnim(item, LA_FALL_START, 0);
-            item->current_anim_state = LS_JUMP_FORWARD;
-            item->goal_anim_state = LS_JUMP_FORWARD;
+            Item_SwitchToAnim(item, LA(LA_FALL_START), 0);
+            item->current_anim_state = LS(LS_JUMP_FORWARD);
+            item->goal_anim_state = LS(LS_JUMP_FORWARD);
             item->gravity = true;
             item->speed = item->fall_speed / 4;
             item->fall_speed = 0;
@@ -150,9 +307,9 @@ static void M_UpdateEnvironment(void)
             }
         } else {
             lara_info->water_status = LWS_SURFACE;
-            Item_SwitchToAnim(item, LA_UNDERWATER_TO_ONWATER, 0);
-            item->current_anim_state = LS_SURF_TREAD;
-            item->goal_anim_state = LS_SURF_TREAD;
+            Item_SwitchToAnim(item, LA(LA_UNDERWATER_TO_ONWATER), 0);
+            item->current_anim_state = LS(LS_SURF_TREAD);
+            item->goal_anim_state = LS(LS_SURF_TREAD);
             item->fall_speed = 0;
             item->pos.y += 1 - water_height_diff;
             item->rot.x = 0;
@@ -175,16 +332,16 @@ static void M_UpdateEnvironment(void)
 
         if (wading_enabled && water_height_diff > M_WADE_DEPTH) {
             lara_info->water_status = LWS_WADE;
-            Item_SwitchToAnim(item, LA_STAND_IDLE, 0);
-            item->current_anim_state = LS_STOP;
-            item->goal_anim_state = LS_WADE;
+            Item_SwitchToAnim(item, LA(LA_STAND_IDLE), 0);
+            item->current_anim_state = LS(LS_STOP);
+            item->goal_anim_state = LS(LS_WADE);
             Item_Animate(item);
             item->fall_speed = 0;
         } else {
             lara_info->water_status = LWS_ABOVE_WATER;
-            Item_SwitchToAnim(item, LA_FALL_START, 0);
-            item->current_anim_state = LS_JUMP_FORWARD;
-            item->goal_anim_state = LS_JUMP_FORWARD;
+            Item_SwitchToAnim(item, LA(LA_FALL_START), 0);
+            item->current_anim_state = LS(LS_JUMP_FORWARD);
+            item->goal_anim_state = LS(LS_JUMP_FORWARD);
             item->gravity = true;
             item->speed = item->fall_speed / 4;
             if (TR_VERSION == 1) {
@@ -205,33 +362,33 @@ static void M_UpdateEnvironment(void)
 
         if (water_height_diff < M_WADE_DEPTH) {
             lara_info->water_status = LWS_ABOVE_WATER;
-            if (item->current_anim_state == LS_WADE) {
-                item->goal_anim_state = LS_RUN;
+            if (item->current_anim_state == LS(LS_WADE)) {
+                item->goal_anim_state = LS(LS_RUN);
             }
         } else if (water_height_diff > M_SWIM_DEPTH) {
             lara_info->water_status = LWS_SURFACE;
             item->pos.y += 1 - water_height_diff;
 
             LARA_ANIMATION anim_idx;
-            switch (item->current_anim_state) {
+            switch (LS_U(item->current_anim_state)) {
             case LS_WALK_BACK:
-                item->goal_anim_state = LS_SURF_BACK;
-                anim_idx = LA_ONWATER_IDLE_TO_SWIM_BACK;
+                item->goal_anim_state = LS(LS_SURF_BACK);
+                anim_idx = LA(LA_ONWATER_IDLE_TO_SWIM_BACK);
                 break;
 
             case LS_STEP_RIGHT:
-                item->goal_anim_state = LS_SURF_RIGHT;
-                anim_idx = LA_ONWATER_SWIM_RIGHT;
+                item->goal_anim_state = LS(LS_SURF_RIGHT);
+                anim_idx = LA(LA_ONWATER_SWIM_RIGHT);
                 break;
 
             case LS_STEP_LEFT:
-                item->goal_anim_state = LS_SURF_LEFT;
-                anim_idx = LA_ONWATER_SWIM_LEFT;
+                item->goal_anim_state = LS(LS_SURF_LEFT);
+                anim_idx = LA(LA_ONWATER_SWIM_LEFT);
                 break;
 
             default:
-                item->goal_anim_state = LS_SURF_SWIM;
-                anim_idx = LA_ONWATER_SWIM_FORWARD;
+                item->goal_anim_state = LS(LS_SURF_SWIM);
+                anim_idx = LA(LA_ONWATER_SWIM_FORWARD);
                 break;
             }
 
@@ -251,52 +408,6 @@ static void M_UpdateEnvironment(void)
         }
         break;
     }
-
-    default:
-        break;
-    }
-}
-
-static void M_HandleEnvironment(void)
-{
-    ITEM *const item = Lara_GetItem();
-    LARA_INFO *const lara_info = Lara_GetLaraInfo();
-    COLL_INFO coll = {};
-
-    switch (lara_info->water_status) {
-    case LWS_ABOVE_WATER:
-    case LWS_WADE:
-        lara_info->air = LARA_MAX_AIR;
-        M_HandleAboveWater(&coll);
-        break;
-
-    case LWS_UNDERWATER:
-        if (item->hit_points >= 0) {
-            lara_info->air--;
-            if (lara_info->air < 0) {
-                lara_info->air = -1;
-                Lara_TakeDamage(M_UW_DAMAGE, false);
-            }
-        }
-        M_HandleUnderwater(&coll);
-        break;
-
-    case LWS_SURFACE:
-        if (item->hit_points >= 0) {
-            lara_info->air += 10;
-            CLAMPG(lara_info->air, LARA_MAX_AIR);
-        }
-        M_HandleSurface(&coll);
-        break;
-
-    case LWS_CHEAT:
-        item->hit_points = LARA_MAX_HITPOINTS;
-        lara_info->death_timer = 0;
-        M_HandleUnderwater(&coll);
-        if (g_Input.slow && !g_Input.look && !g_Input.fly_cheat) {
-            Lara_Cheat_ExitFlyMode();
-        }
-        break;
 
     default:
         break;
@@ -437,8 +548,7 @@ static void M_HandleUnderwater(COLL_INFO *const coll)
         >> W2V_SHIFT;
 
     const SECTOR *const sector = M_GetCurrentSector();
-    if (lara_info->water_status != LWS_CHEAT
-        && (TR_VERSION == 1 || !lara_info->extra_anim)) {
+    if (TR_VERSION == 1 || !lara_info->extra_anim) {
         M_ObjectCollision(coll);
     }
 
@@ -514,129 +624,91 @@ static void M_HandleSurface(COLL_INFO *const coll)
     Room_TestSectorTrigger(item, sector);
 }
 
-static void M_ObjectCollision(COLL_INFO *const coll)
+static void M_HandleExposure(void)
 {
-    ITEM *const lara_item = Lara_GetItem();
-    LARA_INFO *const lara_info = Lara_GetLaraInfo();
-    lara_info->hit_direction = -1;
-    lara_item->hit_status = false;
-    if (lara_item->hit_points <= 0) {
+    if (!Level_HasColdWater()) {
         return;
     }
 
-    int16_t nearby_rooms[M_MAX_COLL_ROOMS];
-    const int32_t room_count = Room_GetAdjoiningRooms(
-        lara_item->room_num, nearby_rooms, M_MAX_COLL_ROOMS);
-
-    for (int32_t i = 0; i < room_count; i++) {
-        int16_t item_num = Room_Get(nearby_rooms[i])->item_num;
-        while (item_num != NO_ITEM) {
-            const ITEM *const item = Item_Get(item_num);
-            // The collision routine can destroy the item - need to store the
-            // next item beforehand.
-            const int16_t next_item_num = item->next_item;
-
-            if (item->collidable && item->status != IS_INVISIBLE) {
-                const OBJECT *const obj = Object_Get(item->object_id);
-                if (obj->collision_func != nullptr
-                    && Item_IsNearby(lara_item, item, M_COLL_DIST)) {
-                    obj->collision_func(item_num, lara_item, coll);
-                }
-            }
-
-            item_num = next_item_num;
-        }
+    LARA_INFO *const lara_info = Lara_GetLaraInfo();
+    switch (lara_info->water_status) {
+    case LWS_ABOVE_WATER:
+        lara_info->exposure_timer++;
+        CLAMPG(lara_info->exposure_timer, LARA_MAX_EXPOSURE);
+        break;
+    case LWS_WADE:
+        lara_info->exposure_timer--;
+        break;
+    case LWS_UNDERWATER:
+    case LWS_SURFACE:
+        lara_info->exposure_timer -= 2;
+        break;
+    case LWS_CHEAT:
+        lara_info->exposure_timer = LARA_MAX_EXPOSURE;
+        break;
     }
 
-    if (lara_info->hit_effect_count != 0 && lara_info->hit_effect != nullptr
-        && coll->enable_hit) {
-        const int32_t dx = lara_info->hit_effect->pos.x - lara_item->pos.x;
-        const int32_t dz = lara_info->hit_effect->pos.z - lara_item->pos.z;
-        Lara_TakeHit(lara_item, dx, dz);
-        lara_info->hit_effect_count--;
-    }
-
-    if (lara_info->hit_direction == -1) {
-        lara_info->hit_frame = 0;
+    if (lara_info->exposure_timer < 0) {
+        lara_info->exposure_timer = -1;
+        Lara_TakeDamage(10, false);
     }
 }
 
-static void M_WaterCurrent(COLL_INFO *const coll)
+static void M_HandleEnvironment(void)
 {
     ITEM *const item = Lara_GetItem();
     LARA_INFO *const lara_info = Lara_GetLaraInfo();
+    COLL_INFO coll = {};
 
-    int16_t room_num = item->room_num;
-    const ROOM *const room = Room_Get(item->room_num);
-    item->box_num = Room_GetWorldSector(room, item->pos.x, item->pos.z)->box;
-
-    XYZ_32 target;
-    if (Box_CalculateTarget(&target, item, &lara_info->lot) == TARGET_NONE) {
-        return;
+    if (item->current_anim_state != LS(LS_SPRINT)) {
+        lara_info->sprint_timer++;
+        CLAMPG(lara_info->sprint_timer, LARA_MAX_SPRINT);
+    }
+    if (item->current_anim_state != LS(LS_STOP)
+        && item->current_anim_state != LS(LS_POSE)) {
+        lara_info->idle_timer = 0;
     }
 
-#define L_SHIFT(_axis)                                                         \
-    do {                                                                       \
-        target._axis -= item->pos._axis;                                       \
-        if (target._axis > lara_info->current_active) {                        \
-            item->pos._axis += lara_info->current_active;                      \
-        } else if (target._axis < -lara_info->current_active) {                \
-            item->pos._axis -= lara_info->current_active;                      \
-        } else {                                                               \
-            item->pos._axis += target._axis;                                   \
-        }                                                                      \
-    } while (0)
+    switch (lara_info->water_status) {
+    case LWS_ABOVE_WATER:
+    case LWS_WADE:
+        lara_info->air = LARA_MAX_AIR;
+        M_HandleAboveWater(&coll);
+        break;
 
-    L_SHIFT(x);
-    L_SHIFT(y);
-    L_SHIFT(z);
-#undef L_SHIFT
-
-    lara_info->current_active = 0;
-    coll->facing =
-        Math_Atan(item->pos.z - coll->old.z, item->pos.x - coll->old.x);
-    Collide_GetCollisionInfo(
-        coll, item->pos.x, item->pos.y + LARA_HEIGHT_UW / 2, item->pos.z,
-        room_num, LARA_HEIGHT_UW);
-
-    switch (coll->coll_type) {
-    case COLL_FRONT:
-        if (item->rot.x > 35 * DEG_1) {
-            item->rot.x += LARA_UW_WALL_DEFLECT;
-        } else if (item->rot.x < -35 * DEG_1) {
-            item->rot.x -= LARA_UW_WALL_DEFLECT;
-        } else {
-            item->fall_speed = 0;
+    case LWS_UNDERWATER:
+        if (item->hit_points >= 0) {
+            lara_info->air--;
+            if (lara_info->air < 0) {
+                lara_info->air = -1;
+                Lara_TakeDamage(M_UW_DAMAGE, false);
+            }
         }
+        M_HandleUnderwater(&coll);
         break;
 
-    case COLL_TOP:
-        item->rot.x -= LARA_UW_WALL_DEFLECT;
+    case LWS_SURFACE:
+        if (item->hit_points >= 0) {
+            lara_info->air += 10;
+            CLAMPG(lara_info->air, LARA_MAX_AIR);
+        }
+        M_HandleSurface(&coll);
         break;
 
-    case COLL_TOP_FRONT:
-        item->fall_speed = 0;
-        break;
-
-    case COLL_LEFT:
-        item->rot.y += 5 * DEG_1;
-        break;
-
-    case COLL_RIGHT:
-        item->rot.y -= 5 * DEG_1;
+    case LWS_CHEAT:
+        item->hit_points = LARA_MAX_HITPOINTS;
+        lara_info->death_timer = 0;
+        M_HandleUnderwater(&coll);
+        if (g_InputDB.slow && !g_Input.look && !g_Input.fly_cheat) {
+            Lara_Cheat_ExitFlyMode();
+        }
         break;
 
     default:
         break;
     }
 
-    if (coll->side_mid.floor < 0) {
-        item->pos.y += coll->side_mid.floor;
-        item->rot.x += LARA_UW_WALL_DEFLECT;
-    }
-    Lara_Col_Shift(coll);
-
-    coll->old = item->pos;
+    M_HandleExposure();
 }
 
 void Lara_Control_Initialise(
@@ -658,14 +730,14 @@ void Lara_Control_Initialise(
     } else if ((Room_Get(lara_item->room_num)->flags & RF_UNDERWATER) != 0) {
         lara_info->water_status = LWS_UNDERWATER;
         lara_item->fall_speed = 0;
-        lara_item->goal_anim_state = LS_TREAD;
-        lara_item->current_anim_state = LS_TREAD;
-        Item_SwitchToAnim(lara_item, LA_UNDERWATER_IDLE, 0);
+        lara_item->goal_anim_state = LS(LS_TREAD);
+        lara_item->current_anim_state = LS(LS_TREAD);
+        Item_SwitchToAnim(lara_item, LA(LA_UNDERWATER_IDLE), 0);
     } else {
         lara_info->water_status = LWS_ABOVE_WATER;
-        lara_item->goal_anim_state = LS_STOP;
-        lara_item->current_anim_state = LS_STOP;
-        Item_SwitchToAnim(lara_item, LA_STAND_STILL, 0);
+        lara_item->goal_anim_state = LS(LS_STOP);
+        lara_item->current_anim_state = LS(LS_STOP);
+        Item_SwitchToAnim(lara_item, LA(LA_STAND_STILL), 0);
     }
 }
 
@@ -678,17 +750,7 @@ void Lara_Control(void)
         item->hit_points = LARA_MAX_HITPOINTS;
     }
 
-    if (g_InputDB.level_skip_cheat) {
-        Lara_Cheat_EndLevel();
-    }
-
-    if (g_InputDB.item_cheat) {
-        Lara_Cheat_GiveAllItems();
-    }
-
-    if (lara_info->water_status != LWS_CHEAT && g_InputDB.fly_cheat) {
-        Lara_Cheat_EnterFlyMode();
-    }
+    M_Cheat();
 
     if (TR_VERSION == 1 && lara_info->interact_target.is_moving
         && lara_info->interact_target.move_count++ > M_MOVE_TIMEOUT) {

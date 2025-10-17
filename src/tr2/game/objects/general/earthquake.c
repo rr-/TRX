@@ -1,13 +1,9 @@
 #include "game/objects/common.h"
-#include "game/random.h"
-#include "game/sound.h"
 #include "global/vars.h"
 
 #include <libtrx/game/camera.h>
-
-static void M_Activate(int16_t earth_item_num);
-static void M_Setup(OBJECT *obj);
-static void M_Control(int16_t item_num);
+#include <libtrx/game/random.h>
+#include <libtrx/game/sound.h>
 
 static void M_Activate(const int16_t earth_item_num)
 {
@@ -18,13 +14,6 @@ static void M_Activate(const int16_t earth_item_num)
     earth_item->timer = 0;
 }
 
-static void M_Setup(OBJECT *const obj)
-{
-    obj->control_func = M_Control;
-    obj->draw_func = Object_DrawDummyItem;
-    obj->save_flags = true;
-}
-
 static void M_Control(const int16_t item_num)
 {
     const ITEM *const item = Item_Get(item_num);
@@ -33,7 +22,7 @@ static void M_Control(const int16_t item_num)
         g_Camera.bounce = -200;
     }
 
-    GAME_OBJECT_ID obj_id_to_activate;
+    OBJECT_ID obj_id_to_activate;
     const int32_t random = Random_GetControl();
     if (random < 512) {
         obj_id_to_activate = O_FLAME_EMITTER;
@@ -54,6 +43,13 @@ static void M_Control(const int16_t item_num)
         }
         earth_item_num = earth_item->next_item;
     }
+}
+
+static void M_Setup(OBJECT *const obj)
+{
+    obj->control_func = M_Control;
+    obj->draw_func = nullptr;
+    obj->save_flags = true;
 }
 
 REGISTER_OBJECT(O_EARTHQUAKE, M_Setup)

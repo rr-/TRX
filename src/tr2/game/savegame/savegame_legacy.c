@@ -2,17 +2,21 @@
 #include "game/game_flow.h"
 #include "game/game_string.h"
 #include "game/inventory.h"
-#include "game/lara/control.h"
-#include "game/objects/general/lift.h"
+#include "game/lara.h"
 #include "game/savegame.h"
 #include "game/shell.h"
-#include "global/vars.h"
+#include "global/types_decomp.h"
 
 #include <libtrx/debug.h>
 #include <libtrx/game/camera.h>
 #include <libtrx/game/carrier.h>
 #include <libtrx/game/lara.h>
 #include <libtrx/game/music.h>
+#include <libtrx/game/objects/general/lift.h>
+#include <libtrx/game/objects/traps/movable_block.h>
+#include <libtrx/game/objects/traps/sliding_pillar.h>
+#include <libtrx/game/objects/vars.h>
+#include <libtrx/game/pathing.h>
 #include <libtrx/game/stats.h>
 #include <libtrx/memory.h>
 
@@ -24,13 +28,13 @@
 #define M_SAVEGAME_LEGACY_TITLE_SIZE 75
 #define M_LEGACY_MAX_MUSIC_TRACKS 64
 
-#define SPECIAL_READ_WRITES                                                    \
-    SPECIAL_READ_WRITE(S8, int8_t)                                             \
-    SPECIAL_READ_WRITE(S16, int16_t)                                           \
-    SPECIAL_READ_WRITE(S32, int32_t)                                           \
-    SPECIAL_READ_WRITE(U8, uint8_t)                                            \
-    SPECIAL_READ_WRITE(U16, uint16_t)                                          \
-    SPECIAL_READ_WRITE(U32, uint32_t)
+#define M_SPECIAL_READ_WRITES                                                  \
+    X_SPECIAL_READ_WRITE(S8, int8_t)                                           \
+    X_SPECIAL_READ_WRITE(S16, int16_t)                                         \
+    X_SPECIAL_READ_WRITE(S32, int32_t)                                         \
+    X_SPECIAL_READ_WRITE(U8, uint8_t)                                          \
+    X_SPECIAL_READ_WRITE(U16, uint16_t)                                        \
+    X_SPECIAL_READ_WRITE(U32, uint32_t)
 
 #pragma pack(push, 1)
 typedef struct {
@@ -43,38 +47,6 @@ typedef struct {
 
 static int32_t m_BufPos = 0;
 static char *m_BufPtr = nullptr;
-
-static bool M_ItemHasSaveFlags(const OBJECT *obj, const ITEM *item);
-static bool M_ItemHasSavePosition(const OBJECT *obj, const ITEM *item);
-
-static void M_Reset(char *buffer);
-
-static void M_Read(void *ptr, size_t size);
-#undef SPECIAL_READ_WRITE
-#define SPECIAL_READ_WRITE(name, type) static type M_Read##name(void);
-SPECIAL_READ_WRITES
-static void M_Skip(size_t size);
-static void M_ReadResumeInfo(RESUME_INFO *resume);
-static void M_ReadResumeInfos(void);
-static void M_ReadStats(LEVEL_STATS *const stats);
-static void M_ReadItems(void);
-static void M_ReadLara(LARA_INFO *lara);
-static void M_ReadLaraArm(LARA_ARM *arm);
-static void M_ReadAmmoInfo(AMMO_INFO *ammo_info);
-static void M_ReadFlares(void);
-
-static void M_Write(const void *ptr, size_t size);
-#undef SPECIAL_READ_WRITE
-#define SPECIAL_READ_WRITE(name, type) static void M_Write##name(type value);
-SPECIAL_READ_WRITES
-static void M_WriteResumeInfo(const RESUME_INFO *resume);
-static void M_WriteResumeInfos(void);
-static void M_WriteStats(const LEVEL_STATS *stats);
-static void M_WriteItems(void);
-static void M_WriteLara(const LARA_INFO *lara);
-static void M_WriteLaraArm(const LARA_ARM *arm);
-static void M_WriteAmmoInfo(const AMMO_INFO *ammo_info);
-static void M_WriteFlares(void);
 
 static const char *M_GetSaveFilePattern(void);
 static bool M_FillInfo(MYFILE *fp, SAVEGAME_INFO *info);
@@ -97,7 +69,8 @@ static SAVEGAME_STRATEGY m_Strategy = {
 
 static bool M_ItemHasSaveFlags(const OBJECT *const obj, const ITEM *const item)
 {
-    return obj->save_flags && item->object_id != O_WATERFALL;
+    return obj->save_flags && item->object_id != O_WATERFALL
+        && item->object_id != O_DART;
 }
 
 static bool M_ItemHasSavePosition(
@@ -120,28 +93,51 @@ static void M_Read(void *const ptr, const size_t size)
     m_BufPtr += size;
 }
 
-#undef SPECIAL_READ_WRITE
-#define SPECIAL_READ_WRITE(name, type)                                         \
+#define X_SPECIAL_READ_WRITE(name, type)                                       \
     static type M_Read##name(void)                                             \
     {                                                                          \
         type result;                                                           \
         M_Read(&result, sizeof(type));                                         \
         return result;                                                         \
     }
-SPECIAL_READ_WRITES
+M_SPECIAL_READ_WRITES
+#undef X_SPECIAL_READ_WRITE
 
-#undef SPECIAL_READ_WRITE
-#define SPECIAL_READ_WRITE(name, type)                                         \
+static void M_Write(const void *ptr, const size_t size)
+{
+    m_BufPos += size;
+    if (m_BufPos >= M_SAVEGAME_LEGACY_TOTAL_SIZE) {
+        Shell_ExitSystem("Savegame is too big to fit in buffer");
+    }
+
+    memcpy(m_BufPtr, ptr, size);
+    m_BufPtr += size;
+}
+
+#define X_SPECIAL_READ_WRITE(name, type)                                       \
     static void M_Write##name(type value)                                      \
     {                                                                          \
         M_Write(&value, sizeof(type));                                         \
     }
-SPECIAL_READ_WRITES
+M_SPECIAL_READ_WRITES
+#undef X_SPECIAL_READ_WRITE
 
 static void M_Skip(const size_t size)
 {
     m_BufPos += size;
     m_BufPtr += size;
+}
+
+static void M_ReadStats(LEVEL_STATS *const stats)
+{
+    stats->timer = M_ReadU32();
+    stats->ammo_used = M_ReadU32();
+    stats->ammo_hits = M_ReadU32();
+    stats->distance_travelled = M_ReadU32();
+    stats->kill_count = M_ReadU16();
+    stats->secret_flags = M_ReadU8();
+    stats->medipacks_used = M_ReadU8() / 2.0f;
+    Stats_UpdateSecrets(stats);
 }
 
 static void M_ReadResumeInfo(RESUME_INFO *const resume)
@@ -159,6 +155,8 @@ static void M_ReadResumeInfo(RESUME_INFO *const resume)
     resume->flares = M_ReadU8();
     resume->gun_status = M_ReadU8();
     resume->equipped_gun_type = M_ReadU8();
+    resume->holsters_gun_type = LGT_UNKNOWN;
+    resume->back_gun_type = LGT_UNKNOWN;
 
     const uint16_t flags = M_ReadU16();
     // clang-format off
@@ -190,18 +188,6 @@ static void M_ReadResumeInfos(void)
     }
 }
 
-static void M_ReadStats(LEVEL_STATS *const stats)
-{
-    stats->timer = M_ReadU32();
-    stats->ammo_used = M_ReadU32();
-    stats->ammo_hits = M_ReadU32();
-    stats->distance_travelled = M_ReadU32();
-    stats->kill_count = M_ReadU16();
-    stats->secret_flags = M_ReadU8();
-    stats->medipacks_used = M_ReadU8() / 2.0f;
-    Stats_UpdateSecrets(stats);
-}
-
 static void M_ReadItems(void)
 {
     Savegame_ProcessItemsBeforeLoad();
@@ -230,6 +216,11 @@ static void M_ReadItems(void)
             item->required_anim_state = M_ReadS16();
             item->anim_num = M_ReadS16();
             item->frame_num = M_ReadS16();
+
+            if (item->object_id == O_LARA
+                && item->anim_num < LARA_ORIGINAL_ANIM_COUNT) {
+                item->anim_num += obj->anim_idx;
+            }
         }
 
         if (obj->save_hitpoints) {
@@ -300,10 +291,37 @@ static void M_ReadItems(void)
             break;
         }
 
+        if (Object_IsType(item->object_id, g_MovableBlockObjects)) {
+            MOVABLE_BLOCK_INFO *const data = item->data;
+            data->linked.pos = item->pos;
+            data->linked.room_num = item->room_num;
+        } else if (item->object_id == O_SLIDING_PILLAR) {
+            SLIDING_PILLAR_INFO *const data = item->data;
+            data->linked.pos = item->pos;
+            data->linked.room_num = item->room_num;
+        }
+
         if (obj->handle_save_func != nullptr) {
             obj->handle_save_func(item, SAVEGAME_STAGE_AFTER_LOAD);
         }
     }
+}
+
+static void M_ReadLaraArm(LARA_ARM *const arm)
+{
+    M_ReadS32(); // arm frame_base is not required
+    arm->frame_num = M_ReadS16();
+    arm->anim_num = M_ReadS16();
+    arm->lock = M_ReadS16();
+    arm->rot.y = M_ReadS16();
+    arm->rot.x = M_ReadS16();
+    arm->rot.z = M_ReadS16();
+    arm->flash_gun = M_ReadS16();
+}
+
+static void M_ReadAmmoInfo(AMMO_INFO *const ammo_info)
+{
+    ammo_info->ammo = M_ReadS32();
 }
 
 static void M_ReadLara(LARA_INFO *const lara)
@@ -327,7 +345,7 @@ static void M_ReadLara(LARA_INFO *const lara)
     lara->flare.age = M_ReadS16();
     Lara_Vehicle_SetIndex(M_ReadS16());
     lara->gun_item_num = M_ReadS16();
-    lara->back_gun_obj_id = Object_UnmapGameID(M_ReadS16());
+    lara->back_gun_obj_id = Object_FromGameID(M_ReadS16());
     lara->flare.frame_num = M_ReadS16();
 
     const uint16_t flags = M_ReadU16();
@@ -378,23 +396,6 @@ static void M_ReadLara(LARA_INFO *const lara)
     M_Skip(4);
 }
 
-static void M_ReadLaraArm(LARA_ARM *const arm)
-{
-    M_ReadS32(); // arm frame_base is not required
-    arm->frame_num = M_ReadS16();
-    arm->anim_num = M_ReadS16();
-    arm->lock = M_ReadS16();
-    arm->rot.y = M_ReadS16();
-    arm->rot.x = M_ReadS16();
-    arm->rot.z = M_ReadS16();
-    arm->flash_gun = M_ReadS16();
-}
-
-static void M_ReadAmmoInfo(AMMO_INFO *const ammo_info)
-{
-    ammo_info->ammo = M_ReadS32();
-}
-
 static void M_ReadFlares(void)
 {
     const int32_t num_flares = M_ReadS32();
@@ -418,15 +419,15 @@ static void M_ReadFlares(void)
     }
 }
 
-static void M_Write(const void *ptr, const size_t size)
+static void M_WriteStats(const LEVEL_STATS *const stats)
 {
-    m_BufPos += size;
-    if (m_BufPos >= M_SAVEGAME_LEGACY_TOTAL_SIZE) {
-        Shell_ExitSystem("Savegame is too big to fit in buffer");
-    }
-
-    memcpy(m_BufPtr, ptr, size);
-    m_BufPtr += size;
+    M_WriteU32(stats->timer);
+    M_WriteU32(stats->ammo_used);
+    M_WriteU32(stats->ammo_hits);
+    M_WriteU32(stats->distance_travelled);
+    M_WriteU16(stats->kill_count);
+    M_WriteU8(stats->secret_flags & 0xFF);
+    M_WriteU8(stats->medipacks_used * 2);
 }
 
 static void M_WriteResumeInfo(const RESUME_INFO *const resume)
@@ -475,17 +476,6 @@ static void M_WriteResumeInfos(void)
             M_WriteResumeInfo(&null_resume_info);
         }
     }
-}
-
-static void M_WriteStats(const LEVEL_STATS *const stats)
-{
-    M_WriteU32(stats->timer);
-    M_WriteU32(stats->ammo_used);
-    M_WriteU32(stats->ammo_hits);
-    M_WriteU32(stats->distance_travelled);
-    M_WriteU16(stats->kill_count);
-    M_WriteU8(stats->secret_flags & 0xFF);
-    M_WriteU8(stats->medipacks_used * 2);
 }
 
 static void M_WriteItems(void)
@@ -562,6 +552,24 @@ static void M_WriteItems(void)
     }
 }
 
+static void M_WriteLaraArm(const LARA_ARM *const arm)
+{
+    const int32_t frame_base = 0; // not required
+    M_WriteS32(frame_base);
+    M_WriteS16(arm->frame_num);
+    M_WriteS16(arm->anim_num);
+    M_WriteS16(arm->lock);
+    M_WriteS16(arm->rot.y);
+    M_WriteS16(arm->rot.x);
+    M_WriteS16(arm->rot.z);
+    M_WriteS16(arm->flash_gun);
+}
+
+static void M_WriteAmmoInfo(const AMMO_INFO *const ammo_info)
+{
+    M_WriteS32(ammo_info->ammo);
+}
+
 static void M_WriteLara(const LARA_INFO *const lara)
 {
     M_WriteS16(lara->item_num);
@@ -583,7 +591,7 @@ static void M_WriteLara(const LARA_INFO *const lara)
     M_WriteS16(lara->flare.age);
     M_WriteS16(Lara_Vehicle_GetIndex());
     M_WriteS16(lara->gun_item_num);
-    M_WriteS16(Object_MakeGameID(lara->back_gun_obj_id));
+    M_WriteS16(Object_ToGameID(lara->back_gun_obj_id));
     M_WriteS16(lara->flare.frame_num);
 
     uint16_t flags = 0;
@@ -629,24 +637,6 @@ static void M_WriteLara(const LARA_INFO *const lara)
     M_WriteAmmoInfo(&lara->grenade_ammo);
     M_WriteAmmoInfo(&lara->m16_ammo);
     M_Skip(4);
-}
-
-static void M_WriteLaraArm(const LARA_ARM *const arm)
-{
-    const int32_t frame_base = 0; // not required
-    M_WriteS32(frame_base);
-    M_WriteS16(arm->frame_num);
-    M_WriteS16(arm->anim_num);
-    M_WriteS16(arm->lock);
-    M_WriteS16(arm->rot.y);
-    M_WriteS16(arm->rot.x);
-    M_WriteS16(arm->rot.z);
-    M_WriteS16(arm->flash_gun);
-}
-
-static void M_WriteAmmoInfo(const AMMO_INFO *const ammo_info)
-{
-    M_WriteS32(ammo_info->ammo);
 }
 
 static void M_WriteFlares(void)
@@ -780,10 +770,12 @@ static void M_SaveToFile(MYFILE *const fp, SAVEGAME_INFO *const info)
     }
 
     M_WriteItems();
-    M_WriteLara(&g_Lara);
 
-    if (g_Lara.gun_item_num != NO_ITEM) {
-        const ITEM *const weapon_item = Item_Get(g_Lara.gun_item_num);
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    M_WriteLara(lara);
+
+    if (lara->gun_item_num != NO_ITEM) {
+        const ITEM *const weapon_item = Item_Get(lara->gun_item_num);
         M_WriteS16(weapon_item->object_id);
         M_WriteS16(weapon_item->anim_num);
         M_WriteS16(weapon_item->frame_num);
@@ -861,13 +853,15 @@ static bool M_LoadFromFile(MYFILE *const fp)
     }
 
     M_ReadItems();
-    M_ReadLara(&g_Lara);
 
-    if (g_Lara.gun_item_num != NO_ITEM) {
-        g_Lara.gun_item_num = Item_Create();
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    M_ReadLara(lara);
 
-        ITEM *const weapon_item = Item_Get(g_Lara.gun_item_num);
-        weapon_item->object_id = Object_UnmapGameID(M_ReadS16());
+    if (lara->gun_item_num != NO_ITEM) {
+        lara->gun_item_num = Item_Create();
+
+        ITEM *const weapon_item = Item_Get(lara->gun_item_num);
+        weapon_item->object_id = Object_FromGameID(M_ReadS16());
         weapon_item->anim_num = M_ReadS16();
         weapon_item->frame_num = M_ReadS16();
         weapon_item->current_anim_state = M_ReadS16();

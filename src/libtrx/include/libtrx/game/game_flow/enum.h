@@ -17,20 +17,16 @@ typedef enum {
     GFL_GYM,
     GFL_BONUS,
 
-#if TR_VERSION == 1
     // Legacy level types to maintain savegame backwards compatibility.
     // TODO: get rid of these.
     GFL_DUMMY,
     GFL_CURRENT,
-#endif
 } GF_LEVEL_TYPE;
 
 typedef enum {
     GFSC_NORMAL,
     GFSC_SAVED,
-#if TR_VERSION == 1
     GFSC_RESTART,
-#endif
     GFSC_SELECT,
     GFSC_STORY,
 } GF_SEQUENCE_CONTEXT;
@@ -70,27 +66,20 @@ typedef enum {
 #endif
     GFS_SET_CAMERA_ANGLE,
     GFS_ADD_ITEM,
+    GFS_ADD_SECRET_REWARD,
     GFS_REMOVE_WEAPONS,
     GFS_REMOVE_AMMO,
     GFS_REMOVE_MEDIPACKS,
-    GFS_DISABLE_FLOOR,
-#if TR_VERSION == 1
+    GFS_REMOVE_FLARES,
     GFS_REMOVE_SCIONS,
+    GFS_DISABLE_FLOOR,
+    GFS_SETUP_BACON_LARA,
+#if TR_VERSION == 1
     GFS_FLIP_MAP,
     GFS_MESH_SWAP,
-    GFS_SETUP_BACON_LARA,
 #elif TR_VERSION == 2
-    GFS_REMOVE_FLARES,
     GFS_SET_START_ANIM,
     GFS_ENABLE_SUNSET,
-    GFS_ADD_SECRET_REWARD,
 #endif
     GFS_NUMBER_OF,
 } GF_SEQUENCE_EVENT_TYPE;
-
-typedef enum {
-    GF_EVENT_QUEUE_NONE = -1,
-    GF_EVENT_QUEUE_BEFORE_LEVEL_INIT,
-    GF_EVENT_QUEUE_AFTER_LEVEL_INIT,
-    GF_EVENT_QUEUE_NUMBER_OF,
-} GF_EVENT_QUEUE_TYPE;

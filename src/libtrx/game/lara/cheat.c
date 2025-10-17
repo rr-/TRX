@@ -14,12 +14,6 @@
 #include "game/viewport.h"
 #include "vector.h"
 
-static void M_GiveAllKeysImpl(void);
-static void M_GiveAllGunsImpl(void);
-static void M_GiveAllMedpacksImpl(void);
-static void M_ReinitialiseGunMeshes(void);
-static void M_ResetGunStatus(void);
-
 static void M_GiveAllKeysImpl(void)
 {
     Inv_AddItem(O_PUZZLE_ITEM_1);
@@ -32,9 +26,7 @@ static void M_GiveAllKeysImpl(void)
     Inv_AddItem(O_KEY_ITEM_4);
     Inv_AddItem(O_PICKUP_ITEM_1);
     Inv_AddItem(O_PICKUP_ITEM_2);
-#if TR_VERSION == 1
     Inv_AddItem(O_LEADBAR_ITEM);
-#endif
 }
 
 static void M_GiveAllGunsImpl(void)
@@ -60,9 +52,7 @@ static void M_GiveAllGunsImpl(void)
 
 static void M_GiveAllMedpacksImpl(void)
 {
-#if TR_VERSION >= 2
     Inv_AddItemNTimes(O_FLARES_ITEM, 10);
-#endif
     Inv_AddItemNTimes(O_SMALL_MEDIPACK_ITEM, 10);
     Inv_AddItemNTimes(O_LARGE_MEDIPACK_ITEM, 10);
 }
@@ -168,7 +158,12 @@ bool Lara_Cheat_KillEnemy(const int16_t item_num)
         return false;
     }
 
-    Sound_Effect(SFX_EXPLOSION_CHEAT, &item->pos, SPM_NORMAL);
+    if (Object_IsType(item->object_id, g_LoyalObjects)) {
+        LARA_INFO *const lara_info = Lara_GetLaraInfo();
+        lara_info->killed_loyal_item = true;
+    }
+
+    Sound_Effect(SFX_EXPLOSION_1, &item->pos, SPM_NORMAL);
     Creature_Die(item_num, true);
     return true;
 }
@@ -219,7 +214,7 @@ bool Lara_Cheat_OpenNearestDoor(void)
         Console_Log(opened > 0 ? GS(OSD_DOOR_OPEN) : GS(OSD_DOOR_CLOSE));
         return true;
     }
-    Console_Log(GS(OSD_DOOR_OPEN_FAIL));
+    Console_LogError(GS(OSD_DOOR_OPEN_FAIL));
     return false;
 }
 
@@ -261,9 +256,9 @@ bool Lara_Cheat_EnterFlyMode(void)
     if (lara_info->water_status != LWS_UNDERWATER
         || lara_item->hit_points <= 0) {
         lara_item->pos.y -= STEP_L;
-        lara_item->current_anim_state = LS_SWIM;
-        lara_item->goal_anim_state = LS_SWIM;
-        Item_SwitchToAnim(lara_item, LA_UNDERWATER_SWIM_FORWARD_DRIFT, 0);
+        lara_item->current_anim_state = LS(LS_SWIM);
+        lara_item->goal_anim_state = LS(LS_SWIM);
+        Item_SwitchToAnim(lara_item, LA(LA_UNDERWATER_SWIM_FORWARD_DRIFT), 0);
         lara_item->gravity = 0;
         lara_item->rot.x = 30 * DEG_1;
         lara_item->fall_speed = 30;
@@ -311,9 +306,9 @@ bool Lara_Cheat_ExitFlyMode(void)
         lara_info->water_status = LWS_UNDERWATER;
     } else {
         lara_info->water_status = LWS_ABOVE_WATER;
-        Item_SwitchToAnim(lara_item, LA_STAND_STILL, 0);
-        lara_item->goal_anim_state = LS_STOP;
-        lara_item->current_anim_state = LS_STOP;
+        Item_SwitchToAnim(lara_item, LA(LA_STAND_STILL), 0);
+        lara_item->goal_anim_state = LS(LS_STOP);
+        lara_item->current_anim_state = LS(LS_STOP);
         lara_item->rot.x = 0;
         lara_item->rot.z = 0;
         lara_info->head_rot.x = 0;
@@ -345,7 +340,8 @@ bool Lara_Cheat_Teleport(XYZ_32 pos, int16_t room_num)
     }
 
     const SECTOR *const sector = Room_GetSector(pos.x, pos.y, pos.z, &room_num);
-    const int32_t height = Room_GetHeightEx(sector, pos.x, pos.y, pos.z, true);
+    const int32_t height =
+        Room_GetHeightEx(sector, pos.x, pos.y, pos.z, true, NO_ITEM);
     if (height == NO_HEIGHT) {
         return false;
     }
@@ -374,14 +370,15 @@ bool Lara_Cheat_Teleport(XYZ_32 pos, int16_t room_num)
 
         if (room_submerged || (water_height != NO_HEIGHT && water_height > 0)) {
             lara_info->water_status = LWS_UNDERWATER;
-            lara_item->current_anim_state = LS_SWIM;
-            lara_item->goal_anim_state = LS_SWIM;
-            Item_SwitchToAnim(lara_item, LA_UNDERWATER_SWIM_FORWARD_DRIFT, 0);
+            lara_item->current_anim_state = LS(LS_SWIM);
+            lara_item->goal_anim_state = LS(LS_SWIM);
+            Item_SwitchToAnim(
+                lara_item, LA(LA_UNDERWATER_SWIM_FORWARD_DRIFT), 0);
         } else {
             lara_info->water_status = LWS_ABOVE_WATER;
-            lara_item->current_anim_state = LS_STOP;
-            lara_item->goal_anim_state = LS_STOP;
-            Item_SwitchToAnim(lara_item, LA_STAND_STILL, 0);
+            lara_item->current_anim_state = LS(LS_STOP);
+            lara_item->goal_anim_state = LS(LS_STOP);
+            Item_SwitchToAnim(lara_item, LA(LA_STAND_STILL), 0);
             lara_item->rot.x = 0;
             lara_item->rot.z = 0;
             lara_info->head_rot.x = 0;

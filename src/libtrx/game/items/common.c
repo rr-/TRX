@@ -5,10 +5,13 @@
 #include "game/game_buf.h"
 #include "game/game_flow.h"
 #include "game/lara/common.h"
-#include "game/objects/common.h"
+#include "game/objects.h"
 #include "game/output/const.h"
 #include "game/rooms.h"
+#include "memory.h"
 #include "utils.h"
+
+#include <string.h>
 
 static int32_t m_LevelItemCount = 0;
 static int16_t m_MaxUsedItemCount = 0;
@@ -47,7 +50,7 @@ int16_t Item_GetIndex(const ITEM *const item)
     return item - Item_Get(0);
 }
 
-ITEM *Item_Find(const GAME_OBJECT_ID obj_id)
+ITEM *Item_Find(const OBJECT_ID obj_id)
 {
     for (int32_t item_num = 0; item_num < Item_GetTotalCount(); item_num++) {
         ITEM *const item = Item_Get(item_num);
@@ -56,6 +59,42 @@ ITEM *Item_Find(const GAME_OBJECT_ID obj_id)
         }
     }
 
+    return nullptr;
+}
+
+bool Item_SetName(const int16_t item_num, const char *const name)
+{
+    ITEM *const item = Item_Get(item_num);
+    if (item == nullptr) {
+        return false;
+    }
+    if (name != nullptr) {
+        ITEM *const existing = Item_GetByName(name);
+        if (existing != nullptr && existing != item) {
+            return false;
+        }
+    }
+    if (name != nullptr) {
+        item->name = GameBuf_Alloc(strlen(name) + 1, GBUF_ITEMS);
+        strcpy(item->name, name);
+    } else {
+        item->name = nullptr;
+    }
+    return true;
+}
+
+ITEM *Item_GetByName(const char *const name)
+{
+    if (name == nullptr) {
+        return nullptr;
+    }
+    // search through all items for matching name
+    for (int32_t i = 0; i < Item_GetTotalCount(); i++) {
+        ITEM *const item = Item_Get(i);
+        if (item->name != nullptr && strcmp(item->name, name) == 0) {
+            return item;
+        }
+    }
     return nullptr;
 }
 
@@ -104,7 +143,7 @@ int16_t Item_CreateLevelItem(void)
     return item_num;
 }
 
-int16_t Item_Spawn(const ITEM *const item, const GAME_OBJECT_ID obj_id)
+int16_t Item_Spawn(const ITEM *const item, const OBJECT_ID obj_id)
 {
     const int16_t spawn_num = Item_Create();
     if (spawn_num != NO_ITEM) {
@@ -134,12 +173,14 @@ void Item_Initialise(const int16_t item_num)
     item->speed = 0;
     item->fall_speed = 0;
     item->hit_points = obj->hit_points;
+    item->max_hit_points = obj->hit_points;
     item->timer = 0;
     item->mesh_bits = 0xFFFFFFFF;
     item->touch_bits = 0;
     item->data = nullptr;
     item->priv = nullptr;
     item->carried_item = nullptr;
+    item->name = nullptr;
 
     item->active = false;
     item->status = IS_INACTIVE;
@@ -218,15 +259,8 @@ void Item_Kill(const int16_t item_num)
         lara->target = nullptr;
     }
 
-#if TR_VERSION == 1
-    item->hit_points = -1;
     item->flags |= IF_KILLED;
-#else
-    // NOTE: if changing this, test if GS(CMD_WINSTON_DEAD) works as expected
-    if (item_num < m_LevelItemCount) {
-        item->flags |= IF_KILLED;
-    }
-#endif
+
     if (item_num >= m_LevelItemCount) {
         item->next_item = m_NextItemFree;
         m_NextItemFree = item_num;
@@ -349,7 +383,7 @@ void Item_UpdateRoom(const int16_t item_num, const int16_t room_num)
 }
 
 int32_t Item_GlobalReplace(
-    const GAME_OBJECT_ID src_obj_id, const GAME_OBJECT_ID dst_obj_id)
+    const OBJECT_ID src_obj_id, const OBJECT_ID dst_obj_id)
 {
     int32_t changed = 0;
 

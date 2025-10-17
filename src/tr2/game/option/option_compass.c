@@ -1,10 +1,10 @@
 #include "game/game.h"
-#include "game/input.h"
 #include "game/option/option.h"
 #include "game/savegame.h"
-#include "game/sound.h"
 #include "global/vars.h"
 
+#include <libtrx/game/input.h>
+#include <libtrx/game/sound.h>
 #include <libtrx/game/ui.h>
 
 #include <stdio.h>
@@ -15,9 +15,6 @@ typedef struct {
 } M_PRIV;
 
 static M_PRIV m_Priv = {};
-
-static void M_Init(M_PRIV *p);
-static void M_Close(M_PRIV *p);
 
 static void M_Init(M_PRIV *const p)
 {

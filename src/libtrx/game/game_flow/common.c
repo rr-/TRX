@@ -7,19 +7,9 @@
 static const GF_LEVEL *m_CurrentLevel = nullptr;
 static GF_COMMAND m_OverrideCommand = { .action = GF_NOOP };
 
-static bool M_SkipLevel(const GF_LEVEL *level);
-static void M_FreeSequence(GF_SEQUENCE *sequence);
-static void M_FreeInjections(INJECTION_DATA *injections);
-static void M_FreeLevel(GF_LEVEL *level);
-static void M_FreeLevelTable(GF_LEVEL_TABLE *level_table);
-static void M_FreeFMVs(GAME_FLOW *gf);
-
 static bool M_SkipLevel(const GF_LEVEL *const level)
 {
-#if TR_VERSION == 1
     return level->type == GFL_DUMMY || level->type == GFL_CURRENT;
-#endif
-    return false;
 }
 
 static void M_FreeSequence(GF_SEQUENCE *const sequence)
@@ -39,6 +29,7 @@ static void M_FreeLevel(GF_LEVEL *const level)
 {
     Memory_FreePointer(&level->path);
     Memory_FreePointer(&level->title);
+    Memory_FreePointer(&level->script_path);
     Memory_FreePointer(&level->settings.ambient_tracks.ids);
     M_FreeInjections(&level->injections);
     M_FreeSequence(&level->sequence);
@@ -97,6 +88,8 @@ void GF_Shutdown(void)
 #if TR_VERSION == 2
     Memory_FreePointer(&gf->settings.sfx_path);
 #endif
+    Memory_FreePointer(&gf->main_script_path);
+    Memory_FreePointer(&gf->path);
 }
 
 void GF_OverrideCommand(const GF_COMMAND command)
@@ -115,10 +108,8 @@ GF_LEVEL_TABLE_TYPE GF_GetLevelTableType(const GF_LEVEL_TYPE level_type)
     case GFL_GYM:
     case GFL_NORMAL:
     case GFL_BONUS:
-#if TR_VERSION == 1
     case GFL_DUMMY:
     case GFL_CURRENT:
-#endif
         return GFLT_MAIN;
 
     case GFL_CUTSCENE:
@@ -162,15 +153,31 @@ int32_t GF_GetLevelOrdinalNumber(
     const GF_LEVEL_TABLE *const tbl = GF_GetLevelTable(level_table_type);
     for (int32_t i = 0; i < tbl->count; i++) {
         const GF_LEVEL *level = &tbl->levels[i];
+        if (M_SkipLevel(level)) {
+            continue;
+        }
         if (level == ref_level) {
             // Special case: gym levels have no ordinal
             return (level->type == GFL_GYM) ? 0 : ordinal;
         }
-        if (level->type != GFL_GYM && !M_SkipLevel(level)) {
+        if (level->type != GFL_GYM) {
             ordinal++;
         }
     }
     return -1;
+}
+
+GF_LEVEL *GF_GetLevelByOrdinalNumber(
+    GF_LEVEL_TABLE_TYPE level_table_type, const int32_t level_num)
+{
+    const GF_LEVEL_TABLE *const tbl = GF_GetLevelTable(level_table_type);
+    for (int32_t i = 0; i < tbl->count; i++) {
+        GF_LEVEL *const level = &tbl->levels[i];
+        if (GF_GetLevelOrdinalNumber(level_table_type, level) == level_num) {
+            return level;
+        }
+    }
+    return nullptr;
 }
 
 const GF_LEVEL *GF_GetCurrentLevel(void)
@@ -188,7 +195,7 @@ const GF_LEVEL *GF_GetGymLevel(void)
     const GF_LEVEL_TABLE *const level_table = GF_GetLevelTable(GFLT_MAIN);
     for (int32_t i = 0; i < level_table->count; i++) {
         const GF_LEVEL *const level = &level_table->levels[i];
-        if (level->type == GFL_GYM) {
+        if (level->type == GFL_GYM && !M_SkipLevel(level)) {
             return level;
         }
     }
@@ -200,7 +207,7 @@ const GF_LEVEL *GF_GetFirstLevel(void)
     const GF_LEVEL_TABLE *const level_table = GF_GetLevelTable(GFLT_MAIN);
     for (int32_t i = 0; i < level_table->count; i++) {
         const GF_LEVEL *const level = &level_table->levels[i];
-        if (level->type == GFL_GYM) {
+        if (level->type == GFL_GYM || M_SkipLevel(level)) {
             continue;
         }
         return level;
@@ -214,10 +221,7 @@ const GF_LEVEL *GF_GetLastLevel(void)
     const GF_LEVEL *result = nullptr;
     for (int32_t i = 0; i < level_table->count; i++) {
         const GF_LEVEL *const level = &level_table->levels[i];
-        if (level->type == GFL_GYM) {
-            continue;
-        }
-        if (M_SkipLevel(level)) {
+        if (level->type == GFL_GYM || M_SkipLevel(level)) {
             continue;
         }
         result = level;

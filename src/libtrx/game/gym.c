@@ -16,9 +16,6 @@ static bool m_IsAssaultTimerDisplay = false;
 static bool m_IsAssaultTimerActive = false;
 static int16_t m_CompletionTimer = 0;
 
-static int32_t M_GetBestTime(void);
-static bool M_StoreAssaultTime(uint32_t time);
-
 static int32_t M_GetBestTime(void)
 {
     const ASSAULT_STATS *const assault = &g_Config.profile.assault_stats;
@@ -47,7 +44,7 @@ static bool M_StoreAssaultTime(const uint32_t time)
     assault->total_attempts++;
     assault->entries[insert_idx].time = time;
     assault->entries[insert_idx].attempt_num = assault->total_attempts;
-    Config_Write();
+    Config_Update();
     return true;
 }
 
@@ -88,7 +85,6 @@ void Gym_StartAssault(void)
     resume->stats.timer = 0;
     m_IsAssaultTimerActive = true;
     m_IsAssaultTimerDisplay = true;
-    Stats_StartTimer();
 }
 
 void Gym_StopAssault(void)
@@ -112,22 +108,22 @@ void Gym_FinishAssault(void)
     if (current_best_time <= 0) {
         if (resume->stats.timer < 100 * LOGIC_FPS) {
             // "Gosh! That was my best time yet!"
-            Music_Play(MX_GYM_HINT_15, MPM_ALWAYS);
+            Music_Play(MX_TR2_GYM_HINT_15, MPM_ALWAYS);
         } else {
             // "Congratulations! You did it! But perhaps I could've been
             // faster."
-            Music_Play(MX_GYM_HINT_17, MPM_ALWAYS);
+            Music_Play(MX_TR2_GYM_HINT_17, MPM_ALWAYS);
         }
     } else if (resume->stats.timer < (uint32_t)current_best_time) {
         // "Gosh! That was my best time yet!"
-        Music_Play(MX_GYM_HINT_15, MPM_ALWAYS);
+        Music_Play(MX_TR2_GYM_HINT_15, MPM_ALWAYS);
     } else if (
         resume->stats.timer < (uint32_t)current_best_time + 5 * LOGIC_FPS) {
         // "Almost. Perhaps another try and I might beat it."
-        Music_Play(MX_GYM_HINT_16, MPM_ALWAYS);
+        Music_Play(MX_TR2_GYM_HINT_16, MPM_ALWAYS);
     } else {
         // "Great. But nowhere near my best time."
-        Music_Play(MX_GYM_HINT_14, MPM_ALWAYS);
+        Music_Play(MX_TR2_GYM_HINT_14, MPM_ALWAYS);
     }
 
     m_IsAssaultTimerActive = false;
@@ -138,55 +134,57 @@ bool Gym_HasAssaultStats(void)
     return TR_VERSION >= 2;
 }
 
-bool Gym_CanPlayMusicTrack(int16_t *const track_id)
+bool Gym_CanPlayMusicTrack(MUSIC_ID *const track_id)
 {
-#if TR_VERSION == 1
     const uint16_t flags = Music_GetTrackFlags(*track_id);
     const ITEM *const lara = Lara_GetItem();
-    switch (*track_id) {
-    case MX_GYM_HINT_03:
+    switch (Music_FromGameID(*track_id)) {
+    case MX_TR1_GYM_HINT_03:
         if ((flags & IF_ONE_SHOT) != 0
-            && lara->current_anim_state == LS_JUMP_UP) {
-            *track_id = MX_GYM_HINT_04;
+            && lara->current_anim_state == LS(LS_JUMP_UP)) {
+            *track_id = Music_ToGameID(MX_TR1_GYM_HINT_04);
         }
         break;
 
-    case MX_GYM_HINT_12:
-        if (lara->current_anim_state != LS_HANG) {
+    case MX_TR1_GYM_HINT_12:
+        if (lara->current_anim_state != LS(LS_HANG)) {
             return false;
         }
         break;
 
-    case MX_GYM_HINT_16:
-        if (lara->current_anim_state != LS_HANG) {
+    case MX_TR1_GYM_HINT_16:
+        if (lara->current_anim_state != LS(LS_HANG)) {
             return false;
         }
         break;
 
-    case MX_GYM_HINT_17:
-        if ((flags & IF_ONE_SHOT) != 0 && lara->current_anim_state == LS_HANG) {
-            *track_id = MX_GYM_HINT_18;
+    case MX_TR1_GYM_HINT_17:
+        if ((flags & IF_ONE_SHOT) != 0
+            && lara->current_anim_state == LS(LS_HANG)) {
+            *track_id = Music_ToGameID(MX_TR1_GYM_HINT_18);
         }
         break;
 
-    case MX_GYM_HINT_24:
-        if (lara->current_anim_state != LS_SURF_TREAD) {
+    case MX_TR1_GYM_HINT_24:
+        if (lara->current_anim_state != LS(LS_SURF_TREAD)) {
             return false;
         }
         break;
 
-    case MX_GYM_HINT_25:
+    case MX_TR1_GYM_HINT_25:
         if ((flags & IF_ONE_SHOT) != 0) {
             m_CompletionTimer++;
             if (m_CompletionTimer == LOGIC_FPS * 4) {
                 Game_SetIsLevelComplete(true);
                 m_CompletionTimer = 0;
             }
-        } else if (lara->current_anim_state != LS_WATER_OUT) {
+        } else if (lara->current_anim_state != LS(LS_WATER_OUT)) {
             return false;
         }
         break;
+
+    default:
+        return true;
     }
-#endif
     return true;
 }

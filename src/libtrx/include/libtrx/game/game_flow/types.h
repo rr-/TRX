@@ -43,25 +43,21 @@ typedef struct {
     } x, y, z;
 } GF_SET_CAMERA_POS_DATA;
 
-#if TR_VERSION == 2
 typedef enum {
     GF_INV_REGULAR,
     GF_INV_SECRET,
 } GF_INV_TYPE;
-#endif
 
 typedef struct {
-    GAME_OBJECT_ID object_id;
-#if TR_VERSION == 2
+    OBJECT_ID object_id;
     GF_INV_TYPE inv_type;
-#endif
     int32_t quantity;
 } GF_ADD_ITEM_DATA;
 
 #if TR_VERSION == 1
 typedef struct {
-    GAME_OBJECT_ID object1_id;
-    GAME_OBJECT_ID object2_id;
+    OBJECT_ID object1_id;
+    OBJECT_ID object2_id;
     int32_t mesh_num;
 } GF_MESH_SWAP_DATA;
 #endif
@@ -84,7 +80,7 @@ typedef struct {
 typedef struct {
     bool is_present;
     int32_t count;
-    MUSIC_TRACK_ID *ids;
+    MUSIC_ID *ids;
 } GF_AMBIENT_DATA;
 
 typedef struct {
@@ -94,12 +90,22 @@ typedef struct {
     } fog_start, fog_end;
     struct {
         bool is_present;
+        bool value;
+    } fog_transparency;
+    struct {
+        bool is_present;
+        RGB_888 value;
+    } fog_color;
+    struct {
+        bool is_present;
         RGB_888 value;
     } water_color;
-#if TR_VERSION == 2
     char *sfx_path;
-#endif
     GF_AMBIENT_DATA ambient_tracks;
+    struct {
+        bool is_present;
+        bool value;
+    } cold_water;
 } GF_LEVEL_SETTINGS;
 
 #if TR_VERSION == 1
@@ -115,8 +121,10 @@ typedef struct {
     GF_LEVEL_TYPE type;
     char *path;
     char *title;
+    // Path to a Lua script executed when this level loads
+    char *script_path;
 
-    MUSIC_TRACK_ID music_track;
+    MUSIC_ID music_track;
     GF_SEQUENCE sequence;
     INJECTION_DATA injections;
 
@@ -134,7 +142,7 @@ typedef struct {
         GF_DROP_ITEM_DATA *data;
     } item_drops;
 
-    GAME_OBJECT_ID lara_type;
+    OBJECT_ID lara_type;
 #endif
 } GF_LEVEL;
 
@@ -148,6 +156,8 @@ typedef struct {
 // ----------------------------------------------------------------------------
 
 typedef struct {
+    char *path;
+
     GF_LEVEL *title_level;
     GF_LEVEL_TABLE level_tables[GFLT_NUMBER_OF];
 
@@ -187,9 +197,9 @@ typedef struct {
     struct {
         float demo_delay;
         char *main_menu_background_path;
+        bool enable_killer_pushblocks;
         bool is_demo_version;
         bool play_any_level;
-        bool gym_enabled;
         bool lockout_option_ring;
         bool cheat_keys;
         bool load_save_disabled;
@@ -198,13 +208,16 @@ typedef struct {
 
     // music
     struct {
-        MUSIC_TRACK_ID secret_track;
+        MUSIC_ID secret_track;
     };
 #endif
 
     // other data
     GF_LEVEL_SETTINGS settings;
     INJECTION_DATA injections;
+
+    // Path to a global Lua script executed after game initialization
+    char *main_script_path;
 } GAME_FLOW;
 
 typedef GF_COMMAND (*GF_SEQUENCE_EVENT_HANDLER)(

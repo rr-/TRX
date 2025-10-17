@@ -10,8 +10,6 @@
 
 #define M_SFX_SURF_DISTANCE ((STEP_L * 2) + 1)
 
-static bool M_ShouldPlaySFXAlways(const ITEM *item, bool item_underwater);
-
 static bool M_ShouldPlaySFXAlways(
     const ITEM *const item, const bool item_underwater)
 {
@@ -19,11 +17,9 @@ static bool M_ShouldPlaySFXAlways(
         return true;
     }
 
-#if TR_VERSION >= 2
     if (item->object_id == O_LARA_HARPOON) {
         return true;
     }
-#endif
 
     int16_t room_num = item->room_num;
     if (room_num == NO_ROOM) {
@@ -54,8 +50,7 @@ int16_t Item_GetRelativeAnim(const ITEM *const item)
     return Item_GetRelativeObjAnim(item, item->object_id);
 }
 
-int16_t Item_GetRelativeObjAnim(
-    const ITEM *const item, const GAME_OBJECT_ID obj_id)
+int16_t Item_GetRelativeObjAnim(const ITEM *const item, const OBJECT_ID obj_id)
 {
     return item->anim_num - Object_Get(obj_id)->anim_idx;
 }
@@ -73,7 +68,7 @@ void Item_SwitchToAnim(
 
 void Item_SwitchToObjAnim(
     ITEM *const item, const int16_t anim_idx, const int16_t frame,
-    const GAME_OBJECT_ID obj_id)
+    const OBJECT_ID obj_id)
 {
     const OBJECT *const obj = Object_Get(obj_id);
     if (obj->anim_idx == NO_ANIM) {
@@ -149,10 +144,10 @@ int32_t Item_GetFrames(const ITEM *item, ANIM_FRAME *frames[], int32_t *rate)
     }
 
     // Invalid state for interpolation
-    if (item != Lara_GetItem()
-        && (!item->active || item->status != IS_ACTIVE
-            || !item->enable_interpolation
-            || !Object_Get(item->object_id)->enable_interpolation)) {
+    const OBJECT *const obj = Object_Get(item->object_id);
+    if (obj->can_interpolate_func != nullptr
+        && !obj->can_interpolate_func(
+            item, first_key_frame_num, second_key_frame_num)) {
         *rate = denominator;
         return numerator;
     }
@@ -220,15 +215,10 @@ void Item_Animate(ITEM *const item)
         item->frame_num = anim->jump_frame_num;
         anim = Item_GetAnim(item);
 
-#if TR_VERSION == 1
-        item->current_anim_state = anim->current_anim_state;
-        item->goal_anim_state = item->current_anim_state;
-#else
         if (item->current_anim_state != anim->current_anim_state) {
             item->current_anim_state = anim->current_anim_state;
             item->goal_anim_state = anim->current_anim_state;
         }
-#endif
 
         if (item->required_anim_state == item->current_anim_state) {
             item->required_anim_state = 0;
@@ -338,5 +328,5 @@ void Item_PlayAnimSFX(
         play_mode = SPM_UNDERWATER;
     }
 
-    Sound_Effect(data->effect_num, &item->pos, play_mode);
+    Sound_Effect_Direct(data->effect_num, &item->pos, play_mode);
 }

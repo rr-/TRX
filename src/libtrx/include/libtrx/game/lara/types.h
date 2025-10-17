@@ -34,6 +34,7 @@ typedef struct {
     LARA_GUN_STATE gun_status;
     LARA_GUN_TYPE gun_type;
     LARA_GUN_TYPE request_gun_type;
+    LARA_GUN_TYPE last_gun_type;
 
     LARA_WATER_STATE water_status;
     int32_t water_surface_dist;
@@ -48,6 +49,9 @@ typedef struct {
     int16_t air;
     int16_t dive_timer;
     int16_t death_timer;
+    int16_t sprint_timer;
+    int16_t exposure_timer;
+    int32_t idle_timer;
     int16_t current_active;
     LOT_INFO lot;
     XYZ_32 last_pos;
@@ -76,6 +80,8 @@ typedef struct {
 
     bool extra_anim;
     bool burn;
+    bool climb_status;
+    bool killed_loyal_item;
 
     struct {
         int32_t item_num;
@@ -84,15 +90,11 @@ typedef struct {
         XYZ_32 initial_pos;
     } interact_target;
 
-#if TR_VERSION == 1
     LARA_GUN_TYPE holsters_gun_type;
     LARA_GUN_TYPE back_gun_type;
-#else
-    LARA_GUN_TYPE last_gun_type;
-    GAME_OBJECT_ID back_gun_obj_id;
+#if TR_VERSION >= 2
+    OBJECT_ID back_gun_obj_id;
     int16_t gun_item_num;
-
-    bool climb_status;
 
     AMMO_INFO harpoon_ammo;
     AMMO_INFO grenade_ammo;

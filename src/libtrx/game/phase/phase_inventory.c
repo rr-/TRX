@@ -1,7 +1,10 @@
 #include "game/phase/phase_inventory.h"
 
+#include "config.h"
 #include "debug.h"
+#include "game/game_flow.h"
 #include "game/inventory_ring.h"
+#include "game/music.h"
 #include "game/output.h"
 #include "game/overlay.h"
 #include "memory.h"
@@ -11,14 +14,16 @@ typedef struct {
     INV_RING *ring;
 } M_PRIV;
 
-static PHASE_CONTROL M_Start(PHASE *phase);
-static void M_End(PHASE *phase);
-static PHASE_CONTROL M_Control(PHASE *phase, int32_t num_frames);
-static void M_Draw(PHASE *phase);
-
 static PHASE_CONTROL M_Start(PHASE *const phase)
 {
     M_PRIV *const p = phase->priv;
+
+    const GF_LEVEL *const level = GF_GetTitleLevel();
+    if (p->mode == INV_TITLE_MODE && g_Config.audio.enable_music_in_menu
+        && level->music_track >= 0) {
+        Music_Play_Direct(level->music_track, MPM_LOOPED);
+    }
+
     p->ring = InvRing_Open(p->mode);
     if (p->ring == nullptr) {
         return (PHASE_CONTROL) {
@@ -29,11 +34,11 @@ static PHASE_CONTROL M_Start(PHASE *const phase)
     return (PHASE_CONTROL) { .action = PHASE_ACTION_CONTINUE };
 }
 
-static PHASE_CONTROL M_Control(PHASE *const phase, int32_t num_frames)
+static PHASE_CONTROL M_Control(PHASE *const phase)
 {
     M_PRIV *const p = phase->priv;
     ASSERT(p->ring != nullptr);
-    const GF_COMMAND gf_cmd = InvRing_Control(p->ring, num_frames);
+    const GF_COMMAND gf_cmd = InvRing_Control(p->ring);
     return (PHASE_CONTROL) {
         .action = p->ring->motion.status == RNG_DONE ? PHASE_ACTION_END
                                                      : PHASE_ACTION_CONTINUE,
@@ -44,6 +49,9 @@ static PHASE_CONTROL M_Control(PHASE *const phase, int32_t num_frames)
 static void M_End(PHASE *const phase)
 {
     M_PRIV *const p = phase->priv;
+    if (p->mode == INV_TITLE_MODE) {
+        Music_Stop();
+    }
     if (p->ring != nullptr) {
         InvRing_Close(p->ring);
         p->ring = nullptr;
@@ -56,7 +64,6 @@ static void M_Draw(PHASE *const phase)
     ASSERT(p->ring != nullptr);
     Output_DrawBackground();
     InvRing_Draw(p->ring);
-    Output_DrawPolyList();
 }
 
 PHASE *Phase_Inventory_Create(const INVENTORY_MODE mode)

@@ -2,6 +2,7 @@
 
 #include "filesystem.h"
 #include "game/clock.h"
+#include "game/events.h"
 #include "game/game.h"
 #include "game/game_flow/common.h"
 #include "game/output.h"
@@ -12,12 +13,6 @@
 #include <string.h>
 
 #define SCREENSHOTS_DIR "screenshots"
-
-static char *M_GetScreenshotTitle(void);
-static char *M_CleanScreenshotTitle(const char *source);
-static char *M_GetScreenshotBaseName(void);
-static const char *M_GetScreenshotFileExt(SCREENSHOT_FORMAT format);
-static char *M_GetScreenshotPath(SCREENSHOT_FORMAT format);
 
 static char *M_CleanScreenshotTitle(const char *const source)
 {
@@ -132,13 +127,18 @@ static char *M_GetScreenshotPath(const SCREENSHOT_FORMAT format)
     return full_path;
 }
 
-bool Screenshot_Make(const SCREENSHOT_FORMAT format)
+void Screenshot_Make(const SCREENSHOT_FORMAT format)
 {
-    File_CreateDirectory(SCREENSHOTS_DIR);
-
     char *full_path = M_GetScreenshotPath(format);
-    const bool result = Output_MakeScreenshot(full_path);
+    Output_MakeScreenshot(full_path);
+    GameEvent_Fire((EVENT) {
+        .name = GAME_EVENT_SCREENSHOT,
+        .data = full_path,
+    });
     Memory_FreePointer(&full_path);
+}
 
-    return result;
+void Screenshot_MakeToPath(const char *const path)
+{
+    Output_MakeScreenshot(path);
 }

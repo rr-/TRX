@@ -14,8 +14,4 @@ bool Stats_CheckAllSecretsCollected(GF_LEVEL_TYPE level_type);
 
 void Stats_UpdateTimer(void);
 
-void Stats_AddKill(void);
 void Stats_AddPickup(void);
-void Stats_AddAmmoHits(void);
-void Stats_AddAmmoUsed(void);
-void Stats_AddMedipacksUsed(double medipack_value);

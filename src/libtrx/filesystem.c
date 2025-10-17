@@ -26,21 +26,11 @@ struct MYFILE {
 
 const char *m_GameDir = nullptr;
 
-static void M_PathAppendSeparator(char *path);
-static void M_PathAppendPart(char *path, const char *part);
-static char *M_CasePath(const char *path);
-static FILE *M_UTF8Fopen(const char *path, const char *mode);
-static FILE *M_ResolveAndOpen(
-    const char *path, const char *mode, char **out_full_path);
-static bool M_ExistsRaw(const char *path);
-
 #if defined(_WIN32)
     #include <wchar.h>
     #include <stdlib.h>
     #include <string.h>
     #include <windows.h>
-
-static wchar_t *M_UTF8ToWide(const char *utf8_str);
 
 static wchar_t *M_UTF8ToWide(const char *const utf8_str)
 {
@@ -49,7 +39,7 @@ static wchar_t *M_UTF8ToWide(const char *const utf8_str)
     }
     const size_t len = strlen(utf8_str);
     const size_t wide_len =
-        MultiByteToWideChar(CP_UTF8, 0, utf8_str, len, NULL, 0);
+        MultiByteToWideChar(CP_UTF8, 0, utf8_str, len, nullptr, 0);
     wchar_t *wide_str = Memory_Alloc((wide_len + 1) * sizeof(wchar_t));
     MultiByteToWideChar(CP_UTF8, 0, utf8_str, len, wide_str, wide_len);
     wide_str[wide_len] = L'\0';
@@ -87,6 +77,16 @@ static void M_PathAppendPart(char *const path, const char *const part)
 {
     M_PathAppendSeparator(path);
     strcat(path, part);
+}
+
+static bool M_ExistsRaw(const char *path)
+{
+    FILE *fp = M_UTF8Fopen(path, "rb");
+    if (fp) {
+        fclose(fp);
+        return true;
+    }
+    return false;
 }
 
 static char *M_CasePath(const char *const path)
@@ -198,16 +198,6 @@ finish:
     return fp;
 }
 
-static bool M_ExistsRaw(const char *path)
-{
-    FILE *fp = M_UTF8Fopen(path, "rb");
-    if (fp) {
-        fclose(fp);
-        return true;
-    }
-    return false;
-}
-
 bool File_IsAbsolute(const char *path)
 {
     return path && (path[0] == '/' || strstr(path, ":\\"));
@@ -262,9 +252,20 @@ char *File_GetFullPath(const char *path)
 
 char *File_GetParentDirectory(const char *path)
 {
+    if (path == nullptr) {
+        return nullptr;
+    }
+
+    char *last_delim = MAX(strrchr(path, '/'), strrchr(path, '\\'));
+    if (last_delim != nullptr) {
+        return String_Format("%.*s", last_delim - path, path);
+    }
+
     char *full_path = File_GetFullPath(path);
-    char *const last_delim =
-        MAX(strrchr(full_path, '/'), strrchr(full_path, '\\'));
+    if (full_path == nullptr) {
+        return nullptr;
+    }
+    last_delim = MAX(strrchr(full_path, '/'), strrchr(full_path, '\\'));
     if (last_delim != nullptr) {
         *last_delim = '\0';
     }
@@ -422,6 +423,18 @@ void File_WriteU32(MYFILE *const file, const uint32_t value)
     fwrite(&value, sizeof(value), 1, file->fp);
 }
 
+void File_WriteString(MYFILE *file, const char *fmt, ...)
+{
+    if (file == nullptr || file->fp == nullptr) {
+        return;
+    }
+    va_list args;
+    va_start(args, fmt);
+    const char *s = String_FormatStaticV(fmt, args);
+    va_end(args);
+    fputs(s, file->fp);
+}
+
 void File_Skip(MYFILE *file, size_t bytes)
 {
     File_Seek(file, bytes, FILE_SEEK_CUR);
@@ -465,6 +478,7 @@ void File_Close(MYFILE *file)
 {
     fclose(file->fp);
     Memory_FreePointer(&file->path);
+    // free per-file line buffer
     Memory_FreePointer(&file);
 }
 
@@ -509,6 +523,24 @@ void File_CreateDirectory(const char *path)
     mkdir(full_path, 0775);
 #endif
     Memory_FreePointer(&full_path);
+}
+
+void File_EnsureParentDirectories(const char *path)
+{
+    ASSERT(path != nullptr);
+    LOG_INFO("%s", path);
+    char *parent = File_GetParentDirectory(path);
+    LOG_INFO("parent: %s", parent);
+    if (parent != nullptr) {
+        /* Only recurse/create if there is a distinct, non-empty parent */
+        if (parent[0] != '\0' && strcmp(parent, path) != 0) {
+            if (!File_DirExists(parent)) {
+                File_EnsureParentDirectories(parent);
+                File_CreateDirectory(parent);
+            }
+        }
+        Memory_FreePointer(&parent);
+    }
 }
 
 void *File_OpenDirectory(const char *const path)

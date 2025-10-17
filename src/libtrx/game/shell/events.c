@@ -3,24 +3,14 @@
 #include "engine/audio.h"
 #include "game/console/common.h"
 #include "game/fmv.h"
+#include "game/input/common.h"
 #include "game/shell.h"
+#include "game/test_recorder.h"
+#include "game/test_replay.h"
 #include "game/ui.h"
 
 // If true, next SDL_TEXT* event should be zeroed out.
 static bool m_ConsoleJustOpened = false;
-
-static void M_HandleQuit(void);
-static void M_HandleKeyDown(const SDL_Event *event);
-static void M_HandleKeyUp(const SDL_Event *event);
-static void M_HandleFocusGained(void);
-static void M_HandleFocusLost(void);
-static void M_HandleWindowShown(void);
-static void M_HandleWindowRestored(void);
-static void M_HandleWindowMinimized(void);
-static void M_HandleWindowMaximized(void);
-static void M_HandleWindowMoved(int32_t x, int32_t y);
-static void M_HandleWindowResized(int32_t width, int32_t height);
-static bool M_ProcessEvent(const SDL_Event *event);
 
 static void M_HandleQuit(void)
 {
@@ -32,9 +22,9 @@ static void M_HandleKeyDown(const SDL_Event *const event)
     // NOTE: Opening the console normally would get handled by Input_Update,
     // but by the time Input_Update gets ran, we may already have lost some
     // keypresses if the player types really fast, so we need to react sooner.
-    if (!FMV_IsPlaying() && g_Config.gameplay.enable_console
-        && !Console_IsOpened() && !Input_IsInListenMode()
-        && Input_IsPressed(
+    if (g_Config.gameplay.enable_console && !Console_IsOpened()
+        && !Input_IsInListenMode()
+        && Input_IsPressedEx(
             INPUT_BACKEND_KEYBOARD, g_Config.input.keyboard_layout,
             INPUT_ROLE_ENTER_CONSOLE)) {
         Console_Open();
@@ -99,8 +89,20 @@ static void M_HandleWindowResized(int32_t width, int32_t height)
     Shell_SyncFromWindow(true);
 }
 
-static bool M_ProcessEvent(const SDL_Event *const event)
+static bool M_ProcessReplayEvent(const SDL_Event *const event)
 {
+    switch (event->type) {
+    case SDL_QUIT:
+        M_HandleQuit();
+        return true;
+    }
+    return false;
+}
+
+bool Shell_ProcessEvent(const SDL_Event *const event)
+{
+    Input_ProcessEvent(event);
+
     switch (event->type) {
     case SDL_QUIT:
         M_HandleQuit();
@@ -112,14 +114,6 @@ static bool M_ProcessEvent(const SDL_Event *const event)
 
     case SDL_KEYUP:
         M_HandleKeyUp(event);
-        return true;
-
-    case SDL_TEXTEDITING:
-        if (m_ConsoleJustOpened) {
-            m_ConsoleJustOpened = false;
-        } else {
-            UI_HandleTextEdit(event->text.text);
-        }
         return true;
 
     case SDL_TEXTINPUT:
@@ -180,9 +174,22 @@ static bool M_ProcessEvent(const SDL_Event *const event)
 void Shell_ProcessEvents(void)
 {
     SDL_Event event;
-    while (SDL_PollEvent(&event) != 0) {
-        if (M_ProcessEvent(&event)) {
-            continue;
+    if (TestReplay_IsOpened()) {
+        TestReplay_RunFrame();
+        while (SDL_PollEvent(&event) != 0) {
+            M_ProcessReplayEvent(&event);
         }
+        return;
+    }
+
+    if (TestRecorder_IsOpened()) {
+        TestRecorder_BeginFrame();
+    }
+    while (SDL_PollEvent(&event) != 0) {
+        TestRecorder_RecordEvent(&event);
+        Shell_ProcessEvent(&event);
+    }
+    if (TestRecorder_IsOpened()) {
+        TestRecorder_EndFrame();
     }
 }

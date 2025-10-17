@@ -29,13 +29,12 @@ typedef struct {
     } palette;
 
     struct {
-        int32_t info_count;
         int32_t offset_count;
         int32_t *offsets;
-#if TR_VERSION == 1
+
+        // TR1-specific
         int32_t data_size;
         char *data;
-#endif
     } samples;
 
     int32_t mesh_ptr_count;

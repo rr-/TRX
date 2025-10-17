@@ -3,11 +3,11 @@
 #include "game/game_flow/common.h"
 #include "game/game_flow/sequencer.h"
 #include "game/game_flow/vars.h"
-#include "game/level.h"
 #include "game/savegame.h"
 
 #include <libtrx/config.h>
 #include <libtrx/game/game_string_table.h>
+#include <libtrx/game/level.h>
 #include <libtrx/log.h>
 #include <libtrx/utils.h>
 
@@ -106,6 +106,7 @@ GF_COMMAND GF_DoLevelSequence(
     const GF_LEVEL *const start_level, const GF_SEQUENCE_CONTEXT seq_ctx)
 {
     const GF_LEVEL *current_level = start_level;
+
     const GF_LEVEL_TABLE_TYPE level_table_type =
         GF_GetLevelTableType(current_level->type);
     const int32_t level_count = GF_GetLevelTable(level_table_type)->count;

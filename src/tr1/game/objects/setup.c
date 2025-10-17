@@ -1,4 +1,4 @@
-#include "game/lara/common.h"
+#include "game/lara.h"
 #include "game/objects/common.h"
 
 #include <libtrx/config.h>
@@ -6,14 +6,12 @@
 
 #define M_DEFAULT_RADIUS 10
 
-static void M_SetupLara(void);
-static void M_DisableObject(GAME_OBJECT_ID obj_id);
-
 static void M_SetupLara(void)
 {
     OBJECT *const obj = Object_Get(O_LARA);
     obj->initialise_func = Lara_InitialiseLoad;
-    obj->draw_func = Object_DrawDummyItem;
+    obj->can_interpolate_func = Lara_CanInterpolate;
+    obj->draw_func = nullptr;
     obj->hit_points = g_Config.gameplay.start_lara_hitpoints;
     obj->shadow_size = (UNIT_SHADOW * 10) / 16;
     obj->save_position = true;
@@ -28,20 +26,21 @@ static void M_SetupSkybox(void)
     if (obj->loaded) {
         for (int32_t i = 0; i < obj->mesh_count; i++) {
             OBJECT_MESH *const obj_mesh = Object_GetMesh(obj->mesh_idx + i);
-            obj_mesh->disable_lighting = true;
+            obj_mesh->disable_transparency_sort = true;
         }
     }
 }
 
-static void M_DisableObject(const GAME_OBJECT_ID obj_id)
+static void M_DisableObject(const OBJECT_ID obj_id)
 {
     OBJECT *const obj = Object_Get(obj_id);
     obj->initialise_func = nullptr;
     obj->collision_func = nullptr;
     obj->control_func = nullptr;
-    obj->draw_func = Object_DrawDummyItem;
+    obj->draw_func = nullptr;
     obj->floor_height_func = nullptr;
     obj->ceiling_height_func = nullptr;
+    obj->add_walkable_func = nullptr;
 }
 
 void Object_SetupAllObjects(void)
@@ -60,6 +59,8 @@ void Object_SetupAllObjects(void)
         obj->ceiling_height_func = nullptr;
         obj->floor_height_func = nullptr;
         obj->is_usable_func = nullptr;
+        obj->add_walkable_func = nullptr;
+        obj->can_interpolate_func = Object_CanInterpolate;
         obj->pivot_length = 0;
         obj->radius = M_DEFAULT_RADIUS;
         obj->shadow_size = 0;

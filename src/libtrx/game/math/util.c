@@ -39,7 +39,7 @@ int32_t Math_AngleInCone(int32_t angle1, int32_t angle2, int32_t cone)
     return ABS(diff) < cone;
 }
 
-DIRECTION Math_GetDirection(int16_t angle)
+DIRECTION Math_GetDirection(const int16_t angle)
 {
     return (uint16_t)(angle + DEG_45) / DEG_90;
 }
@@ -92,6 +92,11 @@ int32_t Math_AngleMean(int32_t angle1, int32_t angle2, double ratio)
     }
 
     return result;
+}
+
+int32_t Math_FloorDiv(const int32_t x, const int32_t divisor)
+{
+    return (x >= 0) ? x / divisor : -((-x + divisor - 1) / divisor);
 }
 
 int16_t XYZ_32_GetYaw(const XYZ_32 pos)

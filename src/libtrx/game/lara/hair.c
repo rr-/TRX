@@ -21,17 +21,11 @@
 #endif
 
 static bool m_IsFirstHair;
-static GAME_OBJECT_ID m_LaraType = O_LARA;
+static OBJECT_ID m_LaraType = O_LARA;
 static SPHERE m_HairSpheres[M_HAIR_SPHERES];
 static XYZ_32 m_HairVelocity[M_HAIR_SEGMENTS + 1];
 static HAIR_SEGMENT m_HairSegments[M_HAIR_SEGMENTS + 1];
 static int32_t m_HairWind;
-
-static int16_t M_GetRoom(XYZ_32 pos);
-static void M_CalculateSpheres(const ANIM_FRAME *frame);
-static void M_CalculateSpheres_I(
-    const ANIM_FRAME *frame_1, const ANIM_FRAME *frame_2, int32_t frac,
-    int32_t rate);
 
 static int16_t M_GetRoom(const XYZ_32 pos)
 {
@@ -66,7 +60,7 @@ static void M_CalculateSpheres(const ANIM_FRAME *const frame)
 
     const ANIM_BONE *bone = Object_GetBone(lara_obj, 0);
     Matrix_TranslateRel32(bone[LM_TORSO - 1].pos);
-    if (Lara_IsM16Active()) {
+    if (Lara_IsM16Active() && pose == nullptr) {
         mesh_rots =
             lara->right_arm.frame_base[lara->right_arm.frame_num].mesh_rots;
     }
@@ -209,7 +203,7 @@ static void M_CalculateSpheres_I(
     Matrix_Interpolate();
 }
 
-void Lara_Hair_SetLaraType(const GAME_OBJECT_ID lara_type)
+void Lara_Hair_SetLaraType(const OBJECT_ID lara_type)
 {
     m_LaraType = lara_type;
 }

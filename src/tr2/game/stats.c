@@ -1,48 +1,22 @@
 #include "game/stats.h"
 
-#include "game/clock.h"
 #include "game/game.h"
 #include "game/game_flow.h"
-#include "game/objects/vars.h"
 #include "game/savegame.h"
 
 #include <libtrx/debug.h>
+#include <libtrx/game/objects/vars.h>
 #include <libtrx/log.h>
 #include <libtrx/utils.h>
-
-#define M_USE_REAL_CLOCK 0
 
 typedef struct {
     int32_t secret_count;
     uint32_t secret_flags;
-    GAME_OBJECT_ID secret_objects[STATS_MAX_SECRETS];
+    OBJECT_ID secret_objects[STATS_MAX_SECRETS];
 } M_MAX_STATS;
 
 static int32_t m_CachedItemCount = 0;
 static M_MAX_STATS m_LevelMax = {};
-
-#if M_USE_REAL_CLOCK
-static CLOCK_TIMER m_StartCounter = { .type = CLOCK_TYPE_REAL };
-static int32_t m_StartTimer = 0;
-
-void Stats_StartTimer(void)
-{
-    ClockTimer_Sync(&m_StartCounter);
-    const RESUME_INFO *const resume =
-        Savegame_GetCurrentInfo(Game_GetCurrentLevel());
-    m_StartTimer = resume->stats.timer;
-}
-
-void Stats_UpdateTimer(void)
-{
-    const double elapsed = ClockTimer_PeekElapsed(&m_StartCounter) * LOGIC_FPS;
-    RESUME_INFO *const resume = Savegame_GetCurrentInfo(Game_GetCurrentLevel());
-    resume->stats.timer = m_StartTimer + elapsed;
-}
-#else
-void Stats_StartTimer(void)
-{
-}
 
 void Stats_UpdateTimer(void)
 {
@@ -52,7 +26,6 @@ void Stats_UpdateTimer(void)
         resume->stats.timer++;
     }
 }
-#endif
 
 FINAL_STATS Stats_ComputeFinalStats(const GF_LEVEL_TYPE level_type)
 {
@@ -95,7 +68,7 @@ void Stats_CalculateStats(void)
     }
 
     struct L_SECRET_ITEM {
-        GAME_OBJECT_ID object_id;
+        OBJECT_ID object_id;
         int32_t index;
     } secrets[STATS_MAX_SECRETS];
     int32_t secret_count = 0;
@@ -119,8 +92,7 @@ void Stats_CalculateStats(void)
     for (int32_t i = 0; i < secret_count; i++) {
         for (int32_t j = i + 1; j < secret_count; j++) {
             if (secrets[i].object_id > secrets[j].object_id) {
-                struct L_SECRET_ITEM tmp;
-                SWAP(secrets[i], secrets[j], tmp);
+                SWAP(secrets[i], secrets[j]);
             }
         }
     }
@@ -132,7 +104,7 @@ void Stats_CalculateStats(void)
     }
 }
 
-uint32_t Stats_ReserveSecretBit(const GAME_OBJECT_ID object_id)
+uint32_t Stats_ReserveSecretBit(const OBJECT_ID object_id)
 {
     uint32_t n = m_LevelMax.secret_flags;
     int32_t position = 0;
@@ -147,7 +119,7 @@ uint32_t Stats_ReserveSecretBit(const GAME_OBJECT_ID object_id)
     return 1 << position;
 }
 
-GAME_OBJECT_ID Stats_GetSecretObject(const int32_t secret_idx)
+OBJECT_ID Stats_GetSecretObject(const int32_t secret_idx)
 {
     ASSERT(secret_idx >= 0 && secret_idx < STATS_MAX_SECRETS);
     return m_LevelMax.secret_objects[secret_idx];
@@ -209,11 +181,4 @@ void Stats_AddAmmoUsed(void)
     RESUME_INFO *const current_info =
         Savegame_GetCurrentInfo(Game_GetCurrentLevel());
     current_info->stats.ammo_used++;
-}
-
-void Stats_AddMedipacksUsed(const double medipack_value)
-{
-    RESUME_INFO *const current_info =
-        Savegame_GetCurrentInfo(Game_GetCurrentLevel());
-    current_info->stats.medipacks_used += medipack_value;
 }

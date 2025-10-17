@@ -4,6 +4,7 @@
 #include "game/lara.h"
 #include "game/lara/util.h"
 #include "game/music.h"
+#include "game/objects/effects/twinkle.h"
 #include "game/overlay.h"
 #include "game/rooms.h"
 #include "game/viewport.h"
@@ -36,26 +37,8 @@
 #define M_CAM_TREX_KILL_ELEVATION     (-25 * DEG_1) // = -4550
 // clang-format on
 
-#if TR_VERSION == 1
-extern void Twinkle_SparkleItem(ITEM *item, uint32_t mesh_mask);
-#endif
-
-static void M_UseMidas(ITEM *item, COLL_INFO *coll);
-static void M_DieMidas(ITEM *item, COLL_INFO *coll);
-static void M_Breath(ITEM *item, COLL_INFO *coll);
-static void M_YetiKill(ITEM *item, COLL_INFO *coll);
-static void M_SharkKill(ITEM *item, COLL_INFO *coll);
-static void M_Airlock(ITEM *item, COLL_INFO *coll);
-static void M_GongBong(ITEM *item, COLL_INFO *coll);
-static void M_DinoKill(ITEM *item, COLL_INFO *coll);
-static void M_PullDagger(ITEM *item, COLL_INFO *coll);
-static void M_StartAnim(ITEM *item, COLL_INFO *coll);
-static void M_StartHouse(ITEM *item, COLL_INFO *coll);
-static void M_FinalAnim(ITEM *item, COLL_INFO *coll);
-
 static void M_UseMidas(ITEM *const item, COLL_INFO *const coll)
 {
-#if TR_VERSION == 1
     coll->enable_hit = 0;
     coll->enable_baddie_push = 0;
     Twinkle_SparkleItem(item, (1 << LM_HAND_L) | (1 << LM_HAND_R));
@@ -67,12 +50,10 @@ static void M_UseMidas(ITEM *const item, COLL_INFO *const coll)
         LARA_INFO *const lara = Lara_GetLaraInfo();
         lara->interact_target.item_num = NO_ITEM;
     }
-#endif
 }
 
 static void M_DieMidas(ITEM *const item, COLL_INFO *const coll)
 {
-#if TR_VERSION == 1
     item->gravity = false;
     coll->enable_hit = 0;
     coll->enable_baddie_push = 0;
@@ -154,14 +135,13 @@ static void M_DieMidas(ITEM *const item, COLL_INFO *const coll)
     }
 
     Twinkle_SparkleItem(item, lara->mesh_effects);
-#endif
 }
 
 static void M_Breath(ITEM *const item, COLL_INFO *const coll)
 {
-    Item_SwitchToAnim(item, LA_STAND_IDLE, 0);
-    item->goal_anim_state = LS_STOP;
-    item->current_anim_state = LS_STOP;
+    Item_SwitchToAnim(item, LA(LA_STAND_IDLE), 0);
+    item->goal_anim_state = LS(LS_STOP);
+    item->current_anim_state = LS(LS_STOP);
     LARA_INFO *const lara = Lara_GetLaraInfo();
     lara->extra_anim = false;
     lara->gun_status = LGS_ARMLESS;
@@ -231,7 +211,6 @@ static void M_DinoKill(ITEM *const item, COLL_INFO *const coll)
 
 static void M_PullDagger(ITEM *const item, COLL_INFO *const coll)
 {
-#if TR_VERSION == 2
     if (Item_TestFrameEqual(item, M_LF_DRAGON_DAGGER_PULLED)) {
         Music_Play(MX_DAGGER_PULL, MPM_ALWAYS);
     } else if (Item_TestFrameEqual(item, M_LF_DRAGON_DAGGER_STORED)) {
@@ -247,7 +226,6 @@ static void M_PullDagger(ITEM *const item, COLL_INFO *const coll)
             Room_TestTriggers(dragon_bones);
         }
     }
-#endif
 }
 
 static void M_StartAnim(ITEM *const item, COLL_INFO *const coll)
@@ -257,7 +235,6 @@ static void M_StartAnim(ITEM *const item, COLL_INFO *const coll)
 
 static void M_StartHouse(ITEM *const item, COLL_INFO *const coll)
 {
-#if TR_VERSION == 2
     if (Item_TestFrameEqual(item, M_LF_START_HOUSE_BEGIN)) {
         Music_Play(MX_REVEAL_2, MPM_ALWAYS);
         Lara_Mesh_SwapSingle(LM_HAND_R, O_LARA_EXTRA);
@@ -270,18 +247,18 @@ static void M_StartHouse(ITEM *const item, COLL_INFO *const coll)
         g_Camera.type = CAM_CHASE;
         Viewport_AlterFOV(-1);
     }
-#endif
 }
 
 static void M_FinalAnim(ITEM *const item, COLL_INFO *const coll)
 {
-#if TR_VERSION == 2
     item->hit_points = LARA_MAX_HITPOINTS;
     Lara_SetControllable(false);
 
     if (Item_TestFrameEqual(item, M_LF_SHOWER_START)) {
         LARA_INFO *const lara = Lara_GetLaraInfo();
+#if TR_VERSION == 2
         lara->back_gun_obj_id = O_LARA;
+#endif
         Lara_Mesh_SwapSingle(LM_HAND_R, O_LARA);
         Lara_Mesh_SwapSingle(LM_HEAD, O_LARA);
         Lara_Mesh_SwapSingle(LM_HIPS, O_LARA_EXTRA);
@@ -291,14 +268,18 @@ static void M_FinalAnim(ITEM *const item, COLL_INFO *const coll)
     } else if (Item_TestFrameEqual(item, -1)) {
         Game_SetIsLevelComplete(true);
     }
-#endif
+
+    if (Music_GetCurrentPlayingTrack() == Music_ToGameID(MX_CUTSCENE_BATH)) {
+        const int32_t frame_num = Item_GetRelativeFrame(item);
+        const double ts = (frame_num - M_LF_SHOWER_START) / (double)LOGIC_FPS;
+        Music_SyncTimestamp(ts);
+    }
 }
 
 // clang-format off
-#if TR_VERSION == 1
 REGISTER_LARA_STATE(LS_USE_MIDAS,         M_UseMidas)
 REGISTER_LARA_STATE(LS_DIE_MIDAS,         M_DieMidas)
-#else
+#if TR_VERSION >= 2
 REGISTER_LARA_EXTRA(LS_EXTRA_BREATH,      M_Breath)
 REGISTER_LARA_EXTRA(LS_EXTRA_YETI_KILL,   M_YetiKill)
 REGISTER_LARA_EXTRA(LS_EXTRA_SHARK_KILL,  M_SharkKill)

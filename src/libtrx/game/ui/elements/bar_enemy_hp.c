@@ -38,13 +38,12 @@ bool UI_EnemyHealthBar(void)
     }
 
     UI_Bar((UI_BAR_SETTINGS) {
-        .color = is_ally ? g_Config.ui.enemy_health_bar.color_allies
-                         : g_Config.ui.enemy_health_bar.color,
+        .type = is_ally ? UI_BAR_ALLY_HP : UI_BAR_ENEMY_HP,
         .w = UI_BAR_WIDTH,
         .h = UI_BAR_HEIGHT,
         .value = target->hit_points,
         .max_value =
-            obj->hit_points * (Game_IsBonusFlagSet(GBF_NGPLUS) ? 2 : 1),
+            target->max_hit_points * (Game_IsBonusFlagSet(GBF_NGPLUS) ? 2 : 1),
     });
     return true;
 }

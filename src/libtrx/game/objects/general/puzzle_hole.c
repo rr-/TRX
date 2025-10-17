@@ -24,17 +24,6 @@ static const OBJECT_BOUNDS m_PuzzleHoleBounds = {
     },
 };
 
-static const OBJECT_BOUNDS *M_Bounds(void);
-static bool M_IsUsable(int16_t item_num);
-static void M_Use(ITEM *lara_item, ITEM *receptacle_item);
-static void M_ConsumeKeyItem(ITEM *receptacle_item);
-static void M_MarkDone(ITEM *receptacle_item);
-static void M_SetupEmpty(OBJECT *obj);
-static void M_SetupDone(OBJECT *obj);
-static void M_HandleSave(ITEM *item, SAVEGAME_STAGE stage);
-static void M_Collision(int16_t item_num, ITEM *lara_item, COLL_INFO *coll);
-static void M_CollisionDone(int16_t item_num, ITEM *lara_item, COLL_INFO *coll);
-
 static const OBJECT_BOUNDS *M_Bounds(void)
 {
     return &m_PuzzleHoleBounds;
@@ -50,8 +39,8 @@ static void M_Use(ITEM *const lara_item, ITEM *const receptacle_item)
 {
     LARA_INFO *const lara = Lara_GetLaraInfo();
     Lara_AlignPosition(receptacle_item, &m_PuzzleHolePosition);
-    Lara_AnimateUntil(lara_item, LS_USE_PUZZLE);
-    lara_item->goal_anim_state = LS_STOP;
+    Lara_AnimateUntil(lara_item, LS(LS_USE_PUZZLE));
+    lara_item->goal_anim_state = LS(LS_STOP);
     lara->gun_status = LGS_HANDS_BUSY;
     lara->interact_target.is_moving = false;
 }
@@ -59,7 +48,7 @@ static void M_Use(ITEM *const lara_item, ITEM *const receptacle_item)
 static void M_ConsumeKeyItem(ITEM *const receptacle_item)
 {
     LARA_INFO *const lara = Lara_GetLaraInfo();
-    const GAME_OBJECT_ID key_object_id =
+    const OBJECT_ID key_object_id =
         Object_FindReceptacleKey(receptacle_item->object_id);
     if (key_object_id != NO_OBJECT) {
         Inv_RemoveItem(key_object_id);
@@ -69,28 +58,14 @@ static void M_ConsumeKeyItem(ITEM *const receptacle_item)
 
 static void M_MarkDone(ITEM *const receptacle_item)
 {
-    const GAME_OBJECT_ID done_obj_id = Object_GetCognate(
+    const OBJECT_ID done_obj_id = Object_GetCognate(
         receptacle_item->object_id, g_ReceptacleToReceptacleDoneMap);
     if (done_obj_id != NO_OBJECT) {
         receptacle_item->object_id = done_obj_id;
     }
-    receptacle_item->status = IS_ACTIVE;
-}
-
-static void M_SetupEmpty(OBJECT *const obj)
-{
-    obj->collision_func = M_Collision;
-    obj->handle_save_func = M_HandleSave;
-    obj->is_usable_func = M_IsUsable;
-    obj->bounds_func = M_Bounds;
-    obj->save_flags = true;
-}
-
-static void M_SetupDone(OBJECT *const obj)
-{
-    obj->collision_func = M_CollisionDone;
-    obj->bounds_func = M_Bounds;
-    obj->save_flags = true;
+    if (receptacle_item->status == IS_INACTIVE) {
+        receptacle_item->status = IS_ACTIVE;
+    }
 }
 
 static void M_HandleSave(ITEM *const item, const SAVEGAME_STAGE stage)
@@ -109,8 +84,8 @@ static void M_Collision(
     const OBJECT *const obj = Object_Get(item->object_id);
     const LARA_INFO *const lara = Lara_GetLaraInfo();
 
-    if (lara_item->current_anim_state != LS_STOP) {
-        if (lara_item->current_anim_state == LS_USE_PUZZLE
+    if (lara_item->current_anim_state != LS(LS_STOP)) {
+        if (lara_item->current_anim_state == LS(LS_USE_PUZZLE)
             && Lara_TestPosition(item, obj->bounds_func())
             && Item_TestFrameEqual(lara_item, M_LF_USE_PUZZLE)) {
             M_ConsumeKeyItem(item);
@@ -146,13 +121,29 @@ static void M_CollisionDone(
     const LARA_INFO *const lara = Lara_GetLaraInfo();
 
     if (!g_Input.action || lara->gun_status != LGS_ARMLESS || lara_item->gravity
-        || lara_item->current_anim_state != LS_STOP
+        || lara_item->current_anim_state != LS(LS_STOP)
         || !Lara_TestPosition(item, obj->bounds_func())) {
         return;
     }
 
     // Trying to interact with a complete puzzle hole
     Lara_RefuseInteraction();
+}
+
+static void M_SetupEmpty(OBJECT *const obj)
+{
+    obj->collision_func = M_Collision;
+    obj->handle_save_func = M_HandleSave;
+    obj->is_usable_func = M_IsUsable;
+    obj->bounds_func = M_Bounds;
+    obj->save_flags = true;
+}
+
+static void M_SetupDone(OBJECT *const obj)
+{
+    obj->collision_func = M_CollisionDone;
+    obj->bounds_func = M_Bounds;
+    obj->save_flags = true;
 }
 
 REGISTER_OBJECT(O_PUZZLE_HOLE_1, M_SetupEmpty)

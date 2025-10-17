@@ -4,37 +4,40 @@
 #include "game/game.h"
 #include "game/game_flow.h"
 #include "game/game_string.h"
-#include "game/input.h"
 #include "game/item_actions.h"
-#include "game/lara/common.h"
-#include "game/level.h"
-#include "game/output.h"
-#include "game/overlay.h"
-#include "game/random.h"
+#include "game/lara.h"
 #include "game/savegame.h"
 #include "game/shell.h"
-#include "game/sound.h"
 #include "global/vars.h"
 
 #include <libtrx/config.h>
 #include <libtrx/debug.h>
 #include <libtrx/game/camera.h>
+#include <libtrx/game/input.h>
 #include <libtrx/game/interpolation.h>
 #include <libtrx/game/lara.h>
+#include <libtrx/game/level.h>
+#include <libtrx/game/music.h>
+#include <libtrx/game/output.h>
+#include <libtrx/game/overlay.h>
 #include <libtrx/game/phase.h>
+#include <libtrx/game/random.h>
+#include <libtrx/game/sound.h>
 #include <libtrx/log.h>
 
-#define MODIFY_CONFIG()                                                        \
-    PROCESS_CONFIG(gameplay.start_lara_hitpoints, LARA_MAX_HITPOINTS);         \
-    PROCESS_CONFIG(gameplay.disable_healing_between_levels, false);            \
-    PROCESS_CONFIG(gameplay.look_mode, LOOK_MODE_RESTRICTED);                  \
-    PROCESS_CONFIG(gameplay.enable_tr2_jumping, false);                        \
-    PROCESS_CONFIG(gameplay.enable_tr2_swimming, false);                       \
-    PROCESS_CONFIG(gameplay.enable_tr2_swim_cancel, false);                    \
-    PROCESS_CONFIG(gameplay.enable_wading, false);                             \
-    PROCESS_CONFIG(gameplay.target_mode, TLM_FULL);                            \
-    PROCESS_CONFIG(gameplay.fix_bear_ai, false);                               \
-    PROCESS_CONFIG(gameplay.wall_glitch_mode, WALL_GLITCH_TR1);
+#define L_MODIFY_CONFIG()                                                      \
+    X_PROCESS_CONFIG(gameplay.start_lara_hitpoints, LARA_MAX_HITPOINTS);       \
+    X_PROCESS_CONFIG(gameplay.disable_healing_between_levels, false);          \
+    X_PROCESS_CONFIG(gameplay.look_mode, LOOK_MODE_RESTRICTED);                \
+    X_PROCESS_CONFIG(gameplay.enable_tr2_jumping, false);                      \
+    X_PROCESS_CONFIG(gameplay.enable_tr2_swimming, false);                     \
+    X_PROCESS_CONFIG(gameplay.enable_tr2_swim_cancel, false);                  \
+    X_PROCESS_CONFIG(gameplay.enable_wading, false);                           \
+    X_PROCESS_CONFIG(gameplay.target_mode, TLM_FULL);                          \
+    X_PROCESS_CONFIG(gameplay.enable_target_change, false);                    \
+    X_PROCESS_CONFIG(gameplay.fix_bear_ai, false);                             \
+    X_PROCESS_CONFIG(gameplay.wall_glitch_mode, WALL_GLITCH_TR1);              \
+    X_PROCESS_CONFIG(input.quick_guns_mode, QUICK_GUNS_DRAW_ONLY);
 
 typedef struct {
     const uint32_t *demo_ptr;
@@ -45,25 +48,21 @@ typedef struct {
 static int32_t m_LastDemoNum = 0;
 static M_PRIV m_Priv;
 
-static void M_PrepareConfig(M_PRIV *const p);
-static void M_RestoreConfig(M_PRIV *const p);
-static bool M_ProcessInput(M_PRIV *const p);
-
 static void M_PrepareConfig(M_PRIV *const p)
 {
     // Changing certains settings affects negatively the original game demo
     // data, so temporarily turn off all relevant enhancements.
     p->old_config = g_Config;
-#undef PROCESS_CONFIG
-#define PROCESS_CONFIG(var, value) g_Config.var = value;
-    MODIFY_CONFIG();
+#define X_PROCESS_CONFIG(var, value) g_Config.var = value;
+    L_MODIFY_CONFIG();
+#undef X_PROCESS_CONFIG
 }
 
 static void M_RestoreConfig(M_PRIV *const p)
 {
-#undef PROCESS_CONFIG
-#define PROCESS_CONFIG(var, value) g_Config.var = p->old_config.var;
-    MODIFY_CONFIG();
+#define X_PROCESS_CONFIG(var, value) g_Config.var = p->old_config.var;
+    L_MODIFY_CONFIG();
+#undef X_PROCESS_CONFIG
 }
 
 static bool M_ProcessInput(M_PRIV *const p)
@@ -147,11 +146,16 @@ bool Demo_Start(const int32_t level_num)
         return false;
     }
 
+    if (p->level->music_track != MX_INACTIVE) {
+        Music_Play_Direct(p->level->music_track, MPM_LOOPED);
+    }
+
     g_OverlayFlag = 1;
     Camera_Initialise();
     p->demo_ptr = data;
 
     ITEM *const lara_item = Lara_GetItem();
+    LARA_INFO *const lara = Lara_GetLaraInfo();
     lara_item->pos.x = *p->demo_ptr++;
     lara_item->pos.y = *p->demo_ptr++;
     lara_item->pos.z = *p->demo_ptr++;
@@ -160,7 +164,7 @@ bool Demo_Start(const int32_t level_num)
     lara_item->rot.z = *p->demo_ptr++;
     int16_t room_num = *p->demo_ptr++;
 
-    Item_UpdateRoom(g_Lara.item_num, room_num);
+    Item_UpdateRoom(lara->item_num, room_num);
 
     const SECTOR *const sector = Room_GetSector(
         lara_item->pos.x, lara_item->pos.y, lara_item->pos.z, &room_num);
@@ -170,10 +174,7 @@ bool Demo_Start(const int32_t level_num)
     Random_SeedDraw(0xD371F947);
     Random_SeedControl(0xD371F947);
 
-    // LaraGun() expects request_gun_type to be set only when it
-    // really is needed, not at all times.
-    // https://github.com/LostArtefacts/TRX/issues/36
-    g_Lara.request_gun_type = LGT_UNARMED;
+    lara->last_gun_type = LGT_PISTOLS;
 
     Overlay_SetBottomTextPtr(GS_PTR(MISC_DEMO_MODE), true);
     return true;
@@ -184,6 +185,7 @@ void Demo_End(void)
     M_PRIV *const p = &m_Priv;
     M_RestoreConfig(p);
     Overlay_SetBottomText(nullptr, false);
+    Music_Stop();
 }
 
 void Demo_Pause(void)
@@ -255,6 +257,7 @@ GF_COMMAND Demo_Control(void)
 
     Output_ResetDynamicLights();
 
+    Sound_ResetAmbient();
     Item_Control();
     Effect_Control();
 
@@ -262,7 +265,6 @@ GF_COMMAND Demo_Control(void)
     Lara_Hair_Control(false);
 
     Camera_Update();
-    Sound_ResetAmbient();
     ItemAction_RunActive();
     Sound_UpdateEffects();
     Output_AnimateTextures(1);

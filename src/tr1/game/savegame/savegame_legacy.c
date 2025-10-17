@@ -3,15 +3,17 @@
 #include "game/game_flow.h"
 #include "game/inventory.h"
 #include "game/lara.h"
-#include "game/level.h"
 #include "game/savegame.h"
 #include "game/shell.h"
 #include "game/stats.h"
-#include "global/vars.h"
 
 #include <libtrx/debug.h>
 #include <libtrx/game/camera.h>
 #include <libtrx/game/carrier.h>
+#include <libtrx/game/level.h>
+#include <libtrx/game/objects/traps/movable_block.h>
+#include <libtrx/game/objects/traps/sliding_pillar.h>
+#include <libtrx/game/objects/vars.h>
 #include <libtrx/log.h>
 #include <libtrx/memory.h>
 #include <libtrx/utils.h>
@@ -43,17 +45,16 @@ typedef struct {
 static int32_t m_SGBufPos = 0;
 static char *m_SGBufPtr = nullptr;
 
-static bool M_ItemHasSaveFlags(const OBJECT *obj, ITEM *item);
-static bool M_ItemHasSaveAnim(const ITEM *item);
-static bool M_ItemHasHitPoints(const ITEM *item);
-static bool M_NeedsBaconLaraFix(char *buffer);
+static void M_Read(void *const ptr, const size_t size)
+{
+    ASSERT(m_SGBufPos + size <= SAVEGAME_LEGACY_MAX_BUFFER_SIZE);
+    ASSERT(m_SGBufPtr != nullptr);
+    m_SGBufPos += size;
+    memcpy(ptr, m_SGBufPtr, size);
+    m_SGBufPtr += size;
+}
 
-static void M_Reset(char *buffer);
-static void M_Skip(size_t size);
-
-static void M_Read(void *pointer, size_t size);
-
-#define SPECIAL_READ(name, type)                                               \
+#define X_SPECIAL_READ(name, type)                                             \
     static type M_Read##name(void)                                             \
     {                                                                          \
         type result;                                                           \
@@ -61,24 +62,17 @@ static void M_Read(void *pointer, size_t size);
         return result;                                                         \
     }
 
-#define SPECIAL_READS                                                          \
-    SPECIAL_READ(S8, int8_t)                                                   \
-    SPECIAL_READ(S16, int16_t)                                                 \
-    SPECIAL_READ(S32, int32_t)                                                 \
-    SPECIAL_READ(U8, uint8_t)                                                  \
-    SPECIAL_READ(U16, uint16_t)                                                \
-    SPECIAL_READ(U32, uint32_t)
+#define L_SPECIAL_READS                                                        \
+    X_SPECIAL_READ(S8, int8_t)                                                 \
+    X_SPECIAL_READ(S16, int16_t)                                               \
+    X_SPECIAL_READ(S32, int32_t)                                               \
+    X_SPECIAL_READ(U8, uint8_t)                                                \
+    X_SPECIAL_READ(U16, uint16_t)                                              \
+    X_SPECIAL_READ(U32, uint32_t)
 
-SPECIAL_READS
-#undef SPECIAL_READ
-#undef SPECIAL_READS
-
-static void M_ReadArm(LARA_ARM *arm);
-static void M_ReadAmmoInfo(AMMO_INFO *ammo_info);
-static void M_ReadLara(LARA_INFO *lara);
-static void M_ReadLOT(LOT_INFO *lot);
-static void M_ReadResumeInfo(RESUME_INFO *resume);
-static void M_ReadResumeInfos(MYFILE *fp);
+L_SPECIAL_READS
+#undef X_SPECIAL_READ
+#undef L_SPECIAL_READS
 
 static const char *M_GetSaveFilePattern(void);
 static bool M_FillInfo(MYFILE *fp, SAVEGAME_INFO *savegame_info);
@@ -98,6 +92,18 @@ static SAVEGAME_STRATEGY m_Strategy = {
     .update_death_counters_func = nullptr,
     // clang-format on
 };
+
+static void M_Reset(char *buffer)
+{
+    m_SGBufPos = 0;
+    m_SGBufPtr = buffer;
+}
+
+static void M_Skip(const size_t size)
+{
+    m_SGBufPtr += size;
+    m_SGBufPos += size; // missing from OG
+}
 
 static bool M_ItemHasSaveFlags(const OBJECT *const obj, ITEM *const item)
 {
@@ -225,25 +231,40 @@ static bool M_NeedsBaconLaraFix(char *buffer)
     return result;
 }
 
-static void M_Reset(char *buffer)
+static void M_ReadArm(LARA_ARM *const arm)
 {
-    m_SGBufPos = 0;
-    m_SGBufPtr = buffer;
+    M_Skip(sizeof(int32_t)); // frame_base is superfluous
+    arm->frame_num = M_ReadS16();
+    arm->lock = M_ReadS16();
+    arm->rot.y = M_ReadS16();
+    arm->rot.x = M_ReadS16();
+    arm->rot.z = M_ReadS16();
+    arm->flash_gun = M_ReadS16();
 }
 
-static void M_Skip(const size_t size)
+static void M_ReadAmmoInfo(AMMO_INFO *const ammo_info)
 {
-    m_SGBufPtr += size;
-    m_SGBufPos += size; // missing from OG
+    ammo_info->ammo = M_ReadS32();
+    M_Skip(sizeof(int32_t)); // Legacy hits value
+    M_Skip(sizeof(int32_t)); // Legacy miss value
 }
 
-static void M_Read(void *const ptr, const size_t size)
+static void M_ReadLOT(LOT_INFO *const lot)
 {
-    ASSERT(m_SGBufPos + size <= SAVEGAME_LEGACY_MAX_BUFFER_SIZE);
-    ASSERT(m_SGBufPtr != nullptr);
-    m_SGBufPos += size;
-    memcpy(ptr, m_SGBufPtr, size);
-    m_SGBufPtr += size;
+    M_Skip(4); // pointer to BOX_NODE
+    lot->head = M_ReadS16();
+    lot->tail = M_ReadS16();
+    lot->search_num = M_ReadU16();
+    lot->setup.block_mask = M_ReadU16();
+    lot->setup.step = M_ReadS16();
+    lot->setup.drop = M_ReadS16();
+    lot->setup.fly = M_ReadS16();
+    lot->zone_count = M_ReadS16();
+    lot->target_box = M_ReadS16();
+    lot->required_box = M_ReadS16();
+    lot->target.x = M_ReadS32();
+    lot->target.y = M_ReadS32();
+    lot->target.z = M_ReadS32();
 }
 
 static void M_ReadLara(LARA_INFO *const lara)
@@ -252,6 +273,7 @@ static void M_ReadLara(LARA_INFO *const lara)
     lara->gun_status = M_ReadS16();
     lara->gun_type = M_ReadS16();
     lara->request_gun_type = M_ReadS16();
+    lara->last_gun_type = lara->request_gun_type;
     lara->calc_fall_speed = M_ReadS16();
     lara->water_status = M_ReadS16();
     lara->pose_count = M_ReadS16();
@@ -295,42 +317,6 @@ static void M_ReadLara(LARA_INFO *const lara)
     M_ReadAmmoInfo(&lara->uzi_ammo);
     M_ReadAmmoInfo(&lara->shotgun_ammo);
     M_ReadLOT(&lara->lot);
-}
-
-static void M_ReadArm(LARA_ARM *const arm)
-{
-    M_Skip(sizeof(int32_t)); // frame_base is superfluous
-    arm->frame_num = M_ReadS16();
-    arm->lock = M_ReadS16();
-    arm->rot.y = M_ReadS16();
-    arm->rot.x = M_ReadS16();
-    arm->rot.z = M_ReadS16();
-    arm->flash_gun = M_ReadS16();
-}
-
-static void M_ReadAmmoInfo(AMMO_INFO *const ammo_info)
-{
-    ammo_info->ammo = M_ReadS32();
-    M_Skip(sizeof(int32_t)); // Legacy hits value
-    M_Skip(sizeof(int32_t)); // Legacy miss value
-}
-
-static void M_ReadLOT(LOT_INFO *const lot)
-{
-    M_Skip(4); // pointer to BOX_NODE
-    lot->head = M_ReadS16();
-    lot->tail = M_ReadS16();
-    lot->search_num = M_ReadU16();
-    lot->setup.block_mask = M_ReadU16();
-    lot->setup.step = M_ReadS16();
-    lot->setup.drop = M_ReadS16();
-    lot->setup.fly = M_ReadS16();
-    lot->zone_count = M_ReadS16();
-    lot->target_box = M_ReadS16();
-    lot->required_box = M_ReadS16();
-    lot->target.x = M_ReadS32();
-    lot->target.y = M_ReadS32();
-    lot->target.z = M_ReadS32();
 }
 
 static void M_ReadResumeInfo(RESUME_INFO *const resume)
@@ -459,8 +445,27 @@ static bool M_LoadFromFile(MYFILE *const fp)
     M_Skip(sizeof(int32_t)); // save counter
 
     M_ReadResumeInfos(fp);
-    g_Lara.holsters_gun_type = LGT_UNKNOWN;
-    g_Lara.back_gun_type = LGT_UNKNOWN;
+
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    lara->holsters_gun_type = LGT_UNKNOWN;
+    lara->back_gun_type = LGT_UNKNOWN;
+
+    // Copy RESUME_INFO of "current position" level to the target level
+    {
+        const GF_LEVEL *const level = Game_GetCurrentLevel();
+        const GF_LEVEL *current_position = nullptr;
+        const GF_LEVEL_TABLE *const level_table = GF_GetLevelTable(GFLT_MAIN);
+        for (int32_t i = 0; i < level_table->count; i++) {
+            const GF_LEVEL *const level = GF_GetLevel(GFLT_MAIN, i);
+            if (level->type == GFL_CURRENT) {
+                current_position = level;
+            }
+        }
+        if (current_position != nullptr) {
+            *Savegame_GetCurrentInfo(level) =
+                *Savegame_GetCurrentInfo(current_position);
+        }
+    }
 
     Lara_InitialiseInventory(Game_GetCurrentLevel());
     SAVEGAME_LEGACY_ITEM_STATS item_stats = {};
@@ -517,7 +522,8 @@ static bool M_LoadFromFile(MYFILE *const fp)
             item->anim_num = M_ReadS16();
             item->frame_num = M_ReadS16();
 
-            if (item->object_id == O_LARA && item->anim_num < obj->anim_idx) {
+            if (item->object_id == O_LARA
+                && item->anim_num < LARA_ORIGINAL_ANIM_COUNT) {
                 item->anim_num += obj->anim_idx;
             }
         }
@@ -564,10 +570,20 @@ static bool M_LoadFromFile(MYFILE *const fp)
             }
         }
 
+        if (Object_IsType(item->object_id, g_MovableBlockObjects)) {
+            MOVABLE_BLOCK_INFO *const data = item->data;
+            data->linked.pos = item->pos;
+            data->linked.room_num = item->room_num;
+        } else if (item->object_id == O_SLIDING_PILLAR) {
+            SLIDING_PILLAR_INFO *const data = item->data;
+            data->linked.pos = item->pos;
+            data->linked.room_num = item->room_num;
+        }
+
         Carrier_TestLegacyDrops(i);
     }
 
-    M_ReadLara(&g_Lara);
+    M_ReadLara(lara);
     Room_SetFlipEffect(M_ReadS32());
     Room_SetFlipTimer(M_ReadS32());
     Memory_FreePointer(&buffer);

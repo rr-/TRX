@@ -5,8 +5,6 @@
 #include "game/game_string.h"
 #include "strings.h"
 
-static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *ctx);
-
 static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
 {
     int32_t demo_to_load = -1;
@@ -20,7 +18,7 @@ static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
     }
 
     if (demo_to_load < 0 || demo_to_load >= level_table->count) {
-        Console_Log(GS(OSD_INVALID_DEMO));
+        Console_LogError(GS(OSD_INVALID_DEMO));
         return CR_FAILURE;
     }
     const GF_LEVEL *const level = &level_table->levels[demo_to_load];

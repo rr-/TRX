@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../../uuid.h"
 #include "../anims/types.h"
 #include "../collision.h"
 #include "../items/types.h"
@@ -12,8 +11,8 @@
 #include <stdint.h>
 
 typedef struct {
-    const GAME_OBJECT_ID key_id;
-    const GAME_OBJECT_ID value_id;
+    const OBJECT_ID key_id;
+    const OBJECT_ID value_id;
 } GAME_OBJECT_PAIR;
 
 typedef struct {
@@ -36,8 +35,9 @@ typedef struct {
     FACE4 *flat_face4s;
     FACE3 *flat_face3s;
 
+    float depth_adjustment;
     bool enable_reflections;
-    bool disable_lighting;
+    bool disable_transparency_sort;
 } OBJECT_MESH;
 
 typedef struct {
@@ -69,6 +69,9 @@ typedef struct OBJECT {
     void (*handle_save_func)(ITEM *item, SAVEGAME_STAGE stage);
     const OBJECT_BOUNDS *(*bounds_func)(void);
     bool (*is_usable_func)(int16_t item_num);
+    void (*add_walkable_func)(int16_t item_num);
+    bool (*can_interpolate_func)(
+        const ITEM *item, int32_t frame_a, int32_t frame_b);
 
     int16_t anim_idx;
     int16_t hit_points;
@@ -87,7 +90,6 @@ typedef struct OBJECT {
     bool save_flags;
     bool save_anim;
     bool semi_transparent;
-    UUID uuid;
 } OBJECT;
 
 typedef struct {
@@ -104,3 +106,10 @@ typedef struct {
     int16_t frame_count;
     int16_t texture_idx;
 } STATIC_OBJECT_2D;
+
+typedef enum {
+    TRAP_SET = 0,
+    TRAP_ACTIVATE = 1,
+    TRAP_WORKING = 2,
+    TRAP_FINISHED = 3,
+} TRAP_ANIM;

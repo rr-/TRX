@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../level/reader.h"
 #include "./types.h"
 
 #define NO_ANIM (-1)
@@ -11,9 +12,11 @@ void Anim_InitialiseBones(int32_t num_bones);
 
 void Anim_LoadCommands(const int16_t *data);
 
-int32_t Anim_GetTotalFrameCount(int32_t frame_data_length);
 void Anim_InitialiseFrames(int32_t num_frames);
-void Anim_LoadFrames(const int16_t *data, int32_t data_length);
+int32_t Anim_GetTotalFrameCount(
+    const LEVEL_LOADER *loader, int32_t frame_data_length);
+void Anim_LoadFrames(
+    const LEVEL_LOADER *loader, const int16_t *data, int32_t data_length);
 
 int32_t Anim_GetTotalCount(void);
 ANIM *Anim_GetAnim(int32_t anim_idx);
@@ -23,3 +26,6 @@ ANIM_BONE *Anim_GetBone(int32_t bone_idx);
 
 bool Anim_TestAbsFrameEqual(int16_t abs_frame, int16_t frame);
 bool Anim_TestAbsFrameRange(int16_t abs_frame, int16_t start, int16_t end);
+bool Anim_HasChange(const ANIM *anim, int16_t goal_state_id);
+bool Anim_HasFXCommandBetween(
+    const ANIM *anim, int16_t fx_num, int32_t frame_a, int32_t frame_b);

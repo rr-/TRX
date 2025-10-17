@@ -2,12 +2,7 @@
 
 #include "game/cutscene.h"
 #include "game/game_flow.h"
-#include "game/lara/control.h"
-#include "game/lara/draw.h"
 #include "game/level.h"
-#include "game/objects/vars.h"
-#include "game/output.h"
-#include "game/viewport.h"
 #include "global/vars.h"
 
 #include <libtrx/config.h>
@@ -15,7 +10,11 @@
 #include <libtrx/game/collision.h>
 #include <libtrx/game/game.h>
 #include <libtrx/game/game_string_table.h>
+#include <libtrx/game/lara.h>
 #include <libtrx/game/music.h>
+#include <libtrx/game/objects/vars.h>
+#include <libtrx/game/output.h>
+#include <libtrx/game/viewport.h>
 #include <libtrx/utils.h>
 
 // TODO: delegate these constants to individual vehicle code
@@ -72,33 +71,8 @@ void CutscenePlayer1_Initialise(const int16_t item_num)
     item->frame_num = 0;
     item->anim_num = 0;
 
-    g_Lara.hit_direction = -1;
-}
-
-void IncreaseScreenSize(void)
-{
-    if (g_Config.rendering.borders < 0.45) {
-        g_Config.rendering.borders += 0.05;
-        CLAMPG(g_Config.rendering.borders, 0.45);
-        Viewport_Reset();
-    }
-}
-
-void DecreaseScreenSize(void)
-{
-    if (g_Config.rendering.borders > 0.0) {
-        g_Config.rendering.borders -= 0.05;
-        CLAMPL(g_Config.rendering.borders, 0.0);
-        Viewport_Reset();
-    }
-}
-
-void InitialiseGameFlags(void)
-{
-    Music_ResetTrackFlags();
-    Output_SetSunsetTimer(0);
-    Game_SetIsLevelComplete(false);
-    Creature_SetAlliesHostile(false);
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    lara->hit_direction = -1;
 }
 
 int32_t DoShift(

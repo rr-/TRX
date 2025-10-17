@@ -25,15 +25,7 @@
 #define M_TRIG_CMD_TYPE(t) ((t & 0x7C00) >> 10)
 #define M_TRIG_CMD_ARG(t) (t & 0x3FF)
 #define M_TRIG_CAM_GLIDE(t) ((t & 0x3E00) >> 6)
-
-#if TR_VERSION == 2
-    #define M_LADDER_TYPE(t) ((t & 0x7F00) >> 8)
-#endif
-
-static const int16_t *M_ReadTrigger(
-    const int16_t *data, int16_t fd_entry, SECTOR *sector);
-static bool M_TestLava(const ITEM *item);
-static void M_TriggerMusicTrack(int16_t track, const TRIGGER *trigger);
+#define M_LADDER_TYPE(t) ((t & 0x7F00) >> 8)
 
 static const int16_t *M_ReadTrigger(
     const int16_t *data, const int16_t fd_entry, SECTOR *const sector)
@@ -104,6 +96,46 @@ static const int16_t *M_ReadTrigger(
     return data;
 }
 
+static void M_ReadTriangulation(
+    SURFACE *const surface, const int16_t func_data, const int16_t tilt_data)
+{
+    switch (M_ENTRY_TYPE(func_data)) {
+    case FT_FLOOR_NWSE_SOLID:
+    case FT_ROOF_NWSE_SOLID:
+        surface->split.type = SPLIT_NWSE_SOLID;
+        break;
+    case FT_FLOOR_NESW_SOLID:
+    case FT_ROOF_NESW_SOLID:
+        surface->split.type = SPLIT_NESW_SOLID;
+        break;
+    case FT_FLOOR_NWSE_PORTAL_SW:
+    case FT_ROOF_NWSE_PORTAL_SW:
+        surface->split.type = SPLIT_NWSE_PORTAL_SW;
+        break;
+    case FT_FLOOR_NWSE_PORTAL_NE:
+    case FT_ROOF_NWSE_PORTAL_NE:
+        surface->split.type = SPLIT_NWSE_PORTAL_NE;
+        break;
+    case FT_FLOOR_NESW_PORTAL_SE:
+    case FT_ROOF_NESW_PORTAL_SE:
+        surface->split.type = SPLIT_NESW_PORTAL_SE;
+        break;
+    case FT_FLOOR_NESW_PORTAL_NW:
+    case FT_ROOF_NESW_PORTAL_NW:
+        surface->split.type = SPLIT_NESW_PORTAL_NW;
+        break;
+    default:
+        return;
+    }
+
+    surface->is_split = true;
+    surface->split.h1 = (func_data & 0x03E0) >> 5;
+    surface->split.h2 = (func_data & 0x7C00) >> 10;
+    for (int32_t i = 0; i < 4; i++) {
+        surface->split.tilts[i] = (tilt_data >> (i * 4)) & 0xF;
+    }
+}
+
 static bool M_TestLava(const ITEM *const item)
 {
     const LARA_INFO *const lara_info = Lara_GetLaraInfo();
@@ -120,20 +152,20 @@ static bool M_TestLava(const ITEM *const item)
     return sector->is_death_sector;
 }
 
-static void M_TriggerMusicTrack(int16_t track, const TRIGGER *const trigger)
+static void M_TriggerMusicTrack(MUSIC_ID track_id, const TRIGGER *const trigger)
 {
-    if (track == MX_UNUSED_0
+    if (track_id == (MUSIC_ID)0
         && (trigger->type == TT_ANTIPAD || trigger->type == TT_ANTITRIGGER)) {
         Music_Stop();
         return;
     }
 
-    if (track <= MX_UNUSED_1 || track >= MAX_MUSIC_TRACKS
-        || (Game_IsInGym() && !Gym_CanPlayMusicTrack(&track))) {
+    if (track_id <= Music_ToGameID(MX_UNUSED_1) || track_id >= MAX_MUSIC_TRACKS
+        || (Game_IsInGym() && !Gym_CanPlayMusicTrack(&track_id))) {
         return;
     }
 
-    uint16_t flags = Music_GetTrackFlags(track);
+    uint16_t flags = Music_GetTrackFlags(track_id);
     // TODO: consolidate
 #if TR_VERSION == 1
     if ((flags & IF_ONE_SHOT) != 0) {
@@ -152,9 +184,9 @@ static void M_TriggerMusicTrack(int16_t track, const TRIGGER *const trigger)
         if (trigger->one_shot) {
             flags |= IF_ONE_SHOT;
         }
-        Music_Play(track, MPM_TRACKED);
+        Music_Play_Direct(track_id, MPM_TRACKED);
     } else {
-        Music_StopTrack(track);
+        Music_StopTrack_Direct(track_id);
     }
 #else
     if (trigger->type != TT_SWITCH) {
@@ -168,12 +200,12 @@ static void M_TriggerMusicTrack(int16_t track, const TRIGGER *const trigger)
     }
 
     if (trigger->timer == 0) {
-        Music_Play(track, MPM_TRACKED);
+        Music_Play_Direct(track_id, MPM_TRACKED);
         goto finish;
     }
 
-    if (track != Music_GetDelayedTrack()) {
-        Music_Play(track, MPM_DELAYED);
+    if (track_id != Music_GetDelayedTrack()) {
+        Music_Play_Direct(track_id, MPM_DELAYED);
         flags = (flags & 0xFF00) | ((LOGIC_FPS * trigger->timer) & 0xFF);
         goto finish;
     }
@@ -185,13 +217,13 @@ static void M_TriggerMusicTrack(int16_t track, const TRIGGER *const trigger)
 
     timer--;
     if (timer == 0) {
-        Music_Play(track, MPM_TRACKED);
+        Music_Play_Direct(track_id, MPM_TRACKED);
     }
     flags = (flags & 0xFF00) | (timer & 0xFF);
 #endif
 
 finish:
-    Music_SetTrackFlags(track, flags);
+    Music_SetTrackFlags(track_id, flags);
 }
 
 void Room_ParseFloorData(const int16_t *floor_data)
@@ -210,14 +242,18 @@ void Room_PopulateSectorData(
     SECTOR *const sector, const int16_t *floor_data, const uint16_t start_index,
     const uint16_t null_index)
 {
+    sector->floor.type = SURFACE_FLOOR;
+    sector->ceiling.type = SURFACE_CEILING;
     sector->floor.tilt = 0;
     sector->ceiling.tilt = 0;
+    sector->floor.split.type = SPLIT_NONE;
+    sector->ceiling.split.type = SPLIT_NONE;
+    sector->floor.is_split = false;
+    sector->ceiling.is_split = false;
     sector->portal_room.wall = NO_ROOM;
     sector->is_death_sector = false;
     sector->trigger = nullptr;
-#if TR_VERSION == 2
     sector->ladder = LADDER_NONE;
-#endif
 
     if (start_index == null_index) {
         return;
@@ -249,11 +285,27 @@ void Room_PopulateSectorData(
             data = M_ReadTrigger(data, fd_entry, sector);
             break;
 
-#if TR_VERSION >= 2
         case FT_CLIMB:
             sector->ladder = (LADDER_DIRECTION)M_LADDER_TYPE(fd_entry);
             break;
-#endif
+
+        case FT_FLOOR_NWSE_SOLID:
+        case FT_FLOOR_NESW_SOLID:
+        case FT_FLOOR_NWSE_PORTAL_SW:
+        case FT_FLOOR_NWSE_PORTAL_NE:
+        case FT_FLOOR_NESW_PORTAL_SE:
+        case FT_FLOOR_NESW_PORTAL_NW:
+            M_ReadTriangulation(&sector->floor, fd_entry, *data++);
+            break;
+
+        case FT_ROOF_NWSE_SOLID:
+        case FT_ROOF_NESW_SOLID:
+        case FT_ROOF_NWSE_PORTAL_SW:
+        case FT_ROOF_NWSE_PORTAL_NE:
+        case FT_ROOF_NESW_PORTAL_NW:
+        case FT_ROOF_NESW_PORTAL_SE:
+            M_ReadTriangulation(&sector->ceiling, fd_entry, *data++);
+            break;
 
         default:
             break;
@@ -268,7 +320,6 @@ void Room_TestTriggers(const ITEM *const item)
         Room_GetSector(item->pos.x, MAX_HEIGHT, item->pos.z, &room_num);
 
     Room_TestSectorTrigger(item, sector);
-#if TR_VERSION == 1
     if (item->object_id != O_TORSO) {
         return;
     }
@@ -286,7 +337,6 @@ void Room_TestTriggers(const ITEM *const item)
             Room_TestSectorTrigger(item, sector);
         }
     }
-#endif
 }
 
 void Room_TestSectorTrigger(const ITEM *const item, const SECTOR *const sector)
@@ -297,10 +347,9 @@ void Room_TestSectorTrigger(const ITEM *const item, const SECTOR *const sector)
         if (sector->is_death_sector && M_TestLava(item)) {
             Lara_TouchLava();
         }
-#if TR_VERSION >= 2
+
         const LADDER_DIRECTION direction = 1 << Math_GetDirection(item->rot.y);
         lara_info->climb_status = (sector->ladder & direction) == direction;
-#endif
     }
 
     const TRIGGER *const trigger = sector->trigger;
@@ -337,7 +386,7 @@ void Room_TestSectorTrigger(const ITEM *const item, const SECTOR *const sector)
                 return;
             }
             const ITEM *const switch_item = Item_Get(trigger->item_index);
-            switch_off = switch_item->current_anim_state == LS_RUN;
+            switch_off = switch_item->current_anim_state == SWITCH_STATE_OFF;
             break;
         }
 
@@ -555,7 +604,7 @@ void Room_TestSectorTrigger(const ITEM *const item, const SECTOR *const sector)
             break;
 
         case TO_CD:
-            M_TriggerMusicTrack((int16_t)(intptr_t)cmd->parameter, trigger);
+            M_TriggerMusicTrack((MUSIC_ID)(intptr_t)cmd->parameter, trigger);
             break;
 
         case TO_SECRET: {
@@ -567,11 +616,13 @@ void Room_TestSectorTrigger(const ITEM *const item, const SECTOR *const sector)
             }
             break;
         }
+
 #if TR_VERSION == 2
         case TO_BODY_BAG:
             Item_ClearKilled();
             break;
 #endif
+
         default:
             break;
         }

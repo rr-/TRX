@@ -7,15 +7,74 @@
 #include "game/rooms.h"
 #include "utils.h"
 
-static bool M_IsOnWalkable(
-    const SECTOR *sector, int32_t x, int32_t y, int32_t z, int32_t room_height);
+#define M_HEADROOM 160 // Additional collision space above Lara's head.
 
 static bool M_IsOnWalkable(
     const SECTOR *const sector, const int32_t x, const int32_t y,
     const int32_t z, const int32_t room_height)
 {
     return g_Config.gameplay.fix_bridge_collision
-        && Room_IsOnWalkable(sector, x, y, z, room_height);
+        && Room_IsOnWalkable(sector, x, y, z, room_height, NO_ITEM);
+}
+
+// Probes the front, left, and right of Lara and fills in the collision info for
+// each side. The collision info depends on Lara's state. Her state determines
+// how big slope and lava pit sectors are treated. For example, in the walk
+// state, Lara won't walk up big slopes or walk down into lava pits.
+static void M_FillSide(
+    const COLL_INFO *const coll, COLL_SIDE *const side, const int32_t x_pos,
+    const int32_t z_pos, const int32_t y_pos, const int32_t obj_height,
+    int16_t *const room_num)
+{
+    const int32_t y = y_pos - obj_height;
+    const int32_t y_top = y - M_HEADROOM;
+
+    int16_t local_room_num = *room_num;
+    int16_t *const test_room_num =
+        g_Config.gameplay.wall_glitch_mode == WALL_GLITCH_FIXED
+        ? &local_room_num
+        : room_num;
+
+    const SECTOR *const sector =
+        Room_GetSector(x_pos, y_top, z_pos, test_room_num);
+    int32_t height = Room_GetHeight(sector, x_pos, y_top, z_pos);
+    int32_t ceiling = Room_GetCeiling(sector, x_pos, y_top, z_pos);
+    const int32_t room_height = height;
+    const int32_t room_ceiling = ceiling;
+    const bool sim_wall = room_height == ceiling && room_height != NO_HEIGHT
+        && sector->ceiling.tilt == 0 && sector->floor.tilt == 0;
+    if (height != NO_HEIGHT) {
+        height -= y_pos;
+    }
+    if (ceiling != NO_HEIGHT) {
+        ceiling -= y;
+    }
+
+    side->floor = height;
+    side->ceiling = ceiling;
+    side->type = Room_GetHeightType();
+
+    const bool is_on_walkable =
+        M_IsOnWalkable(sector, x_pos, y_top, z_pos, room_height);
+    if (!is_on_walkable) {
+        if (coll->slopes_are_walls
+            && (side->type == HT_BIG_SLOPE || side->type == HT_DIAGONAL)
+            && side->floor < 0) {
+            side->floor = -32767;
+        } else if (
+            coll->slopes_are_pits
+            && (side->type == HT_BIG_SLOPE || side->type == HT_DIAGONAL)
+            && side->floor > 0) {
+            side->floor = STEP_L * 2;
+        } else if (
+            coll->lava_is_pit && side->floor > 0
+            && Room_GetPitSector(sector, x_pos, z_pos)->is_death_sector) {
+            side->floor = STEP_L * 2;
+        }
+    } else if (sim_wall) {
+        side->floor = NO_HEIGHT;
+        side->ceiling = NO_HEIGHT;
+    }
 }
 
 int32_t Collide_GetSpheres(
@@ -166,7 +225,7 @@ void Collide_GetCollisionInfo(
     int32_t x = x_pos;
     int32_t z = z_pos;
     const int32_t y = y_pos - obj_height;
-    const int32_t y_top = y - 160;
+    const int32_t y_top = y - M_HEADROOM;
 
     const SECTOR *sector = Room_GetSector(x, y_top, z, &room_num);
     int32_t height = Room_GetHeight(sector, x, y_top, z);
@@ -247,107 +306,16 @@ void Collide_GetCollisionInfo(
         break;
     }
 
-    // Front.
-    x = x_pos + x_front;
-    z = z_pos + z_front;
-    sector = Room_GetSector(x, y_top, z, &room_num);
-    height = Room_GetHeight(sector, x, y_top, z);
-    room_height = height;
-    if (height != NO_HEIGHT) {
-        height -= y_pos;
-    }
-    ceiling = Room_GetCeiling(sector, x, y_top, z);
-    if (ceiling != NO_HEIGHT) {
-        ceiling -= y;
-    }
-
-    coll->side_front.floor = height;
-    coll->side_front.ceiling = ceiling;
-    coll->side_front.type = Room_GetHeightType();
-
-    is_on_walkable = M_IsOnWalkable(sector, x, y_top, z, room_height);
-    if (!is_on_walkable) {
-        if (coll->slopes_are_walls && coll->side_front.type == HT_BIG_SLOPE
-            && coll->side_front.floor < 0) {
-            coll->side_front.floor = -32767;
-        } else if (
-            coll->slopes_are_pits && coll->side_front.type == HT_BIG_SLOPE
-            && coll->side_front.floor > 0) {
-            coll->side_front.floor = 512;
-        } else if (
-            coll->lava_is_pit && coll->side_front.floor > 0
-            && Room_GetPitSector(sector, x, z)->is_death_sector) {
-            coll->side_front.floor = 512;
-        }
-    }
-
-    // Left.
-    x = x_pos + x_left;
-    z = z_pos + z_left;
-    sector = Room_GetSector(x, y_top, z, &room_num);
-    height = Room_GetHeight(sector, x, y_top, z);
-    room_height = height;
-    if (height != NO_HEIGHT) {
-        height -= y_pos;
-    }
-    ceiling = Room_GetCeiling(sector, x, y_top, z);
-    if (ceiling != NO_HEIGHT) {
-        ceiling -= y;
-    }
-
-    coll->side_left.floor = height;
-    coll->side_left.ceiling = ceiling;
-    coll->side_left.type = Room_GetHeightType();
-
-    is_on_walkable = M_IsOnWalkable(sector, x, y_top, z, room_height);
-    if (!is_on_walkable) {
-        if (coll->slopes_are_walls && coll->side_left.type == HT_BIG_SLOPE
-            && coll->side_left.floor < 0) {
-            coll->side_left.floor = -32767;
-        } else if (
-            coll->slopes_are_pits && coll->side_left.type == HT_BIG_SLOPE
-            && coll->side_left.floor > 0) {
-            coll->side_left.floor = 512;
-        } else if (
-            coll->lava_is_pit && coll->side_left.floor > 0
-            && Room_GetPitSector(sector, x, z)->is_death_sector) {
-            coll->side_left.floor = 512;
-        }
-    }
-
-    // Right.
-    x = x_pos + x_right;
-    z = z_pos + z_right;
-    sector = Room_GetSector(x, y_top, z, &room_num);
-    height = Room_GetHeight(sector, x, y_top, z);
-    room_height = height;
-    if (height != NO_HEIGHT) {
-        height -= y_pos;
-    }
-    ceiling = Room_GetCeiling(sector, x, y_top, z);
-    if (ceiling != NO_HEIGHT) {
-        ceiling -= y;
-    }
-
-    coll->side_right.floor = height;
-    coll->side_right.ceiling = ceiling;
-    coll->side_right.type = Room_GetHeightType();
-
-    is_on_walkable = M_IsOnWalkable(sector, x, y_top, z, room_height);
-    if (!is_on_walkable) {
-        if (coll->slopes_are_walls && coll->side_right.type == HT_BIG_SLOPE
-            && coll->side_right.floor < 0) {
-            coll->side_right.floor = -32767;
-        } else if (
-            coll->slopes_are_pits && coll->side_right.type == HT_BIG_SLOPE
-            && coll->side_right.floor > 0) {
-            coll->side_right.floor = 512;
-        } else if (
-            coll->lava_is_pit && coll->side_right.floor > 0
-            && Room_GetPitSector(sector, x, z)->is_death_sector) {
-            coll->side_right.floor = 512;
-        }
-    }
+    M_FillSide(
+        coll, &coll->side_front, x_pos + x_front, z_pos + z_front, y_pos,
+        obj_height, &room_num);
+    M_FillSide(
+        coll, &coll->side_left, x_pos + x_left, z_pos + z_left, y_pos,
+        obj_height, &room_num);
+    M_FillSide(
+        coll, &coll->side_right, x_pos + x_right, z_pos + z_right, y_pos,
+        obj_height, &room_num);
+    // TODO: TR3 uses an extra left and right side, purpose to be investigated.
 
     if (Collide_CollideStaticObjects(
             coll, x_pos, y_pos, z_pos, room_num, obj_height)) {
@@ -390,21 +358,27 @@ void Collide_GetCollisionInfo(
     if (coll->side_front.floor > coll->bad_pos
         || coll->side_front.floor < coll->bad_neg
         || coll->side_front.ceiling > coll->bad_ceiling) {
-        switch (coll->quadrant) {
-        case DIR_NORTH:
-        case DIR_SOUTH:
-            coll->shift.x = coll->old.x - x_pos;
-            coll->shift.z = Room_FindGridShift(z_pos + z_front, z_pos);
-            break;
+        if (coll->side_front.type == HT_DIAGONAL
+            || coll->side_front.type == HT_SPLIT_TRI) {
+            coll->shift.x = coll->old.x - x;
+            coll->shift.z = coll->old.z - z;
+        } else {
+            switch (coll->quadrant) {
+            case DIR_NORTH:
+            case DIR_SOUTH:
+                coll->shift.x = coll->old.x - x_pos;
+                coll->shift.z = Room_FindGridShift(z_pos + z_front, z_pos);
+                break;
 
-        case DIR_EAST:
-        case DIR_WEST:
-            coll->shift.x = Room_FindGridShift(x_pos + x_front, x_pos);
-            coll->shift.z = coll->old.z - z_pos;
-            break;
+            case DIR_EAST:
+            case DIR_WEST:
+                coll->shift.x = Room_FindGridShift(x_pos + x_front, x_pos);
+                coll->shift.z = coll->old.z - z_pos;
+                break;
 
-        default:
-            break;
+            default:
+                break;
+            }
         }
 
         coll->coll_type = COLL_FRONT;
@@ -421,19 +395,26 @@ void Collide_GetCollisionInfo(
 
     if (coll->side_left.floor > coll->bad_pos
         || coll->side_left.floor < coll->bad_neg) {
-        switch (coll->quadrant) {
-        case DIR_NORTH:
-        case DIR_SOUTH:
-            coll->shift.x = Room_FindGridShift(x_pos + x_left, x_pos + x_front);
-            break;
+        if (coll->side_left.type == HT_SPLIT_TRI) {
+            coll->shift.x = coll->old.x - x;
+            coll->shift.z = coll->old.z - z;
+        } else {
+            switch (coll->quadrant) {
+            case DIR_NORTH:
+            case DIR_SOUTH:
+                coll->shift.x =
+                    Room_FindGridShift(x_pos + x_left, x_pos + x_front);
+                break;
 
-        case DIR_EAST:
-        case DIR_WEST:
-            coll->shift.z = Room_FindGridShift(z_pos + z_left, z_pos + z_front);
-            break;
+            case DIR_EAST:
+            case DIR_WEST:
+                coll->shift.z =
+                    Room_FindGridShift(z_pos + z_left, z_pos + z_front);
+                break;
 
-        default:
-            break;
+            default:
+                break;
+            }
         }
 
         coll->coll_type = COLL_LEFT;
@@ -442,21 +423,26 @@ void Collide_GetCollisionInfo(
 
     if (coll->side_right.floor > coll->bad_pos
         || coll->side_right.floor < coll->bad_neg) {
-        switch (coll->quadrant) {
-        case DIR_NORTH:
-        case DIR_SOUTH:
-            coll->shift.x =
-                Room_FindGridShift(x_pos + x_right, x_pos + x_front);
-            break;
+        if (coll->side_right.type == HT_SPLIT_TRI) {
+            coll->shift.x = coll->old.x - x;
+            coll->shift.z = coll->old.z - z;
+        } else {
+            switch (coll->quadrant) {
+            case DIR_NORTH:
+            case DIR_SOUTH:
+                coll->shift.x =
+                    Room_FindGridShift(x_pos + x_right, x_pos + x_front);
+                break;
 
-        case DIR_EAST:
-        case DIR_WEST:
-            coll->shift.z =
-                Room_FindGridShift(z_pos + z_right, z_pos + z_front);
-            break;
+            case DIR_EAST:
+            case DIR_WEST:
+                coll->shift.z =
+                    Room_FindGridShift(z_pos + z_right, z_pos + z_front);
+                break;
 
-        default:
-            break;
+            default:
+                break;
+            }
         }
 
         coll->coll_type = COLL_RIGHT;

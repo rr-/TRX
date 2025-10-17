@@ -1,6 +1,9 @@
 #include "game/ui/hud/console.h"
 
 #include "game/console.h"
+#include "game/events.h"
+#include "game/output.h"
+#include "game/scaler.h"
 #include "game/ui/elements/modal.h"
 #include "game/ui/elements/pad.h"
 #include "game/ui/elements/prompt.h"
@@ -10,22 +13,8 @@
 #include "game/ui/helpers.h"
 #include "game/ui/hud/console_logs.h"
 #include "game/ui/text.h"
+#include "memory.h"
 #include "utils.h"
-
-static void M_Draw(const UI_NODE *node);
-
-static const UI_WIDGET_OPS m_Ops = {
-    .measure = UI_MeasureWrapper,
-    .layout = UI_LayoutWrapper,
-    .draw = M_Draw,
-};
-
-static void M_MoveHistoryUp(UI_CONSOLE_STATE *s);
-static void M_MoveHistoryDown(UI_CONSOLE_STATE *s);
-static void M_HandleOpen(const EVENT *event, void *user_data);
-static void M_HandleClose(const EVENT *event, void *user_data);
-static void M_HandleCancel(const EVENT *event, void *user_data);
-static void M_HandleConfirm(const EVENT *event, void *user_data);
 
 static void M_MoveHistoryUp(UI_CONSOLE_STATE *const s)
 {
@@ -86,15 +75,32 @@ static void M_HandleConfirm(const EVENT *event, void *user_data)
     const char *text = event->data;
     Console_History_Append(text);
     Console_Eval(text);
+    GameEvent_Fire((EVENT) {
+        .name = GAME_EVENT_COMMAND,
+        .data = text,
+    });
     Console_Close();
     s->history_idx = Console_History_GetLength();
+}
+
+static void M_DrawBackdrop(void)
+{
+    const int32_t sx = 0;
+    const int32_t sw = Viewport_GetWidth(VIEWPORT_UI);
+    const int32_t sh = Scaler_Calc(
+        // not entirely accurate, but good enough
+        UI_TEXT_HEIGHT * 1.0 + 7 * UI_TEXT_HEIGHT * 0.8, SCALER_TARGET_TEXT);
+    const int32_t sy = Viewport_GetHeight(VIEWPORT_UI) - sh;
+    const RGBA_8888 top = { 0, 0, 0, 0 };
+    const RGBA_8888 bottom = { 0, 0, 0, 196 };
+    Output_DrawScreenGradientQuad(sx, sy, 0, sw, sh, top, top, bottom, bottom);
 }
 
 static void M_Draw(const UI_NODE *node)
 {
     UI_CONSOLE_STATE *const s = *(UI_CONSOLE_STATE **)node->data;
     if (Console_IsOpened() || s->logs.vis_lines > 0) {
-        Console_DrawBackdrop();
+        M_DrawBackdrop();
     }
     UI_DrawWrapper(node);
 }
@@ -143,7 +149,13 @@ void UI_Console(UI_CONSOLE_STATE *const s)
 {
     UI_Prompt_SetFocus(&s->prompt, Console_IsOpened());
 
-    UI_NODE *const node = UI_AllocNode(&m_Ops, sizeof(UI_CONSOLE_STATE *));
+    UI_NODE *const node = UI_AllocNode(
+        &(UI_WIDGET_OPS) {
+            .measure = UI_MeasureWrapper,
+            .layout = UI_LayoutWrapper,
+            .draw = M_Draw,
+        },
+        sizeof(UI_CONSOLE_STATE *));
     *(UI_CONSOLE_STATE **)node->data = s;
     UI_AddChild(node);
     UI_PushCurrent(node);

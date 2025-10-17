@@ -3,32 +3,35 @@
 #include "game/game.h"
 #include "game/game_flow.h"
 #include "game/game_string.h"
-#include "game/input.h"
-#include "game/lara/control.h"
+#include "game/lara.h"
 #include "game/level.h"
-#include "game/overlay.h"
-#include "game/random.h"
 #include "game/savegame.h"
-#include "game/sound.h"
 #include "game/stats.h"
 #include "global/vars.h"
 
 #include <libtrx/config.h>
 #include <libtrx/debug.h>
 #include <libtrx/game/camera.h>
+#include <libtrx/game/input.h>
 #include <libtrx/game/interpolation.h>
 #include <libtrx/game/lara.h>
 #include <libtrx/game/music.h>
+#include <libtrx/game/overlay.h>
+#include <libtrx/game/random.h>
+#include <libtrx/game/sound.h>
 #include <libtrx/log.h>
 
-#define MODIFY_CONFIG()                                                        \
-    PROCESS_CONFIG(gameplay.harpoon_recoil, 4);                                \
-    PROCESS_CONFIG(gameplay.start_lara_hitpoints, LARA_MAX_HITPOINTS);         \
-    PROCESS_CONFIG(gameplay.disable_healing_between_levels, false);            \
-    PROCESS_CONFIG(gameplay.wall_glitch_mode, WALL_GLITCH_TR2);                \
-    PROCESS_CONFIG(gameplay.look_mode, LOOK_MODE_ENHANCED);                    \
-    PROCESS_CONFIG(gameplay.enable_tr2_swimming, true);                        \
-    PROCESS_CONFIG(visuals.enable_fire_lighting, false);
+#define L_MODIFY_CONFIG()                                                      \
+    X_PROCESS_CONFIG(gameplay.harpoon_recoil, 4);                              \
+    X_PROCESS_CONFIG(gameplay.start_lara_hitpoints, LARA_MAX_HITPOINTS);       \
+    X_PROCESS_CONFIG(gameplay.disable_healing_between_levels, false);          \
+    X_PROCESS_CONFIG(gameplay.wall_glitch_mode, WALL_GLITCH_TR2);              \
+    X_PROCESS_CONFIG(gameplay.look_mode, LOOK_MODE_ENHANCED);                  \
+    X_PROCESS_CONFIG(gameplay.enable_tr2_swimming, true);                      \
+    X_PROCESS_CONFIG(gameplay.target_mode, TLM_FULL);                          \
+    X_PROCESS_CONFIG(gameplay.enable_target_change, false);                    \
+    X_PROCESS_CONFIG(input.quick_guns_mode, QUICK_GUNS_DRAW_ONLY);             \
+    X_PROCESS_CONFIG(visuals.enable_fire_lighting, false);
 
 typedef struct {
     const uint32_t *demo_ptr;
@@ -45,25 +48,22 @@ static M_PRIV m_Priv;
 
 static INPUT_STATE m_OldDemoInputDB = {};
 
-static void M_PrepareConfig(M_PRIV *p);
-static void M_RestoreConfig(M_PRIV *p);
-
 static void M_PrepareConfig(M_PRIV *const p)
 {
     p->old_config.config = g_Config;
     p->old_config.bonus_flag = Game_GetBonusFlag();
     Game_SetBonusFlag(GBF_NONE);
-#undef PROCESS_CONFIG
-#define PROCESS_CONFIG(var, value) g_Config.var = value;
-    MODIFY_CONFIG();
+#define X_PROCESS_CONFIG(var, value) g_Config.var = value;
+    L_MODIFY_CONFIG();
+#undef X_PROCESS_CONFIG
 }
 
 static void M_RestoreConfig(M_PRIV *const p)
 {
     Game_SetBonusFlag(p->old_config.bonus_flag);
-#undef PROCESS_CONFIG
-#define PROCESS_CONFIG(var, value) g_Config.var = p->old_config.config.var;
-    MODIFY_CONFIG();
+#define X_PROCESS_CONFIG(var, value) g_Config.var = p->old_config.config.var;
+    L_MODIFY_CONFIG();
+#undef X_PROCESS_CONFIG
 }
 
 bool Demo_GetInput(void)
@@ -148,9 +148,14 @@ bool Demo_Start(const int32_t level_num)
         return false;
     }
 
+    if (p->level->music_track != MX_INACTIVE) {
+        Music_Play_Direct(p->level->music_track, MPM_LOOPED);
+    }
+
     p->demo_ptr = data;
 
     ITEM *const lara_item = Lara_GetItem();
+    LARA_INFO *const lara = Lara_GetLaraInfo();
     lara_item->pos.x = *p->demo_ptr++;
     lara_item->pos.y = *p->demo_ptr++;
     lara_item->pos.z = *p->demo_ptr++;
@@ -159,20 +164,19 @@ bool Demo_Start(const int32_t level_num)
     lara_item->rot.z = *p->demo_ptr++;
 
     int16_t room_num = *p->demo_ptr++;
-    Item_UpdateRoom(g_Lara.item_num, room_num);
+    Item_UpdateRoom(lara->item_num, room_num);
     const SECTOR *const sector = Room_GetSector(
         lara_item->pos.x, lara_item->pos.y, lara_item->pos.z, &room_num);
     lara_item->floor = Room_GetHeight(
         sector, lara_item->pos.x, lara_item->pos.y, lara_item->pos.z);
 
-    g_Lara.last_gun_type = *p->demo_ptr++;
+    lara->last_gun_type = *p->demo_ptr++;
 
-    g_OverlayStatus = 1;
+    g_OverlayFlag = 1;
     Lara_Cheat_GetStuff();
     Random_SeedDraw(0xD371F947);
     Random_SeedControl(0xD371F947);
     Camera_Initialise();
-    Stats_StartTimer();
 
     Overlay_SetBottomTextPtr(GS_PTR(MISC_DEMO_MODE), true);
     return true;
@@ -183,10 +187,7 @@ void Demo_End(void)
     M_PRIV *const p = &m_Priv;
     M_RestoreConfig(p);
     Overlay_SetBottomText(nullptr, false);
-    Overlay_HideGameInfo();
-    Sound_StopAll();
     Music_Stop();
-    Music_SetVolume(g_Config.audio.music_volume);
 }
 
 void Demo_Pause(void)
@@ -200,7 +201,6 @@ void Demo_Unpause(void)
 {
     M_PRIV *const p = &m_Priv;
     M_PrepareConfig(p);
-    Stats_StartTimer();
     Overlay_SetBottomTextPtr(GS_PTR(MISC_DEMO_MODE), true);
 }
 

@@ -66,3 +66,39 @@ bool Anim_TestAbsFrameRange(
 {
     return abs_frame >= start && abs_frame <= end;
 }
+
+bool Anim_HasChange(const ANIM *const anim, const int16_t goal_state_id)
+{
+    for (int32_t i = 0; i < anim->num_changes; i++) {
+        const ANIM_CHANGE *const change = Anim_GetChange(anim->change_idx + i);
+        if (change->goal_anim_state == goal_state_id) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Anim_HasFXCommandBetween(
+    const ANIM *const anim, const int16_t fx_num, const int32_t frame_a,
+    const int32_t frame_b)
+{
+    for (int32_t i = 0; i < anim->num_commands; i++) {
+        const ANIM_COMMAND *const cmd = &anim->commands[i];
+        if (cmd->type != AC_EFFECT) {
+            continue;
+        }
+
+        const ANIM_COMMAND_EFFECT_DATA *const data =
+            (ANIM_COMMAND_EFFECT_DATA *)cmd->data;
+        if (data->effect_num != fx_num) {
+            continue;
+        }
+
+        const int32_t frame_num = data->frame_num - anim->frame_base;
+        if (frame_num >= frame_a && frame_num <= frame_b) {
+            return true;
+        }
+    }
+
+    return false;
+}

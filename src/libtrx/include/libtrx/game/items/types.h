@@ -6,7 +6,7 @@
 #include "./enum.h"
 
 typedef struct CARRIED_ITEM {
-    GAME_OBJECT_ID object_id;
+    OBJECT_ID object_id;
     int16_t spawn_num;
     XYZ_32 pos;
     XYZ_16 rot;
@@ -20,7 +20,7 @@ typedef struct {
     int32_t floor;
     uint32_t touch_bits;
     uint32_t mesh_bits;
-    GAME_OBJECT_ID object_id;
+    OBJECT_ID object_id;
     int16_t current_anim_state;
     int16_t goal_anim_state;
     int16_t required_anim_state;
@@ -32,6 +32,7 @@ typedef struct {
     int16_t speed;
     int16_t fall_speed;
     int16_t hit_points;
+    int16_t max_hit_points;
     int16_t box_num;
     int16_t timer;
     uint16_t flags;
@@ -40,6 +41,7 @@ typedef struct {
     void *data;
     void *priv;
     CARRIED_ITEM *carried_item;
+    char *name;
 
     XYZ_32 pos;
     XYZ_16 rot;
@@ -59,6 +61,7 @@ typedef struct {
 
     struct {
         struct {
+            int32_t floor;
             XYZ_32 pos;
             XYZ_16 rot;
         } result, prev;

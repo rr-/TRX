@@ -2,13 +2,13 @@
 
 #include "debug.h"
 #include "filesystem.h"
-#include "game/output/common.h"
-#include "game/viewport.h"
+#include "game/objects.h"
+#include "game/output/textures.h"
+#include "gfx/context.h"
 #include "log.h"
 #include "memory.h"
 #include "strings.h"
 #include "utils.h"
-#include "vector.h"
 
 #include <float.h>
 #include <stdio.h>
@@ -28,24 +28,9 @@ static size_t m_CachedDirLen = 0;
 static char *m_CachedScanPath = nullptr;
 static char *m_LastCandidateName = nullptr;
 
-static IMAGE *M_CreateImageFromPath(const char *path);
-static float M_GetScreenAspectRatio(void);
-static void M_ScanCandidates(const char *path);
-static void M_FreeCandidates(void);
-
-static const M_CANDIDATE *M_PickBestCandidate(float screen_ratio);
-static bool M_LoadCandidate(const M_CANDIDATE *candidate);
-static bool M_LoadMainCandidate(const char *path);
-
 static IMAGE *M_CreateImageFromPath(const char *const path)
 {
-    if (TR_VERSION == 1) {
-        return Image_CreateFromFileInto(
-            path, Viewport_GetWidth(VIEWPORT_GAME),
-            Viewport_GetHeight(VIEWPORT_GAME), IMAGE_FIT_SMART);
-    } else {
-        return Image_CreateFromFile(path);
-    }
+    return Image_CreateFromFile(path);
 }
 
 static float M_GetScreenAspectRatio(void)
@@ -211,8 +196,12 @@ bool Output_LoadBackgroundFromFile(const char *const path)
 
 void Output_ReloadBackgroundImage(void)
 {
-    if (Output_GetBackgroundType() == BK_OBJECT) {
-        Output_LoadBackgroundFromObject();
+    Output_RefreshBackgroundScaling();
+
+    if (Output_GetBackgroundType() == BK_PATTERN_STATIC
+        || Output_GetBackgroundType() == BK_PATTERN_WAVE) {
+        Output_LoadBackgroundFromObject(
+            Output_GetBackgroundType() == BK_PATTERN_WAVE);
         return;
     }
 
@@ -233,11 +222,6 @@ void Output_ReloadBackgroundImage(void)
     }
 
     Output_UnloadBackground();
-}
-
-char *Output_GetLastBackgroundPath(void)
-{
-    return m_LastPath;
 }
 
 void Output_ClearLastBackgroundPath(void)

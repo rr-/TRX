@@ -12,27 +12,19 @@ typedef struct {
     int32_t background_z;
 } M_DATA;
 
-static void M_Draw(const UI_NODE *node);
-
-static const UI_WIDGET_OPS m_Ops = {
-    .measure = UI_MeasureWrapper,
-    .layout = UI_LayoutWrapper,
-    .draw = M_Draw,
-};
-
 static void M_Draw(const UI_NODE *node)
 {
     const M_DATA *const data = node->data;
     if (data->background_z >= 0) {
         UI_ScheduleDrawTextBackground(
             data->ui_style, UI_ScaleX(node->x), UI_ScaleY(node->y),
-            UI_ScaleX(node->w), UI_ScaleY(node->h), data->background_z,
+            data->background_z, UI_ScaleX(node->w), UI_ScaleY(node->h),
             data->text_style);
     }
     if (data->outline_z >= 0) {
         UI_ScheduleDrawTextOutline(
             data->ui_style, UI_ScaleX(node->x), UI_ScaleY(node->y),
-            UI_ScaleX(node->w), UI_ScaleY(node->h), data->outline_z,
+            data->outline_z, UI_ScaleX(node->w), UI_ScaleY(node->h),
             data->text_style);
     }
     UI_DrawWrapper(node);
@@ -40,13 +32,17 @@ static void M_Draw(const UI_NODE *node)
 
 void UI_BeginFrame(UI_FRAME_STYLE style)
 {
-    UI_NODE *const node = UI_AllocNode(&m_Ops, sizeof(M_DATA));
+    UI_NODE *const node = UI_AllocNode(
+        &(UI_WIDGET_OPS) {
+            .measure = UI_MeasureWrapper,
+            .layout = UI_LayoutWrapper,
+            .draw = M_Draw,
+        },
+        sizeof(M_DATA));
     M_DATA *const data = node->data;
 
     data->ui_style = UI_STYLE_PC;
-#if TR_VERSION == 1
     data->ui_style = g_Config.ui.menu_style;
-#endif
 
     switch (style) {
     case UI_FRAME_DIALOG_BACKGROUND:

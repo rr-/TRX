@@ -11,14 +11,6 @@
 #include <stdio.h>
 #include <string.h>
 
-static void M_LoadKeyboardLayout(JSON_OBJECT *parent_obj, INPUT_LAYOUT layout);
-static void M_LoadControllerLayout(
-    JSON_OBJECT *parent_obj, INPUT_LAYOUT layout);
-static void M_LoadLegacyOptions(JSON_OBJECT *const parent_obj);
-static void M_DumpKeyboardLayout(JSON_OBJECT *parent_obj, INPUT_LAYOUT layout);
-static void M_DumpControllerLayout(
-    JSON_OBJECT *parent_obj, INPUT_LAYOUT layout);
-
 static void M_LoadKeyboardLayout(
     JSON_OBJECT *const parent_obj, const INPUT_LAYOUT layout)
 {
@@ -162,6 +154,22 @@ static void M_LoadLegacyOptions(JSON_OBJECT *const parent_obj)
             g_Config.gameplay.look_mode = LOOK_MODE_RESTRICTED;
         }
     }
+
+    // ..4.15
+    {
+        if (JSON_ObjectGetValue(parent_obj, "master_volume") == nullptr) {
+            g_Config.audio.master_volume = 1.0;
+        }
+        if (JSON_ObjectGetValue(parent_obj, "ambient_volume") == nullptr) {
+            g_Config.audio.ambient_volume = g_Config.audio.music_volume;
+        }
+        if (JSON_ObjectGetValue(parent_obj, "cutscene_volume") == nullptr) {
+            g_Config.audio.cutscene_volume = g_Config.audio.music_volume;
+        }
+        if (JSON_ObjectGetValue(parent_obj, "fmv_volume") == nullptr) {
+            g_Config.audio.fmv_volume = g_Config.audio.music_volume;
+        }
+    }
 }
 
 static void M_DumpKeyboardLayout(
@@ -230,7 +238,6 @@ void Config_LoadFromJSON(JSON_OBJECT *root_obj)
     }
 
     M_LoadLegacyOptions(root_obj);
-    g_Config.loaded = true;
 }
 
 void Config_DumpToJSON(JSON_OBJECT *root_obj)
@@ -255,9 +262,5 @@ void Config_Sanitize(void)
 {
     Config_SanitizeCommon();
     CLAMP(g_Config.visuals.fov_value, 30, 150);
-    CLAMP(
-        g_Config.visuals.brightness, CONFIG_MIN_BRIGHTNESS,
-        CONFIG_MAX_BRIGHTNESS);
     CLAMPL(g_Config.gameplay.maximum_save_slots, 0);
-    CLAMPL(g_Config.rendering.anisotropy_filter, 1.0);
 }

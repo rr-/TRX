@@ -1,5 +1,3 @@
-#include "game/objects/creatures/wolf.h"
-
 #include "game/const.h"
 #include "game/creature.h"
 #include "game/lara/common.h"
@@ -22,11 +20,7 @@
 #define WOLF_SLEEP_CHANCE  32
 #define WOLF_HOWL_CHANCE   384
 #define WOLF_TOUCH         0x774F
-#if TR_VERSION == 1
-#define WOLF_HITPOINTS     6
-#else
-#define WOLF_HITPOINTS     10
-#endif
+#define WOLF_HITPOINTS     (g_TRVersion == 1 ? 6 : 10)
 #define WOLF_RADIUS        (WALL_L / 3) // = 341
 #define WOLF_SMARTNESS     0x2000
 // clang-format on
@@ -54,9 +48,6 @@ typedef enum {
 } WOLF_ANIM;
 
 static BITE m_WolfJawBite = { .pos = { 0, -14, 174 }, .mesh_num = 6 };
-
-static void M_Initialise(int16_t item_num);
-static void M_Control(int16_t item_num);
 
 static void M_Initialise(const int16_t item_num)
 {
@@ -213,7 +204,7 @@ static void M_Control(const int16_t item_num)
     Creature_Animate(item_num, angle, tilt);
 }
 
-void Wolf_Setup(OBJECT *const obj)
+static void M_Setup(OBJECT *const obj)
 {
     if (!obj->loaded) {
         return;
@@ -236,4 +227,4 @@ void Wolf_Setup(OBJECT *const obj)
     Object_GetBone(obj, 2)->rot.y = true;
 }
 
-REGISTER_OBJECT(O_WOLF, Wolf_Setup)
+REGISTER_OBJECT(O_WOLF, M_Setup)

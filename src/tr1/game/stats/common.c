@@ -1,22 +1,18 @@
-#include "game/clock.h"
 #include "game/game.h"
 #include "game/game_flow.h"
 #include "game/objects/common.h"
-#include "game/objects/vars.h"
 #include "game/savegame.h"
 #include "game/stats.h"
 #include "global/types.h"
-#include "global/vars.h"
 
 #include <libtrx/game/carrier.h>
 #include <libtrx/game/game_buf.h>
+#include <libtrx/game/objects/vars.h>
 #include <libtrx/log.h>
 #include <libtrx/utils.h>
 
 #include <stdio.h>
 #include <string.h>
-
-#define M_USE_REAL_CLOCK 0
 
 typedef struct {
     int32_t pickup_count;
@@ -30,30 +26,11 @@ static SECTOR **m_CachedSectorArray = nullptr;
 static M_MAX_STATS m_LevelMax;
 static bool m_KillableItems[MAX_ITEMS] = {};
 
-#if M_USE_REAL_CLOCK
-static struct {
-    CLOCK_TIMER timer;
-    int32_t start_timer;
-} m_StatsTimer = { .timer = { .type = CLOCK_TYPE_REAL } };
-#endif
-
-static void M_TraverseFloor(void);
-static void M_CheckTriggers(
-    const ROOM *room, int32_t room_num, int32_t z_sector, int32_t x_sector);
-static void M_IncludeKillableItem(int16_t item_num);
-
-static void M_TraverseFloor(void)
+static void M_IncludeKillableItem(int16_t item_num)
 {
-    uint32_t secrets = 0;
-
-    for (int32_t i = 0; i < Room_GetCount(); i++) {
-        const ROOM *const room = Room_Get(i);
-        for (int32_t z_sector = 0; z_sector < room->size.z; z_sector++) {
-            for (int32_t x_sector = 0; x_sector < room->size.x; x_sector++) {
-                M_CheckTriggers(room, i, z_sector, x_sector);
-            }
-        }
-    }
+    m_KillableItems[item_num] = true;
+    m_LevelMax.killable_count += 1;
+    m_LevelMax.pickup_count += Carrier_GetItemCount(item_num);
 }
 
 static void M_CheckTriggers(
@@ -118,11 +95,17 @@ static void M_CheckTriggers(
     }
 }
 
-static void M_IncludeKillableItem(int16_t item_num)
+static void M_TraverseFloor(void)
 {
-    m_KillableItems[item_num] = true;
-    m_LevelMax.killable_count += 1;
-    m_LevelMax.pickup_count += Carrier_GetItemCount(item_num);
+    uint32_t secrets = 0;
+    for (int32_t i = 0; i < Room_GetCount(); i++) {
+        const ROOM *const room = Room_Get(i);
+        for (int32_t z_sector = 0; z_sector < room->size.z; z_sector++) {
+            for (int32_t x_sector = 0; x_sector < room->size.x; x_sector++) {
+                M_CheckTriggers(room, i, z_sector, x_sector);
+            }
+        }
+    }
 }
 
 void Stats_ComputeFinal(GF_LEVEL_TYPE level_type, FINAL_STATS *final_stats)
@@ -187,13 +170,6 @@ void Stats_CalculateStats(void)
 
         for (int32_t i = 0; i < m_CachedItemCount; i++) {
             const ITEM *const item = Item_Get(i);
-
-            if (item->object_id < O_FIRST || item->object_id >= O_NUMBER_OF) {
-                LOG_ERROR(
-                    "Bad Object number (%d) on Item %d", item->object_id, i);
-                continue;
-            }
-
             if (Object_IsType(item->object_id, g_PickupObjects)
                 && !Carrier_IsItemCarried(i)) {
                 m_LevelMax.pickup_count++;
@@ -239,29 +215,6 @@ bool Stats_CheckAllSecretsCollected(GF_LEVEL_TYPE level_type)
     return final_stats.secret_count >= final_stats.max_secret_count;
 }
 
-#if M_USE_REAL_CLOCK
-void Stats_StartTimer(void)
-{
-    ClockTimer_Sync(&m_StatsTimer.timer);
-    m_StatsTimer.start_timer =
-        Savegame_GetCurrentInfo(Game_GetCurrentLevel())->stats.timer;
-}
-
-void Stats_UpdateTimer(void)
-{
-    if (Game_GetCurrentLevel() == nullptr) {
-        return;
-    }
-    const double elapsed =
-        ClockTimer_PeekElapsed(&m_StatsTimer.timer) * LOGIC_FPS;
-    Savegame_GetCurrentInfo(Game_GetCurrentLevel())->stats.timer =
-        m_StatsTimer.start_timer + elapsed;
-}
-#else
-void Stats_StartTimer(void)
-{
-}
-
 void Stats_UpdateTimer(void)
 {
     if (Game_GetCurrentLevel() == nullptr) {
@@ -269,7 +222,6 @@ void Stats_UpdateTimer(void)
     }
     Savegame_GetCurrentInfo(Game_GetCurrentLevel())->stats.timer++;
 }
-#endif
 
 void Stats_AddKill(void)
 {
@@ -297,11 +249,4 @@ void Stats_AddAmmoUsed(void)
     RESUME_INFO *const current_info =
         Savegame_GetCurrentInfo(Game_GetCurrentLevel());
     current_info->stats.ammo_used++;
-}
-
-void Stats_AddMedipacksUsed(const double medipack_value)
-{
-    RESUME_INFO *const current_info =
-        Savegame_GetCurrentInfo(Game_GetCurrentLevel());
-    current_info->stats.medipacks_used += medipack_value;
 }

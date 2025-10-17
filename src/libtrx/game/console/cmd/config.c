@@ -12,13 +12,6 @@
 #include <stdio.h>
 #include <string.h>
 
-static const char *M_Resolve(const char *option_name);
-static bool M_SameKey(const char *key1, const char *key2);
-static char *M_GetAvailableOptions(const CONFIG_OPTION *option);
-static const CONFIG_OPTION *M_GetOptionFromKey(const char *key);
-
-static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *ctx);
-
 static const char *M_Resolve(const char *const option_name)
 {
     const char *dot = strrchr(option_name, '.');
@@ -51,6 +44,47 @@ static bool M_SameKey(const char *key1, const char *key2)
         }
     }
     return true;
+}
+
+static const CONFIG_OPTION *M_GetOptionFromKey(const char *const key)
+{
+    VECTOR *source = Vector_Create(sizeof(STRING_FUZZY_SOURCE));
+
+    for (const CONFIG_OPTION *option = Config_GetOptionMap();
+         option->name != nullptr; option++) {
+        STRING_FUZZY_SOURCE source_item = {
+            .key = (const char *)Console_Cmd_Config_NormalizeKey(option->name),
+            .value = (void *)option,
+            .weight = 1,
+        };
+        Vector_Add(source, &source_item);
+    }
+
+    VECTOR *matches = String_FuzzyMatch(key, source);
+    const CONFIG_OPTION *result = nullptr;
+    if (matches->count == 0) {
+        Console_LogError(GS(OSD_CONFIG_OPTION_UNKNOWN_OPTION), key);
+    } else if (matches->count == 1) {
+        const STRING_FUZZY_MATCH *const match = Vector_Get(matches, 0);
+        result = match->value;
+    } else if (matches->count == 2) {
+        const STRING_FUZZY_MATCH *const match1 = Vector_Get(matches, 0);
+        const STRING_FUZZY_MATCH *const match2 = Vector_Get(matches, 1);
+        Console_LogError(GS(OSD_AMBIGUOUS_INPUT_2), match1->key, match2->key);
+    } else if (matches->count >= 3) {
+        const STRING_FUZZY_MATCH *const match1 = Vector_Get(matches, 0);
+        const STRING_FUZZY_MATCH *const match2 = Vector_Get(matches, 1);
+        Console_LogError(GS(OSD_AMBIGUOUS_INPUT_3), match1->key, match2->key);
+    }
+
+    for (int32_t i = 0; i < source->count; i++) {
+        const STRING_FUZZY_SOURCE *const source_item = Vector_Get(source, i);
+        Memory_Free((char *)source_item->key);
+    }
+
+    Vector_Free(matches);
+    Vector_Free(source);
+    return result;
 }
 
 static COMMAND_RESULT M_Entrypoint(const COMMAND_CONTEXT *const ctx)
@@ -133,47 +167,6 @@ static char *M_GetAvailableOptions(const CONFIG_OPTION *const option)
     }
 }
 
-static const CONFIG_OPTION *M_GetOptionFromKey(const char *const key)
-{
-    VECTOR *source = Vector_Create(sizeof(STRING_FUZZY_SOURCE));
-
-    for (const CONFIG_OPTION *option = Config_GetOptionMap();
-         option->name != nullptr; option++) {
-        STRING_FUZZY_SOURCE source_item = {
-            .key = (const char *)Console_Cmd_Config_NormalizeKey(option->name),
-            .value = (void *)option,
-            .weight = 1,
-        };
-        Vector_Add(source, &source_item);
-    }
-
-    VECTOR *matches = String_FuzzyMatch(key, source);
-    const CONFIG_OPTION *result = nullptr;
-    if (matches->count == 0) {
-        Console_Log(GS(OSD_CONFIG_OPTION_UNKNOWN_OPTION), key);
-    } else if (matches->count == 1) {
-        const STRING_FUZZY_MATCH *const match = Vector_Get(matches, 0);
-        result = match->value;
-    } else if (matches->count == 2) {
-        const STRING_FUZZY_MATCH *const match1 = Vector_Get(matches, 0);
-        const STRING_FUZZY_MATCH *const match2 = Vector_Get(matches, 1);
-        Console_Log(GS(OSD_AMBIGUOUS_INPUT_2), match1->key, match2->key);
-    } else if (matches->count >= 3) {
-        const STRING_FUZZY_MATCH *const match1 = Vector_Get(matches, 0);
-        const STRING_FUZZY_MATCH *const match2 = Vector_Get(matches, 1);
-        Console_Log(GS(OSD_AMBIGUOUS_INPUT_3), match1->key, match2->key);
-    }
-
-    for (int32_t i = 0; i < source->count; i++) {
-        const STRING_FUZZY_SOURCE *const source_item = Vector_Get(source, i);
-        Memory_Free((char *)source_item->key);
-    }
-
-    Vector_Free(matches);
-    Vector_Free(source);
-    return result;
-}
-
 char *Console_Cmd_Config_NormalizeKey(const char *key)
 {
     // TODO: Once we support arbitrary glyphs, this conversion should
@@ -185,58 +178,6 @@ char *Console_Cmd_Config_NormalizeKey(const char *key)
         }
     }
     return result;
-}
-
-bool Console_Cmd_Config_GetCurrentValue(
-    const CONFIG_OPTION *const option, char *target, const size_t target_size)
-{
-    if (option == nullptr) {
-        return false;
-    }
-
-    ASSERT(option->target != nullptr);
-    switch (option->type) {
-    case COT_BOOL:
-        snprintf(
-            target, target_size, "%s",
-            *(bool *)option->target ? GS(MISC_ON) : GS(MISC_OFF));
-        break;
-    case COT_INVERTED_BOOL:
-        snprintf(
-            target, target_size, "%s",
-            *(bool *)option->target ? GS(MISC_OFF) : GS(MISC_ON));
-        break;
-    case COT_INT32:
-        snprintf(target, target_size, "%d", *(int32_t *)option->target);
-        break;
-    case COT_FLOAT:
-        snprintf(target, target_size, "%.2f", *(float *)option->target);
-        break;
-    case COT_FLOAT_PERCENT:
-        snprintf(
-            target, target_size, "%.00f%%",
-            (*(float *)option->target) * 100.0f);
-        break;
-    case COT_DOUBLE:
-        snprintf(target, target_size, "%.2f", *(double *)option->target);
-        break;
-    case COT_ENUM:
-        snprintf(
-            target, target_size, "%s",
-            EnumMap_ToString(option->param, *(int32_t *)option->target));
-        break;
-    case COT_RGB888: {
-        const RGB_888 *color = option->target;
-        snprintf(
-            target, target_size, "%02hhx%02hhx%02hhx", color->r, color->g,
-            color->b);
-        break;
-    }
-    case COT_STRING:
-        snprintf(target, target_size, "%s", *(char **)option->target);
-        break;
-    }
-    return true;
 }
 
 const CONFIG_OPTION *Console_Cmd_Config_GetOptionFromTarget(
@@ -260,31 +201,26 @@ COMMAND_RESULT Console_Cmd_Config_Helper(
     char *normalized_name = Console_Cmd_Config_NormalizeKey(option->name);
 
     if (new_value == nullptr || String_IsEmpty(new_value)) {
-        char cur_value[128];
-        if (Console_Cmd_Config_GetCurrentValue(option, cur_value, 128)) {
-            Console_Log(GS(OSD_CONFIG_OPTION_GET), normalized_name, cur_value);
-            return CR_SUCCESS;
+        const char *const value_str = Config_GetOptionValueAsString(option);
+        if (value_str == nullptr) {
+            return CR_FAILURE;
         }
-        return CR_FAILURE;
+        Console_Log(GS(OSD_CONFIG_OPTION_GET), normalized_name, value_str);
+        return CR_SUCCESS;
     }
 
     COMMAND_RESULT result;
-    if (strcmp(new_value, "-") == 0
-        && Config_RestoreOptionDefault(option->target)) {
-        Config_Write();
-        char final_value[128];
-        ASSERT(Console_Cmd_Config_GetCurrentValue(option, final_value, 128));
-        Console_Log(GS(OSD_CONFIG_OPTION_SET), normalized_name, final_value);
-        result = CR_SUCCESS;
-    } else if (Config_SetOptionValueFromString(option, new_value)) {
-        Config_Write();
-        char final_value[128];
-        ASSERT(Console_Cmd_Config_GetCurrentValue(option, final_value, 128));
-        Console_Log(GS(OSD_CONFIG_OPTION_SET), normalized_name, final_value);
+    if ((strcmp(new_value, "-") == 0
+         && Config_RestoreOptionDefault(option->target))
+        || Config_SetOptionValueFromString(option, new_value)) {
+        Config_Update();
+        const char *const value_str = Config_GetOptionValueAsString(option);
+        ASSERT(value_str != nullptr);
+        Console_Log(GS(OSD_CONFIG_OPTION_SET), normalized_name, value_str);
         result = CR_SUCCESS;
     } else {
         // Report bad invocation on the provided new value
-        Console_Log(GS(OSD_COMMAND_BAD_INVOCATION), new_value);
+        Console_LogError(GS(OSD_COMMAND_BAD_INVOCATION), new_value);
         char *available_options = M_GetAvailableOptions(option);
         if (available_options != nullptr) {
             Console_Log(GS(OSD_COMMAND_VALID_VALUES), available_options);

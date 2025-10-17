@@ -2,5 +2,6 @@
 
 #include "./gun/common.h"
 #include "./gun/const.h"
-
-void Gun_AddDynamicLight(void);
+#include "./gun/control.h"
+#include "./gun/misc.h"
+#include "./gun/vars.h"

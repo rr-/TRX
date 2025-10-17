@@ -1,5 +1,3 @@
-#include "game/objects/creatures/bear.h"
-
 #include "config.h"
 #include "game/const.h"
 #include "game/creature.h"
@@ -7,6 +5,7 @@
 #include "game/random.h"
 #include "game/spawn.h"
 #include "utils.h"
+#include "version.h"
 
 // clang-format off
 #define BEAR_CHARGE_DAMAGE 3
@@ -24,11 +23,7 @@
 #define BEAR_RUN_TURN      (5 * DEG_1) // = 910
 #define BEAR_WALK_TURN     (2 * DEG_1) // = 364
 #define BEAR_EAT_RANGE     SQUARE(WALL_L * 3 / 4) // = 589824
-#if TR_VERSION == 1
-#define BEAR_HITPOINTS     20
-#else
-#define BEAR_HITPOINTS     30
-#endif
+#define BEAR_HITPOINTS     (g_TRVersion == 1 ? 20 : 30)
 #define BEAR_RADIUS        (WALL_L / 3) // = 341
 #define BEAR_SMARTNESS     0x4000
 // clang-format on
@@ -49,8 +44,6 @@ typedef enum {
 } BEAR_STATE;
 
 static BITE m_BearHeadBite = { .pos = { 0, 96, 335 }, .mesh_num = 14 };
-
-static void M_Control(int16_t item_num);
 
 static void M_Control(const int16_t item_num)
 {
@@ -226,7 +219,7 @@ static void M_Control(const int16_t item_num)
     Creature_Animate(item_num, angle, 0);
 }
 
-void Bear_Setup(OBJECT *const obj)
+static void M_Setup(OBJECT *const obj)
 {
     if (!obj->loaded) {
         return;
@@ -247,4 +240,4 @@ void Bear_Setup(OBJECT *const obj)
     Object_GetBone(obj, 13)->rot.y = true;
 }
 
-REGISTER_OBJECT(O_BEAR, Bear_Setup)
+REGISTER_OBJECT(O_BEAR, M_Setup)

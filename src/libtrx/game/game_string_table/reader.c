@@ -2,16 +2,11 @@
 #include "game/game_string_table.h"
 #include "game/game_string_table/priv.h"
 #include "game/shell.h"
-#include "json.h"
+#include "json_file.h"
 #include "log.h"
 #include "memory.h"
 
 #include <string.h>
-
-static void M_LoadTableFromJSON(JSON_OBJECT *root_obj, GS_TABLE *out_table);
-static void M_LoadLevelsFromJSON(
-    JSON_OBJECT *obj, GS_FILE *gs_file, const char *key,
-    GF_LEVEL_TABLE_TYPE level_table_type);
 
 static void M_LoadTableFromJSON(
     JSON_OBJECT *const root_obj, GS_TABLE *const out_table)
@@ -127,9 +122,9 @@ static void M_LoadLevelsFromJSON(
 
     if (jlvl_arr->length != (size_t)level_table->count) {
         Shell_ExitSystemFmt(
-            "'%s' length must match with the game flow level count (got: "
+            "%s: '%s' length must match with the game flow level count (got: "
             "%d, expected: %d)",
-            key, jlvl_arr->length, level_table->count);
+            gs_file->path, key, jlvl_arr->length, level_table->count);
     }
 
     gs_level_table->count = jlvl_arr->length;
@@ -141,7 +136,8 @@ static void M_LoadLevelsFromJSON(
 
         JSON_OBJECT *const jlvl_obj = JSON_ValueAsObject(jlvl_elem->value);
         if (jlvl_obj == nullptr) {
-            Shell_ExitSystem("'levels' elements must be dictionaries");
+            Shell_ExitSystemFmt(
+                "%s: 'levels' elements must be dictionaries", gs_file->path);
             return;
         }
 
@@ -155,30 +151,21 @@ static void M_LoadLevelsFromJSON(
     }
 }
 
-void GS_File_LoadFromString(
-    GS_FILE *const gs_file, const char *const data, const bool load_levels)
+GS_FILE *GS_File_CreateFromPath(const char *const path, const bool load_levels)
 {
-    JSON_PARSE_RESULT parse_result;
+    GS_FILE *const gs_file = Memory_Alloc(sizeof(*gs_file));
+    gs_file->path = Memory_DupStr(path);
 
-    JSON_VALUE *root = JSON_ParseEx(
-        data, strlen(data), JSON_PARSE_FLAGS_ALLOW_JSON5, nullptr, nullptr,
-        &parse_result);
-    if (root == nullptr) {
-        Shell_ExitSystemFmt(
-            "Failed to parse strings table: %s in line %d, char %d",
-            JSON_GetErrorDescription(parse_result.error),
-            parse_result.error_line_no, parse_result.error_row_no, data);
-    }
-
-    JSON_OBJECT *root_obj = JSON_ValueAsObject(root);
+    JSON_VALUE *const doc =
+        JSONFile_ReadEx(path, (JSON_FILE_OPTIONS) { .exit_on_error = true });
+    JSON_OBJECT *root_obj = JSON_ValueAsObject(doc);
     M_LoadTableFromJSON(root_obj, &gs_file->global);
     if (load_levels) {
         M_LoadLevelsFromJSON(root_obj, gs_file, "levels", GFLT_MAIN);
         M_LoadLevelsFromJSON(root_obj, gs_file, "demos", GFLT_DEMOS);
         M_LoadLevelsFromJSON(root_obj, gs_file, "cutscenes", GFLT_CUTSCENES);
     }
-    if (root != nullptr) {
-        JSON_ValueFree(root);
-        root = nullptr;
-    }
+
+    JSON_ValueFree(doc);
+    return gs_file;
 }

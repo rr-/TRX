@@ -34,18 +34,10 @@ typedef struct {
     FADER back_fader;
 } M_PRIV;
 
-static void M_FadeIn(M_PRIV *p);
-static void M_FadeOut(M_PRIV *p);
-static void M_PauseGame(M_PRIV *p);
-static void M_ReturnToGame(M_PRIV *p);
-static void M_ExitToTitle(M_PRIV *p);
-static void M_CreateText(M_PRIV *p);
-static void M_RemoveText(M_PRIV *p);
-
-static PHASE_CONTROL M_Start(PHASE *phase);
-static void M_End(PHASE *phase);
-static PHASE_CONTROL M_Control(PHASE *phase, int32_t nframes);
-static void M_Draw(PHASE *phase);
+static void M_RemoveText(M_PRIV *const p)
+{
+    Overlay_SetBottomText(nullptr, false);
+}
 
 static void M_FadeIn(M_PRIV *const p)
 {
@@ -92,11 +84,6 @@ static void M_CreateText(M_PRIV *const p)
     Overlay_SetBottomTextPtr(GS_PTR(PAUSE_PAUSED), false);
 }
 
-static void M_RemoveText(M_PRIV *const p)
-{
-    Overlay_SetBottomText(nullptr, false);
-}
-
 static PHASE_CONTROL M_Start(PHASE *const phase)
 {
     M_PRIV *const p = phase->priv;
@@ -114,10 +101,9 @@ static void M_End(PHASE *const phase)
     UI_Pause_Free(&p->ui.state);
 }
 
-static PHASE_CONTROL M_Control(PHASE *const phase, int32_t const num_frames)
+static PHASE_CONTROL M_Control(PHASE *const phase)
 {
     M_PRIV *const p = phase->priv;
-
     Input_Update();
     Shell_ProcessInput();
 
@@ -184,12 +170,12 @@ static void M_Draw(PHASE *const phase)
     Interpolation_Disable();
     Game_Draw(false);
     Interpolation_Enable();
-    Fader_Draw(&p->back_fader);
+    UI_BeginFade(&p->back_fader, false);
+    UI_EndFade();
 
     if (p->state == STATE_ASK) {
         UI_Pause(&p->ui.state);
     }
-    Output_DrawPolyList();
 }
 
 PHASE *Phase_Pause_Create(void)

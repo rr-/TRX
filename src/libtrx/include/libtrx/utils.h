@@ -12,6 +12,9 @@
     #define MAX(x, y) ((x) >= (y) ? (x) : (y))
 #endif
 
+#define MIN3(x, y, z) MIN(MIN((x), (y)), (z))
+#define MAX3(x, y, z) MAX(MAX((x), (y)), (z))
+
 #define CLAMPL(a, b)                                                           \
     do {                                                                       \
         if ((a) < (b))                                                         \
@@ -29,12 +32,28 @@
         else if ((a) > (c))                                                    \
             (a) = (c);                                                         \
     } while (0)
-#define SWAP(a, b, c)                                                          \
+#define SWAP(a, b)                                                             \
     do {                                                                       \
-        (c) = (a);                                                             \
+        typeof(a) c = (a);                                                     \
         (a) = (b);                                                             \
-        (b) = (c);                                                             \
+        (b) = c;                                                               \
     } while (0)
+#define SWAP2(a, b, tmp)                                                       \
+    do {                                                                       \
+        (tmp) = (a);                                                           \
+        (a) = (b);                                                             \
+        (b) = (tmp);                                                           \
+    } while (0)
+#define TOGGLE(target)                                                         \
+    do {                                                                       \
+        (target) = !(target);                                                  \
+    } while (0);
+#define CYCLE(target, rate, number_of)                                         \
+    do {                                                                       \
+        (target) += (rate);                                                    \
+        (target) += (number_of);                                               \
+        (target) %= (number_of);                                               \
+    } while (0);
 
 #define ALIGN(a, bytes) ((a + (bytes) - 1) & (~(bytes - 1)))
 #define TOGGLE_BIT(target_var, target_bit, condition)                          \
@@ -48,6 +67,8 @@
 
 #define MKTAG(a, b, c, d)                                                      \
     ((a) | ((b) << 8) | ((c) << 16) | ((unsigned)(d) << 24))
+
+#define TR_VERSION_COUNT 2
 
 #if TR_VERSION == 1
     #define PROJECT_NAME "TR1X"

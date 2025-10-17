@@ -47,39 +47,6 @@ static double m_Rate = 0.0;
 static double m_WorldRate = 0.0;
 static double m_CameraRate = 0.0;
 
-static int32_t M_GetFPS(void);
-static XYZ_32 M_GetItemMaxDelta(const ITEM *item);
-static XYZ_32 M_GetEffectMaxDelta(const EFFECT *effect);
-
-static void M_RememberCamera(void);
-static void M_CommitCamera(void);
-static void M_InterpolateCamera(double ratio);
-
-static void M_RememberLara(LARA_INFO *lara);
-static void M_InterpolateLara(double ratio, LARA_INFO *lara);
-static void M_CommitLara(LARA_INFO *lara);
-
-static void M_RememberBraidSegment(HAIR_SEGMENT *segment);
-static void M_InterpolateBraidSegment(
-    HAIR_SEGMENT *segment, double ratio, XYZ_32 max_delta);
-static void M_CommitBraidSegment(HAIR_SEGMENT *segment);
-static void M_RememberBraid(void);
-static void M_CommitBraid(void);
-static void M_InterpolateBraid(double ratio, ITEM *lara_item);
-
-static void M_RememberItem(ITEM *item);
-static void M_CommitItem(ITEM *item);
-static void M_InterpolateItem(ITEM *item, double ratio);
-
-static void M_RememberItems(void);
-static void M_InterpolateItems(double ratio);
-
-static void M_RememberEffect(EFFECT *effect);
-static void M_InterpolateEffect(double ratio, EFFECT *effect);
-
-static void M_RememberEffects(void);
-static void M_InterpolateEffects(double ratio);
-
 static int32_t M_GetFPS(void)
 {
     return g_Config.rendering.fps;
@@ -90,26 +57,21 @@ static XYZ_32 M_GetItemMaxDelta(const ITEM *const item)
     int32_t max_xz = 128;
     int32_t max_y = MAX(128, ABS(item->fall_speed) * 2);
     switch (item->object_id) {
-#if TR_VERSION == 1
     case O_BAT:
         max_xz = 0;
         max_y = 0;
         break;
-#endif
 
     case O_DART:
-#if TR_VERSION == 2
     case O_BOAT:
     case O_SKIDOO_ARMED:
     case O_SKIDOO_TRACK:
     case O_SKIDOO_FAST:
     case O_SKIDOO_DRIVER:
     case O_GRENADE:
-#endif
         max_xz = 200;
         break;
 
-#if TR_VERSION == 2
     case O_HARPOON_BOLT:
         max_xz = 150;
         break;
@@ -122,7 +84,6 @@ static XYZ_32 M_GetItemMaxDelta(const ITEM *const item)
         }
         return M_GetItemMaxDelta(vehicle);
     }
-#endif
 
     default:
         break;
@@ -135,7 +96,6 @@ static XYZ_32 M_GetEffectMaxDelta(const EFFECT *const effect)
     int32_t max_xz = 128;
     int32_t max_y = MAX(128, effect->fall_speed * 2);
     switch (effect->object_id) {
-#if TR_VERSION == 1
     case O_MISSILE_1:
     case O_MISSILE_3:
         max_xz = 220;
@@ -143,7 +103,6 @@ static XYZ_32 M_GetEffectMaxDelta(const EFFECT *const effect)
     case O_MISSILE_2:
         max_xz = 250;
         break;
-#else
     case O_MISSILE_FLAME:
         max_xz = 200;
         break;
@@ -151,7 +110,6 @@ static XYZ_32 M_GetEffectMaxDelta(const EFFECT *const effect)
     case O_MISSILE_HARPOON:
         max_xz = 150;
         break;
-#endif
 
     default:
         break;
@@ -303,6 +261,7 @@ static void M_InterpolateBraid(const double ratio, ITEM *const lara_item)
 
 static void M_RememberItem(ITEM *const item)
 {
+    REMEMBER(item, floor);
     REMEMBER(item, pos.x);
     REMEMBER(item, pos.y);
     REMEMBER(item, pos.z);
@@ -313,6 +272,7 @@ static void M_RememberItem(ITEM *const item)
 
 static void M_CommitItem(ITEM *const item)
 {
+    COMMIT(item, floor);
     COMMIT(item, pos.x);
     COMMIT(item, pos.y);
     COMMIT(item, pos.z);
@@ -324,6 +284,7 @@ static void M_CommitItem(ITEM *const item)
 static void M_InterpolateItem(ITEM *const item, const double ratio)
 {
     const XYZ_32 max_delta = M_GetItemMaxDelta(item);
+    INTERPOLATE(item, floor, ratio, max_delta.y);
     INTERPOLATE(item, pos.x, ratio, max_delta.x);
     INTERPOLATE(item, pos.y, ratio, max_delta.y);
     INTERPOLATE(item, pos.z, ratio, max_delta.z);
@@ -406,9 +367,9 @@ static void M_InterpolateEffects(const double ratio)
     }
 }
 
-bool Interpolation_IsEnabled(void)
+void Interpolation_Enable(void)
 {
-    return m_IsEnabled && M_GetFPS() == 60;
+    m_IsEnabled = true;
 }
 
 void Interpolation_Disable(void)
@@ -416,14 +377,19 @@ void Interpolation_Disable(void)
     m_IsEnabled = false;
 }
 
-void Interpolation_Enable(void)
+bool Interpolation_IsEnabled(void)
 {
-    m_IsEnabled = true;
+    return m_IsEnabled;
+}
+
+bool Interpolation_IsActive(void)
+{
+    return m_IsEnabled && M_GetFPS() == 60;
 }
 
 double Interpolation_GetWorldRate(void)
 {
-    if (!Interpolation_IsEnabled()) {
+    if (!Interpolation_IsActive()) {
         return 1.0;
     }
     return m_WorldRate;
@@ -431,7 +397,7 @@ double Interpolation_GetWorldRate(void)
 
 double Interpolation_GetCameraRate(void)
 {
-    if (!Interpolation_IsEnabled()) {
+    if (!Interpolation_IsActive()) {
         return 1.0;
     }
     return m_CameraRate;

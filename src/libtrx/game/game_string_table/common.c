@@ -14,10 +14,6 @@ typedef void (*M_LOAD_STRING_FUNC)(const char *, const char *);
 
 static VECTOR *m_GST_Layers = nullptr;
 
-static void M_Apply(const GS_TABLE *table);
-static void M_ApplyLevelTitles(
-    const GS_FILE *gs_file, GF_LEVEL_TABLE_TYPE level_table_type);
-
 static void M_Apply(const GS_TABLE *const table)
 {
     for (const GS_GAME_STRING_ENTRY *cur = table->game_strings;
@@ -33,7 +29,7 @@ static void M_Apply(const GS_TABLE *const table)
 
     for (const GS_OBJECT_ENTRY *cur = table->objects;
          cur != nullptr && cur->key != nullptr; cur++) {
-        const GAME_OBJECT_ID obj_id = Object_IdFromKey(cur->key);
+        const OBJECT_ID obj_id = Object_IdFromKey(cur->key);
         if (obj_id == NO_OBJECT) {
             LOG_ERROR("Invalid object id: %s", cur->key);
         } else if (cur->names == nullptr) {

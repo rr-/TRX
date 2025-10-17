@@ -1,92 +1,27 @@
 #include "game/item_actions.h"
 
-#include "game/random.h"
-#include "game/sound.h"
-#include "game/spawn.h"
 #include "game/stats.h"
-#include "game/viewport.h"
-#include "global/vars.h"
 
 #include <libtrx/game/camera.h>
 #include <libtrx/game/collision.h>
 #include <libtrx/game/game.h>
 #include <libtrx/game/gym.h>
 #include <libtrx/game/lara.h>
+#include <libtrx/game/random.h>
+#include <libtrx/game/sound.h>
+#include <libtrx/game/spawn.h>
+#include <libtrx/game/viewport.h>
 #include <libtrx/utils.h>
 
 typedef void (*M_FUNC)(ITEM *item);
 
-static void M_Turn180(ITEM *item);
-static void M_FloorShake(ITEM *item);
-static void M_LaraNormal(ITEM *item);
-static void M_Bubbles(ITEM *item);
-static void M_FinishLevel(ITEM *item);
-static void M_Flood(ITEM *item);
-static void M_Chandelier(ITEM *item);
-static void M_Rubble(ITEM *item);
-static void M_Piston(ITEM *item);
-static void M_Curtain(ITEM *item);
-static void M_SetChange(ITEM *item);
-static void M_Explosion(ITEM *item);
-static void M_LaraHandsFree(ITEM *item);
-static void M_FlipMap(ITEM *item);
-static void M_LaraDrawRightGun(ITEM *item);
-static void M_LaraDrawLeftGun(ITEM *item);
-static void M_SwapMeshesWithMeshSwap1(ITEM *item);
-static void M_SwapMeshesWithMeshSwap2(ITEM *item);
-static void M_SwapMeshesWithMeshSwap3(ITEM *item);
-static void M_InvisibilityOn(ITEM *item);
-static void M_InvisibilityOff(ITEM *item);
-static void M_DynamicLightOn(ITEM *item);
-static void M_DynamicLightOff(ITEM *item);
-static void M_Statue(ITEM *item);
-static void M_ResetHair(ITEM *item);
-static void M_Boiler(ITEM *item);
-static void M_AssaultReset(ITEM *item);
-static void M_AssaultStop(ITEM *item);
-static void M_AssaultStart(ITEM *item);
-static void M_AssaultFinished(ITEM *item);
-
-static M_FUNC m_Actions[] = {
-    // clang-format off
-    [ITEM_ACTION_TURN_180]                     = M_Turn180,
-    [ITEM_ACTION_FLOOR_SHAKE]                  = M_FloorShake,
-    [ITEM_ACTION_LARA_NORMAL]                  = M_LaraNormal,
-    [ITEM_ACTION_BUBBLES]                      = M_Bubbles,
-    [ITEM_ACTION_FINISH_LEVEL]                 = M_FinishLevel,
-    [ITEM_ACTION_FLOOD]                        = M_Flood,
-    [ITEM_ACTION_CHANDELIER]                   = M_Chandelier,
-    [ITEM_ACTION_RUBBLE]                       = M_Rubble,
-    [ITEM_ACTION_PISTON]                       = M_Piston,
-    [ITEM_ACTION_CURTAIN]                      = M_Curtain,
-    [ITEM_ACTION_SET_CHANGE]                   = M_SetChange,
-    [ITEM_ACTION_EXPLOSION]                    = M_Explosion,
-    [ITEM_ACTION_LARA_HANDS_FREE]              = M_LaraHandsFree,
-    [ITEM_ACTION_FLIPMAP]                      = M_FlipMap,
-    [ITEM_ACTION_LARA_DRAW_RIGHT_GUN]          = M_LaraDrawRightGun,
-    [ITEM_ACTION_LARA_DRAW_LEFT_GUN]           = M_LaraDrawLeftGun,
-    [ITEM_ACTION_SWAP_MESHES_WITH_MESH_SWAP_1] = M_SwapMeshesWithMeshSwap1,
-    [ITEM_ACTION_SWAP_MESHES_WITH_MESH_SWAP_2] = M_SwapMeshesWithMeshSwap2,
-    [ITEM_ACTION_SWAP_MESHES_WITH_MESH_SWAP_3] = M_SwapMeshesWithMeshSwap3,
-    [ITEM_ACTION_INVISIBILITY_ON]              = M_InvisibilityOn,
-    [ITEM_ACTION_INVISIBILITY_OFF]             = M_InvisibilityOff,
-    [ITEM_ACTION_DYNAMIC_LIGHT_ON]             = M_DynamicLightOn,
-    [ITEM_ACTION_DYNAMIC_LIGHT_OFF]            = M_DynamicLightOff,
-    [ITEM_ACTION_STATUE]                       = M_Statue,
-    [ITEM_ACTION_RESET_HAIR]                   = M_ResetHair,
-    [ITEM_ACTION_BOILER]                       = M_Boiler,
-    [ITEM_ACTION_ASSAULT_RESET]                = M_AssaultReset,
-    [ITEM_ACTION_ASSAULT_STOP]                 = M_AssaultStop,
-    [ITEM_ACTION_ASSAULT_START]                = M_AssaultStart,
-    [ITEM_ACTION_ASSAULT_FINISHED]             = M_AssaultFinished,
-    // clang-format on
-};
-
 static void M_Bubbles(ITEM *const item)
 {
     // XXX: until we get RoboLara, it makes sense for her to breathe underwater
-    if (g_Lara.water_status == LWS_CHEAT
-        && !(Room_Get(g_LaraItem->room_num)->flags & RF_UNDERWATER)) {
+    const LARA_INFO *const lara = Lara_GetLaraInfo();
+    const ITEM *const lara_item = Lara_GetItem();
+    if (lara->water_status == LWS_CHEAT
+        && !(Room_Get(lara_item->room_num)->flags & RF_UNDERWATER)) {
         return;
     }
 
@@ -106,7 +41,8 @@ static void M_Bubbles(ITEM *const item)
 
 static void M_LaraHandsFree(ITEM *const item)
 {
-    g_Lara.gun_status = LGS_ARMLESS;
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    lara->gun_status = LGS_ARMLESS;
 }
 
 static void M_FinishLevel(ITEM *const item)
@@ -138,16 +74,16 @@ static void M_FloorShake(ITEM *const item)
 
 static void M_LaraNormal(ITEM *const item)
 {
-    item->current_anim_state = LS_STOP;
-    item->goal_anim_state = LS_STOP;
-    Item_SwitchToAnim(item, LA_STAND_STILL, 0);
+    item->current_anim_state = LS(LS_STOP);
+    item->goal_anim_state = LS(LS_STOP);
+    Item_SwitchToAnim(item, LA(LA_STAND_STILL), 0);
     g_Camera.type = CAM_CHASE;
     Viewport_AlterFOV(-1);
 }
 
 static void M_Boiler(ITEM *const item)
 {
-    Sound_Effect(SFX_UNKNOWN_1, nullptr, SPM_NORMAL);
+    Sound_Effect(SFX_BOILER, nullptr, SPM_NORMAL);
     Room_SetFlipEffect(-1);
 }
 
@@ -160,12 +96,12 @@ static void M_Flood(ITEM *const item)
         return;
     }
 
+    const ITEM *const lara_item = Lara_GetItem();
     XYZ_32 pos = {
-        .x = g_LaraItem->pos.x,
+        .x = lara_item->pos.x,
         .y = g_Camera.target.pos.y,
-        .z = g_LaraItem->pos.z,
+        .z = lara_item->pos.z,
     };
-
     if (flip_timer >= LOGIC_FPS) {
         pos.y += 100 * (flip_timer - LOGIC_FPS);
     } else {
@@ -266,7 +202,7 @@ static void M_SwapMeshesWithMeshSwap3(ITEM *const item)
     const OBJECT *const obj_1 = Object_Get(item->object_id);
     for (int32_t mesh_idx = 0; mesh_idx < obj_1->mesh_count; mesh_idx++) {
         Object_SwapMesh(item->object_id, O_LARA_SWAP, mesh_idx);
-        if (item == g_LaraItem) {
+        if (item == Lara_GetItem()) {
             Lara_Mesh_SwapSingle(mesh_idx, item->object_id);
         }
     }
@@ -323,6 +259,41 @@ static void M_AssaultFinished(ITEM *const item)
 
 void ItemAction_Run(int16_t action_id, ITEM *item)
 {
+    static M_FUNC m_Actions[] = {
+        // clang-format off
+        [ITEM_ACTION_TURN_180]                     = M_Turn180,
+        [ITEM_ACTION_FLOOR_SHAKE]                  = M_FloorShake,
+        [ITEM_ACTION_LARA_NORMAL]                  = M_LaraNormal,
+        [ITEM_ACTION_BUBBLES]                      = M_Bubbles,
+        [ITEM_ACTION_FINISH_LEVEL]                 = M_FinishLevel,
+        [ITEM_ACTION_FLOOD]                        = M_Flood,
+        [ITEM_ACTION_CHANDELIER]                   = M_Chandelier,
+        [ITEM_ACTION_RUBBLE]                       = M_Rubble,
+        [ITEM_ACTION_PISTON]                       = M_Piston,
+        [ITEM_ACTION_CURTAIN]                      = M_Curtain,
+        [ITEM_ACTION_SET_CHANGE]                   = M_SetChange,
+        [ITEM_ACTION_EXPLOSION]                    = M_Explosion,
+        [ITEM_ACTION_LARA_HANDS_FREE]              = M_LaraHandsFree,
+        [ITEM_ACTION_FLIP_MAP]                     = M_FlipMap,
+        [ITEM_ACTION_LARA_DRAW_RIGHT_GUN]          = M_LaraDrawRightGun,
+        [ITEM_ACTION_LARA_DRAW_LEFT_GUN]           = M_LaraDrawLeftGun,
+        [ITEM_ACTION_SWAP_MESHES_WITH_MESH_SWAP_1] = M_SwapMeshesWithMeshSwap1,
+        [ITEM_ACTION_SWAP_MESHES_WITH_MESH_SWAP_2] = M_SwapMeshesWithMeshSwap2,
+        [ITEM_ACTION_SWAP_MESHES_WITH_MESH_SWAP_3] = M_SwapMeshesWithMeshSwap3,
+        [ITEM_ACTION_INVISIBILITY_ON]              = M_InvisibilityOn,
+        [ITEM_ACTION_INVISIBILITY_OFF]             = M_InvisibilityOff,
+        [ITEM_ACTION_DYNAMIC_LIGHT_ON]             = M_DynamicLightOn,
+        [ITEM_ACTION_DYNAMIC_LIGHT_OFF]            = M_DynamicLightOff,
+        [ITEM_ACTION_STATUE]                       = M_Statue,
+        [ITEM_ACTION_RESET_HAIR]                   = M_ResetHair,
+        [ITEM_ACTION_BOILER]                       = M_Boiler,
+        [ITEM_ACTION_ASSAULT_RESET]                = M_AssaultReset,
+        [ITEM_ACTION_ASSAULT_STOP]                 = M_AssaultStop,
+        [ITEM_ACTION_ASSAULT_START]                = M_AssaultStart,
+        [ITEM_ACTION_ASSAULT_FINISHED]             = M_AssaultFinished,
+        // clang-format on
+    };
+
     if (m_Actions[action_id] != nullptr) {
         m_Actions[action_id](item);
     }

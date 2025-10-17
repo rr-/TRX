@@ -1,20 +1,20 @@
 #include "game/objects/general/pickup.h"
 
 #include "game/game.h"
-#include "game/gun/gun.h"
-#include "game/input.h"
 #include "game/inventory.h"
-#include "game/inventory_ring.h"
 #include "game/objects/common.h"
-#include "game/objects/vars.h"
-#include "game/output.h"
-#include "game/overlay.h"
 #include "game/stats.h"
-#include "global/vars.h"
 
 #include <libtrx/config.h>
+#include <libtrx/game/gun.h>
+#include <libtrx/game/input.h>
 #include <libtrx/game/lara.h>
+#include <libtrx/game/lua/common.h>
+#include <libtrx/game/lua/events.h>
 #include <libtrx/game/matrix.h>
+#include <libtrx/game/objects/vars.h>
+#include <libtrx/game/output.h>
+#include <libtrx/game/overlay.h>
 
 #define LF_PICKUP_ERASE 42
 #define LF_PICKUP_FLARE 58
@@ -46,15 +46,6 @@ static const OBJECT_BOUNDS m_PickUpBoundsUW = {
     },
 };
 
-static void M_DoPickup(int16_t item_num);
-static void M_DoFlarePickup(int16_t item_num);
-static void M_DoAboveWater(int16_t item, ITEM *lara_item);
-static void M_DoUnderwater(int16_t item, ITEM *lara_item);
-static void M_Setup(OBJECT *obj);
-static void M_HandleSave(ITEM *item, SAVEGAME_STAGE stage);
-static void M_Activate(ITEM *item);
-static void M_Draw(const ITEM *item);
-
 static void M_DoPickup(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
@@ -64,6 +55,8 @@ static void M_DoPickup(const int16_t item_num)
 
     Overlay_AddDisplayPickup(item->object_id);
     Inv_AddPickup(item);
+    // Notify Lua pickup listeners
+    Lua_FireEvent(LUA_EVENT_PICKUP, item_num); // LUA uses 1-indexing
 
     item->status = IS_INVISIBLE;
     item->flags |= IF_KILLED;
@@ -74,11 +67,12 @@ static void M_DoPickup(const int16_t item_num)
 static void M_DoFlarePickup(const int16_t item_num)
 {
     const ITEM *const item = Item_Get(item_num);
-    g_Lara.request_gun_type = LGT_FLARE;
-    g_Lara.gun_type = LGT_FLARE;
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    lara->request_gun_type = LGT_FLARE;
+    lara->gun_type = LGT_FLARE;
     Gun_InitialiseNewWeapon();
-    g_Lara.gun_status = LGS_SPECIAL;
-    g_Lara.flare.age = ((int32_t)(intptr_t)item->data) & 0x7FFF;
+    lara->gun_status = LGS_SPECIAL;
+    lara->flare.age = ((int32_t)(intptr_t)item->data) & 0x7FFF;
     Item_Kill(item_num);
 }
 
@@ -96,41 +90,41 @@ static void M_DoAboveWater(const int16_t item_num, ITEM *const lara_item)
         goto cleanup;
     }
 
-    if (lara_item->current_anim_state == LS_PICKUP) {
+    if (lara_item->current_anim_state == LS(LS_PICKUP)) {
         if (Item_TestFrameEqual(lara_item, LF_PICKUP_ERASE)) {
             M_DoPickup(item_num);
         }
         goto cleanup;
     }
 
-    if (lara_item->current_anim_state == LS_FLARE_PICKUP) {
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    if (lara_item->current_anim_state == LS(LS_FLARE_PICKUP)) {
         if (Item_TestFrameEqual(lara_item, LF_PICKUP_FLARE)
-            && item->object_id == O_FLARE_ITEM
-            && g_Lara.gun_type != LGT_FLARE) {
+            && item->object_id == O_FLARE_ITEM && lara->gun_type != LGT_FLARE) {
             M_DoFlarePickup(item_num);
         }
         goto cleanup;
     }
 
     if (g_Input.action && !lara_item->gravity
-        && lara_item->current_anim_state == LS_STOP
-        && g_Lara.gun_status == LGS_ARMLESS
-        && (g_Lara.gun_type != LGT_FLARE || item->object_id != O_FLARE_ITEM)) {
+        && lara_item->current_anim_state == LS(LS_STOP)
+        && lara->gun_status == LGS_ARMLESS
+        && (lara->gun_type != LGT_FLARE || item->object_id != O_FLARE_ITEM)) {
         if (item->object_id == O_FLARE_ITEM) {
-            lara_item->goal_anim_state = LS_FLARE_PICKUP;
+            lara_item->goal_anim_state = LS(LS_FLARE_PICKUP);
             do {
                 Lara_Animate(lara_item);
-            } while (lara_item->current_anim_state != LS_FLARE_PICKUP);
-            lara_item->goal_anim_state = LS_STOP;
-            g_Lara.gun_status = LGS_HANDS_BUSY;
+            } while (lara_item->current_anim_state != LS(LS_FLARE_PICKUP));
+            lara_item->goal_anim_state = LS(LS_STOP);
+            lara->gun_status = LGS_HANDS_BUSY;
         } else {
             Lara_AlignPosition(item, &m_PickupPosition);
-            lara_item->goal_anim_state = LS_PICKUP;
+            lara_item->goal_anim_state = LS(LS_PICKUP);
             do {
                 Lara_Animate(lara_item);
-            } while (lara_item->current_anim_state != LS_PICKUP);
-            lara_item->goal_anim_state = LS_STOP;
-            g_Lara.gun_status = LGS_HANDS_BUSY;
+            } while (lara_item->current_anim_state != LS(LS_PICKUP));
+            lara_item->goal_anim_state = LS(LS_STOP);
+            lara->gun_status = LGS_HANDS_BUSY;
         }
         goto cleanup;
     }
@@ -153,61 +147,50 @@ static void M_DoUnderwater(const int16_t item_num, ITEM *const lara_item)
         goto cleanup;
     }
 
-    if (lara_item->current_anim_state == LS_PICKUP) {
+    if (lara_item->current_anim_state == LS(LS_PICKUP)) {
         if (Item_TestFrameEqual(lara_item, LF_PICKUP_UW)) {
             M_DoPickup(item_num);
         }
         goto cleanup;
     }
 
-    if (lara_item->current_anim_state == LS_FLARE_PICKUP) {
+    const LARA_INFO *const lara = Lara_GetLaraInfo();
+    if (lara_item->current_anim_state == LS(LS_FLARE_PICKUP)) {
         if (Item_TestFrameEqual(lara_item, LF_PICKUP_FLARE_UW)
-            && item->object_id == O_FLARE_ITEM
-            && g_Lara.gun_type != LGT_FLARE) {
+            && item->object_id == O_FLARE_ITEM && lara->gun_type != LGT_FLARE) {
             M_DoFlarePickup(item_num);
             Lara_Flare_DrawMeshes();
         }
         goto cleanup;
     }
 
-    if (g_Input.action && lara_item->current_anim_state == LS_TREAD
-        && g_Lara.gun_status == LGS_ARMLESS
-        && (g_Lara.gun_type != LGT_FLARE || item->object_id != O_FLARE_ITEM)) {
+    if (g_Input.action && lara_item->current_anim_state == LS(LS_TREAD)
+        && lara->gun_status == LGS_ARMLESS
+        && (lara->gun_type != LGT_FLARE || item->object_id != O_FLARE_ITEM)) {
         if (!Lara_MovePosition(item, &m_PickupPositionUW)) {
             goto cleanup;
         }
 
         if (item->object_id == O_FLARE_ITEM) {
             lara_item->fall_speed = 0;
-            Item_SwitchToAnim(lara_item, LA_UNDERWATER_FLARE_PICKUP, 0);
-            lara_item->goal_anim_state = LS_TREAD;
-            lara_item->current_anim_state = LS_FLARE_PICKUP;
+            Item_SwitchToAnim(lara_item, LA(LA_UNDERWATER_FLARE_PICKUP), 0);
+            lara_item->goal_anim_state = LS(LS_TREAD);
+            lara_item->current_anim_state = LS(LS_FLARE_PICKUP);
         } else {
-            if (g_Config.gameplay.fix_pickup_drift_glitch) {
+            if (g_Config.gameplay.fix_lara_pickup_embed) {
                 lara_item->fall_speed = 0;
             }
-            lara_item->goal_anim_state = LS_PICKUP;
+            lara_item->goal_anim_state = LS(LS_PICKUP);
             do {
                 Lara_Animate(lara_item);
-            } while (lara_item->current_anim_state != LS_PICKUP);
-            lara_item->goal_anim_state = LS_TREAD;
+            } while (lara_item->current_anim_state != LS(LS_PICKUP));
+            lara_item->goal_anim_state = LS(LS_TREAD);
         }
         goto cleanup;
     }
 
 cleanup:
     item->rot = old_rot;
-}
-
-static void M_Setup(OBJECT *const obj)
-{
-    obj->handle_save_func = M_HandleSave;
-    obj->activate_func = M_Activate;
-    obj->collision_func = Pickup_Collision;
-    obj->bounds_func = Pickup_Bounds;
-    obj->draw_func = M_Draw;
-    obj->save_position = true;
-    obj->save_flags = true;
 }
 
 static void M_HandleSave(ITEM *const item, const SAVEGAME_STAGE stage)
@@ -233,106 +216,19 @@ static void M_Activate(ITEM *const item)
     }
 }
 
-static void M_Draw(const ITEM *const item)
+static void M_Control(int16_t item_num)
 {
-    if (item->flags & IF_INVISIBLE) {
-        return;
+    ITEM *const item = Item_Get(item_num);
+    if (item->status == IS_INVISIBLE || item->status == IS_DEACTIVATED) {
+        Item_RemoveActive(item_num);
     }
-
-    if (!g_Config.visuals.enable_3d_pickups) {
-        Object_DrawSpriteItem(item);
-        return;
-    }
-
-    if (!Object_Get(item->object_id)->loaded) {
-        Object_DrawSpriteItem(item);
-        return;
-    }
-
-    // Convert item to menu display item.
-    const GAME_OBJECT_ID inv_obj_id = Inv_GetItemOption(item->object_id);
-    if (inv_obj_id == NO_OBJECT) {
-        Object_DrawSpriteItem(item);
-        return;
-    }
-
-    const OBJECT *const obj = Object_Get(inv_obj_id);
-    if (!obj->loaded || obj->mesh_count < 0) {
-        Object_DrawSpriteItem(item);
-        return;
-    }
-
-    // Get the first frame of the first animation, and its bounding box.
-    int16_t offset;
-    BOUNDS_16 bounds;
-    const ANIM_FRAME *frame = nullptr;
-
-    // Some items, such as the Prayer Wheel in Barkhang Monastery, do not have
-    // animations, and for such items we need to calculate this information
-    // manually.
-    if (obj->anim_idx != -1) {
-        frame = obj->frame_base;
-        bounds = frame->bounds;
-        const int16_t y_off = frame->offset.y - bounds.max.y;
-        bounds.max.y -= bounds.max.y;
-        bounds.min.y -= bounds.max.y;
-        offset = item->interp.result.pos.y + y_off;
-    } else {
-        bounds = Object_GetBoundingBox(obj, nullptr, item->mesh_bits);
-        offset = item->pos.y - (bounds.max.y - bounds.min.y) / 2;
-    }
-
-    Matrix_Push();
-    Matrix_TranslateAbs(
-        item->interp.result.pos.x, offset, item->interp.result.pos.z);
-    Matrix_Rot16(item->interp.result.rot);
-
-    Output_CalculateLight(item->pos, item->room_num);
-
-    const int32_t clip = Output_GetObjectBounds(&bounds);
-    if (clip) {
-        int32_t bit = 1;
-
-        const XYZ_16 *const mesh_rots =
-            frame != nullptr ? frame->mesh_rots : nullptr;
-        if (mesh_rots != nullptr) {
-            Matrix_Rot16(mesh_rots[0]);
-        }
-
-        if (item->mesh_bits & bit) {
-            Object_DrawMesh(obj->mesh_idx, clip, false);
-        }
-
-        for (int i = 1; i < obj->mesh_count; i++) {
-            const ANIM_BONE *const bone = Object_GetBone(obj, i - 1);
-            if (bone->matrix_pop) {
-                Matrix_Pop();
-            }
-
-            if (bone->matrix_push) {
-                Matrix_Push();
-            }
-
-            Matrix_TranslateRel32(bone->pos);
-            if (mesh_rots != nullptr) {
-                Matrix_Rot16(mesh_rots[i]);
-            }
-
-            // Extra rotation is ignored in this case as it's not needed.
-
-            bit <<= 1;
-            if (item->mesh_bits & bit) {
-                Object_DrawMesh(obj->mesh_idx + i, clip, false);
-            }
-        }
-    }
-
-    Matrix_Pop();
 }
 
 const OBJECT_BOUNDS *Pickup_Bounds(void)
 {
-    if (g_Lara.water_status == LWS_UNDERWATER) {
+    const LARA_INFO *const lara = Lara_GetLaraInfo();
+    if (lara->water_status == LWS_UNDERWATER
+        || lara->water_status == LWS_CHEAT) {
         return &m_PickUpBoundsUW;
     } else {
         return &m_PickUpBounds;
@@ -347,10 +243,13 @@ void Pickup_Collision(
         return;
     }
 
-    if (g_Lara.water_status == LWS_ABOVE_WATER
-        || g_Lara.water_status == LWS_WADE) {
+    const LARA_INFO *const lara = Lara_GetLaraInfo();
+    if (lara->water_status == LWS_ABOVE_WATER
+        || lara->water_status == LWS_WADE) {
         M_DoAboveWater(item_num, lara_item);
-    } else if (g_Lara.water_status == LWS_UNDERWATER) {
+    } else if (
+        lara->water_status == LWS_UNDERWATER
+        || lara->water_status == LWS_CHEAT) {
         M_DoUnderwater(item_num, lara_item);
     }
 }
@@ -366,6 +265,19 @@ bool Pickup_Trigger(const int16_t item_num)
     return true;
 }
 
+static void M_Setup(OBJECT *const obj)
+{
+    obj->handle_save_func = M_HandleSave;
+    obj->activate_func = M_Activate;
+    obj->control_func = M_Control;
+    obj->collision_func = Pickup_Collision;
+    obj->bounds_func = Pickup_Bounds;
+    obj->draw_func = Object_DrawPickupItem;
+    obj->save_position = true;
+    obj->save_flags = true;
+}
+
+REGISTER_OBJECT(O_EXPLOSIVE_ITEM, M_Setup)
 REGISTER_OBJECT(O_FLARES_ITEM, M_Setup)
 REGISTER_OBJECT(O_GRENADE_AMMO_ITEM, M_Setup)
 REGISTER_OBJECT(O_GRENADE_ITEM, M_Setup)
@@ -376,6 +288,7 @@ REGISTER_OBJECT(O_KEY_ITEM_2, M_Setup)
 REGISTER_OBJECT(O_KEY_ITEM_3, M_Setup)
 REGISTER_OBJECT(O_KEY_ITEM_4, M_Setup)
 REGISTER_OBJECT(O_LARGE_MEDIPACK_ITEM, M_Setup)
+REGISTER_OBJECT(O_LEADBAR_ITEM, M_Setup)
 REGISTER_OBJECT(O_M16_AMMO_ITEM, M_Setup)
 REGISTER_OBJECT(O_M16_ITEM, M_Setup)
 REGISTER_OBJECT(O_MAGNUM_AMMO_ITEM, M_Setup)
@@ -388,6 +301,7 @@ REGISTER_OBJECT(O_PUZZLE_ITEM_1, M_Setup)
 REGISTER_OBJECT(O_PUZZLE_ITEM_2, M_Setup)
 REGISTER_OBJECT(O_PUZZLE_ITEM_3, M_Setup)
 REGISTER_OBJECT(O_PUZZLE_ITEM_4, M_Setup)
+REGISTER_OBJECT(O_SCION_ITEM_2, M_Setup)
 REGISTER_OBJECT(O_SECRET_1, M_Setup)
 REGISTER_OBJECT(O_SECRET_2, M_Setup)
 REGISTER_OBJECT(O_SECRET_3, M_Setup)
