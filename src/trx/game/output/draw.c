@@ -31,6 +31,7 @@ static void M_DrawScreenQuad(
         .bl = bl,
         .br = br,
         .z = Output_GetNearZ_UI() + z,
+        .blend_mode = OUTPUT_UI_BLEND_NORMAL,
     });
 }
 

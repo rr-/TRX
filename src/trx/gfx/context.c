@@ -72,6 +72,11 @@ void GFX_Context_SwitchToViewport(const VIEWPORT_SPACE space)
     GFX_GL_CheckError();
 }
 
+VIEWPORT_SPACE GFX_Context_GetViewportSpace(void)
+{
+    return m_Context.space;
+}
+
 bool GFX_Context_Attach(void *window_handle)
 {
     const char *shading_ver;

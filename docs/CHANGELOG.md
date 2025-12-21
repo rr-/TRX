@@ -60,6 +60,7 @@
 - added high-resolutions 16:9 and 4:3 credit images
     To download the new images ahead of a stable release, please see the [TRX data](https://github.com/LostArtefacts/TRX-data) repository.
 - added support for the serif font (no colors just yet)
+- added blue dialog frames
 - fixed sample reading to support correct pitch and volume
 
 ## [1.0.3](https://github.com/LostArtefacts/TRX/compare/trx-1.0.2...trx-1.0.3) - 2025-11-27

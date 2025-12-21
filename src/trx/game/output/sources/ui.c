@@ -7,6 +7,7 @@
 #include <trx/game/output/sources/objects.h>
 #include <trx/game/viewport.h>
 #include <trx/gfx/gl/utils.h>
+#include <trx/gfx/renderer.h>
 #include <trx/memory.h>
 #include <trx/utils.h>
 #include <trx/vector.h>
@@ -35,6 +36,7 @@ typedef struct {
     const SCENE_SOURCE *objects_source;
     VECTOR *scheduled_pickups;
     VECTOR *vertices;
+    VECTOR *vertices_add;
     GLuint vao;
     GLuint vbo;
 } M_PRIV;
@@ -182,14 +184,14 @@ static void M_Draw3DPickups(const M_PRIV *const p)
     }
 }
 
-static void M_DrawVertices(const M_PRIV *const p)
+static void M_DrawVertices(const M_PRIV *const p, const VECTOR *const vertices)
 {
     glBindVertexArray(p->vao);
     glBindBuffer(GL_ARRAY_BUFFER, p->vbo);
     GFX_TRACK_DATA(
-        glBufferData, GL_ARRAY_BUFFER, p->vertices->count * sizeof(M_VERTEX),
-        Vector_GetData(p->vertices), GL_STATIC_DRAW);
-    glDrawArrays(GL_TRIANGLES, 0, p->vertices->count);
+        glBufferData, GL_ARRAY_BUFFER, vertices->count * sizeof(M_VERTEX),
+        Vector_GetData(vertices), GL_STATIC_DRAW);
+    glDrawArrays(GL_TRIANGLES, 0, vertices->count);
 }
 
 static void M_RenderBegin(const SCENE_SOURCE *const source)
@@ -197,6 +199,7 @@ static void M_RenderBegin(const SCENE_SOURCE *const source)
     M_PRIV *const p = &m_Priv;
     Vector_Clear(p->scheduled_pickups);
     Vector_Clear(p->vertices);
+    Vector_Clear(p->vertices_add);
 }
 
 static void M_RenderPass(
@@ -207,16 +210,37 @@ static void M_RenderPass(
         return;
     }
 
-    if (p->scheduled_pickups->count == 0 && p->vertices->count == 0) {
+    if (p->scheduled_pickups->count == 0 && p->vertices->count == 0
+        && p->vertices_add->count == 0) {
         return;
     }
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    if (p->vertices->count > 0) {
-        M_DrawVertices(p);
+    const SCENE_UI_TARGET ui_target = SceneCompositor_GetUiTarget();
+    if (ui_target == SCENE_UI_TARGET_OVERLAY) {
+        if (p->vertices_add->count > 0) {
+            GFX_Renderer_BindUiAddFbo();
+            M_DrawVertices(p, p->vertices_add);
+        }
+        if (p->vertices->count > 0) {
+            GFX_Renderer_BindUiFbo();
+            M_DrawVertices(p, p->vertices);
+        }
+    } else {
+        if (p->vertices_add->count > 0) {
+            glBlendFunc(GL_ONE, GL_ONE);
+            M_DrawVertices(p, p->vertices_add);
+            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        }
+        if (p->vertices->count > 0) {
+            M_DrawVertices(p, p->vertices);
+        }
     }
 
     if (p->scheduled_pickups->count > 0) {
+        if (ui_target == SCENE_UI_TARGET_OVERLAY) {
+            GFX_Renderer_BindUiFbo();
+        }
         glEnable(GL_CULL_FACE);
         M_Draw3DPickups(p);
         glDisable(GL_CULL_FACE);
@@ -228,7 +252,8 @@ static bool M_IsDirty(const SCENE_SOURCE *const source, const SCENE_PASS pass)
 {
     const M_PRIV *const p = &m_Priv;
     return pass == SCENE_PASS_UI
-        && (p->scheduled_pickups->count > 0 || p->vertices->count > 0);
+        && (p->scheduled_pickups->count > 0 || p->vertices->count > 0
+            || p->vertices_add->count > 0);
 }
 
 void OutputSource_UI_Init(void)
@@ -236,6 +261,7 @@ void OutputSource_UI_Init(void)
     M_PRIV *const p = &m_Priv;
     p->scheduled_pickups = Vector_Create(sizeof(OUTPUT_UI_PICKUP));
     p->vertices = Vector_CreateAtCapacity(sizeof(M_VERTEX), 500);
+    p->vertices_add = Vector_CreateAtCapacity(sizeof(M_VERTEX), 100);
     p->source.render_begin = M_RenderBegin;
     p->source.render_pass = M_RenderPass;
     p->source.is_dirty = M_IsDirty;
@@ -275,6 +301,7 @@ void OutputSource_UI_Shutdown(void)
     M_PRIV *const p = &m_Priv;
     Vector_Free(p->scheduled_pickups);
     Vector_Free(p->vertices);
+    Vector_Free(p->vertices_add);
 }
 
 void OutputSource_UI_StagePickup(const OUTPUT_UI_PICKUP pickup)
@@ -328,6 +355,8 @@ void OutputSource_UI_StageSprite(const OUTPUT_UI_SPRITE sprite)
 void OutputSource_UI_StageQuad(const OUTPUT_UI_QUAD quad)
 {
     M_PRIV *const p = &m_Priv;
+    VECTOR *const target_vertices =
+        quad.blend_mode == OUTPUT_UI_BLEND_ADD ? p->vertices_add : p->vertices;
 
     M_VERTEX vertices[4];
     for (int32_t i = 0; i < 4; i++) {
@@ -348,6 +377,6 @@ void OutputSource_UI_StageQuad(const OUTPUT_UI_QUAD quad)
 
     for (int32_t i = 0; i < OUTPUT_QUAD_VERTICES; i++) {
         const int32_t j = OUTPUT_QUAD_TO_FAN(i);
-        Vector_Add(p->vertices, &vertices[j]);
+        Vector_Add(target_vertices, &vertices[j]);
     }
 }

@@ -25,6 +25,7 @@
 typedef struct {
     VECTOR *sources;
     GLuint sampler_id;
+    SCENE_UI_TARGET ui_target;
 } M_PRIV;
 
 static M_PRIV m_Priv = {};
@@ -199,6 +200,7 @@ void SceneCompositor_BeginScene(void)
     if (!M_IsActive()) {
         return;
     }
+    p->ui_target = SCENE_UI_TARGET_OVERLAY;
     M_PrepareScene(p);
     M_PROCESS_SOURCES(p, render_begin);
 }
@@ -235,4 +237,16 @@ void SceneCompositor_AddSource(const SCENE_SOURCE *const source)
 {
     M_PRIV *const p = &m_Priv;
     Vector_Add(p->sources, &source);
+}
+
+void SceneCompositor_SetUiTarget(const SCENE_UI_TARGET target)
+{
+    M_PRIV *const p = &m_Priv;
+    p->ui_target = target;
+}
+
+SCENE_UI_TARGET SceneCompositor_GetUiTarget(void)
+{
+    const M_PRIV *const p = &m_Priv;
+    return p->ui_target;
 }

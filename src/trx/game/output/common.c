@@ -19,6 +19,7 @@
 #include <trx/game/output/textures.h>
 #include <trx/game/shell.h>
 #include <trx/gfx/context.h>
+#include <trx/gfx/renderer.h>
 
 static MESH_BATCHER *m_Batcher = nullptr;
 static OUTPUT_UNIFORMS *m_Uniforms = nullptr;
@@ -139,6 +140,14 @@ void Output_SwitchViewport(const VIEWPORT_SPACE space)
     GFX_Context_SwitchToViewport(space);
     GFX_Context_Clear();
     glClear(GL_DEPTH_BUFFER_BIT);
+
+    if (space == VIEWPORT_UI) {
+        // Clear the additive UI framebuffer too, so it can be composited over
+        // the 3D scene independently of the premultiplied UI framebuffer.
+        GFX_Renderer_BindUiAddFbo();
+        GFX_Context_Clear();
+        GFX_Renderer_BindUiFbo();
+    }
 }
 
 void Output_ApplyRenderSettings(void)

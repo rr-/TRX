@@ -16,3 +16,7 @@ void GFX_Renderer_BindGeometryFbo(void);
 
 // Bind the UI framebuffer for rendering the UI overlay.
 void GFX_Renderer_BindUiFbo(void);
+
+// Bind the additive UI framebuffer for rendering UI elements that should be
+// additively blended over the game.
+void GFX_Renderer_BindUiAddFbo(void);

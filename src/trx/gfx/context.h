@@ -23,6 +23,7 @@ void GFX_Context_SwapBuffers(void);
 void GFX_Context_SetRendered(void);
 
 void GFX_Context_SwitchToViewport(VIEWPORT_SPACE space);
+VIEWPORT_SPACE GFX_Context_GetViewportSpace(void);
 
 void GFX_Context_ScheduleScreenshot(const char *path);
 const char *GFX_Context_GetScheduledScreenshotPath(void);

@@ -5,6 +5,12 @@
 #include <trx/game/output/utils.h>
 #include <trx/game/viewport.h>
 
+typedef enum {
+    OUTPUT_UI_BLEND_NORMAL = 0,
+    OUTPUT_UI_BLEND_ADD,
+    OUTPUT_UI_BLEND_MODE_COUNT,
+} OUTPUT_UI_BLEND_MODE;
+
 #define OUTPUT_UI_MAX_PICKUP_ROWS 3
 #define OUTPUT_UI_MAX_PICKUP_COLUMNS 4
 #define OUTPUT_UI_MAX_PICKUPS                                                  \
@@ -32,6 +38,7 @@ typedef struct {
     int32_t x1, y1;
     int32_t z;
     RGBA_8888 tl, tr, bl, br;
+    OUTPUT_UI_BLEND_MODE blend_mode;
 } OUTPUT_UI_QUAD;
 
 void OutputSource_UI_Init(void);

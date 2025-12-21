@@ -23,6 +23,7 @@ typedef struct {
 
     GFX_GL_FBO geometry_fbo;
     GFX_GL_FBO ui_fbo;
+    GFX_GL_FBO ui_add_fbo;
 
     // Full-screen quad resources for blitting FBOs to default framebuffer.
     GFX_GL_VERTEX_ARRAY vertex_array;
@@ -48,6 +49,7 @@ static void M_UpdateFBOSizes(GFX_RENDERER *renderer)
     GFX_GL_FBO_ResizeIfNeeded(&p->geometry_fbo, rect.width, rect.height);
     rect = Viewport_GetRect(VIEWPORT_UI);
     GFX_GL_FBO_ResizeIfNeeded(&p->ui_fbo, rect.width, rect.height);
+    GFX_GL_FBO_ResizeIfNeeded(&p->ui_add_fbo, rect.width, rect.height);
 }
 
 static void M_Render(GFX_RENDERER *renderer)
@@ -82,8 +84,12 @@ static void M_Render(GFX_RENDERER *renderer)
     glDisable(GL_BLEND);
     M_Blit(p, &p->geometry_fbo);
 
-    // Composite UI FBO (with premultiplied alpha blending)
+    // Composite UI additive FBO (with additive blending)
     glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    M_Blit(p, &p->ui_add_fbo);
+
+    // Composite UI FBO (with premultiplied alpha blending)
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     M_Blit(p, &p->ui_fbo);
     glDisable(GL_BLEND);
@@ -159,6 +165,8 @@ static void M_Init(GFX_RENDERER *const renderer, const GFX_CONFIG *const config)
     rect = Viewport_GetRect(VIEWPORT_UI);
     GFX_GL_FBO_Init(
         &p->ui_fbo, rect.width, rect.height, GL_RGBA8, GL_RGBA, false);
+    GFX_GL_FBO_Init(
+        &p->ui_add_fbo, rect.width, rect.height, GL_RGBA8, GL_RGBA, false);
 }
 
 static void M_Shutdown(GFX_RENDERER *renderer)
@@ -171,6 +179,7 @@ static void M_Shutdown(GFX_RENDERER *renderer)
 
     GFX_GL_FBO_Close(&p->geometry_fbo);
     GFX_GL_FBO_Close(&p->ui_fbo);
+    GFX_GL_FBO_Close(&p->ui_add_fbo);
     GFX_GL_Program_Close(&p->program);
     GFX_GL_VertexArray_Close(&p->vertex_array);
 
@@ -193,4 +202,10 @@ void GFX_Renderer_BindUiFbo(void)
 {
     M_CONTEXT *const p = (M_CONTEXT *)g_GFX_Renderer.priv;
     GFX_GL_FBO_Bind(&p->ui_fbo);
+}
+
+void GFX_Renderer_BindUiAddFbo(void)
+{
+    M_CONTEXT *const p = (M_CONTEXT *)g_GFX_Renderer.priv;
+    GFX_GL_FBO_Bind(&p->ui_add_fbo);
 }

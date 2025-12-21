@@ -12,6 +12,7 @@
 #include <trx/game/option.h>
 #include <trx/game/option/stats.h>
 #include <trx/game/output.h>
+#include <trx/game/output/scene_compositor.h>
 #include <trx/game/overlay.h>
 #include <trx/game/savegame.h>
 #include <trx/game/shell.h>
@@ -130,8 +131,6 @@ const INVENTORY_ITEM *InvRing_GetInvItem(const OBJECT_ID obj_id)
 
 void InvRing_Draw(INV_RING *const ring)
 {
-    InvRing_DrawUI(ring);
-
     const int32_t num_frames = round(
         ClockTimer_TakeElapsed(&ring->motion_timer) * LOGIC_FPS
         * INV_RING_FRAMES);
@@ -168,11 +167,15 @@ void InvRing_Draw(INV_RING *const ring)
         Game_Draw(false);
         Interpolation_Enable();
 
+        SceneCompositor_SetUiTarget(SCENE_UI_TARGET_SCENE);
         Fader_Draw(&ring->back_fader);
         SceneCompositor_Flush();
+        SceneCompositor_SetUiTarget(SCENE_UI_TARGET_OVERLAY);
 
         Viewport_Init(-1, -1, -1, -1);
     }
+
+    InvRing_DrawUI(ring);
 
     const int16_t old_fov = Viewport_GetSystemFOV();
     const FOV_MODE old_fov_mode = Viewport_GetFOVMode();

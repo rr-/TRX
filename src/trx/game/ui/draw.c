@@ -188,6 +188,26 @@ static void M_DrawScreenQuad(
         .bl = bl,
         .br = br,
         .z = Output_GetNearZ_UI() + z,
+        .blend_mode = OUTPUT_UI_BLEND_NORMAL,
+    });
+}
+
+static void M_DrawScreenQuad_Additive(
+    const int32_t x0, const int32_t y0, const int32_t x1, const int32_t y1,
+    const int32_t z, const RGBA_8888 tl, const RGBA_8888 tr, const RGBA_8888 bl,
+    const RGBA_8888 br)
+{
+    OutputSource_UI_StageQuad((OUTPUT_UI_QUAD) {
+        .x0 = x0,
+        .y0 = y0,
+        .x1 = x1,
+        .y1 = y1,
+        .tl = tl,
+        .tr = tr,
+        .bl = bl,
+        .br = br,
+        .z = Output_GetNearZ_UI() + z,
+        .blend_mode = OUTPUT_UI_BLEND_ADD,
     });
 }
 
@@ -275,6 +295,8 @@ static void M_DrawOp_TextBackground(const M_DRAW_OP_TEXT_RECT *const op)
     switch (op->ui_style) {
     case UI_STYLE_PC:
         RGBA_8888 c1, c2;
+        const bool blend_add =
+            (g_TRVersion == 3 && op->text_style == TS_BACKGROUND);
         if (g_TRVersion == 3 && op->text_style == TS_BACKGROUND) {
             c1 = (RGBA_8888) { 0x00, 0x3F, 0xFF, 0x50 };
             c2 = (RGBA_8888) { 0x00, 0x3F, 0x1F, 0x50 };
@@ -287,7 +309,13 @@ static void M_DrawOp_TextBackground(const M_DRAW_OP_TEXT_RECT *const op)
             c1 = (RGBA_8888) { 0, 0, 0, a };
             c2 = c1;
         }
-        M_DrawScreenQuad(op->x0, op->y0, op->x1, op->y1, op->z, c1, c1, c2, c2);
+        if (blend_add) {
+            M_DrawScreenQuad_Additive(
+                op->x0, op->y0, op->x1, op->y1, op->z, c1, c1, c2, c2);
+        } else {
+            M_DrawScreenQuad(
+                op->x0, op->y0, op->x1, op->y1, op->z, c1, c1, c2, c2);
+        }
         break;
 
     case UI_STYLE_PS1: {
