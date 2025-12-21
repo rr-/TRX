@@ -295,14 +295,14 @@ static void M_DrawOp_TextBackground(const M_DRAW_OP_TEXT_RECT *const op)
     switch (op->ui_style) {
     case UI_STYLE_PC:
         RGBA_8888 c1, c2;
-        const bool blend_add =
-            (g_TRVersion == 3 && op->text_style == TS_BACKGROUND);
-        if (g_TRVersion == 3 && op->text_style == TS_BACKGROUND) {
-            c1 = (RGBA_8888) { 0x00, 0x3F, 0xFF, 0x50 };
-            c2 = (RGBA_8888) { 0x00, 0x3F, 0x1F, 0x50 };
-        } else if (g_TRVersion == 3 && op->text_style == TS_BACKGROUND_HEAVY) {
+        bool blend_add = false;
+        if (g_TRVersion == 3 && op->text_style == TS_BACKGROUND_HEAVY) {
             c1 = (RGBA_8888) { 0, 0x10, 0x20, 0xE0 };
             c2 = (RGBA_8888) { 0, 0, 0, 0xE0 };
+        } else if (g_TRVersion == 3) {
+            c1 = (RGBA_8888) { 0x00, 0x3F, 0xFF, 0x50 };
+            c2 = (RGBA_8888) { 0x00, 0x3F, 0x1F, 0x50 };
+            blend_add = op->text_style == TS_BACKGROUND;
         } else {
             const uint8_t a =
                 op->text_style == TS_BACKGROUND_HEAVY ? 0xE0 : 0x80;
