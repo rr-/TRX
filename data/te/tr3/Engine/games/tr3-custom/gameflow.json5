@@ -1,0 +1,69 @@
+{
+    // NOTE: bad changes to this file may result in crashes.
+    // Lines starting with double slashes are comments and are ignored.
+
+    "engine": 3,
+    "name": "Tomb Raider III Custom Level",
+
+    "main_menu_picture": "title.webp",
+    "savegame_file_fmt": "save_tr3_%02d.dat",
+
+    "injections": [
+        "injections/font.bin",
+        "injections/globe_model.bin",
+        "injections/lara_animations.bin",
+        "injections/lara_extra.bin",
+        "injections/lara_guns.bin",
+        "injections/lara_outfits.bin",
+        "injections/misc_sprites.bin",
+        "injections/pda_model.bin",
+        "injections/pickup_aid.bin",
+    ],
+
+    "enable_tr2_item_drops": true,
+    "convert_dropped_guns": true,
+
+    "title": {
+        "path": "title.tr2",
+        "music_track": 1,
+        "sequence": [
+            {"type": "display_picture", "path": "legal.webp", "legal": true},
+            {"type": "exit_to_title"},
+        ],
+        "injections": [],
+    },
+
+    "levels": [
+        // Level 0: Lara's Home
+        {
+            "path": "house.tr2",
+            "type": "gym",
+            "music_track": -1,
+            "lara_outfit": "tr3_gym",
+            "sequence": [
+                {"type": "loop_game"},
+                {"type": "level_stats"},
+                {"type": "exit_to_title"},
+            ],
+            "injections": [],
+        },
+
+        // Level 1: First level
+        {
+            "path": "level1.tr2",
+            "music_track": 2,
+            "lara_outfit": "tr3_classic",
+            "sequence": [
+                {"type": "loop_game"},
+                {"type": "level_stats"},
+                {"type": "level_complete"},
+            ],
+            "injections": [],
+        },
+    ],
+
+    "demos": [],
+    "cutscenes": [],
+    "fmvs": [],
+    "hidden_config": [],
+}

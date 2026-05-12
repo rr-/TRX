@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent.parent
+DATA_TE = ROOT / "data" / "te"
+
+CFG_LINKS: tuple[tuple[str, str], ...] = (
+    ("data/te/tr1/Engine/cfg", "../../../trx/ship/cfg"),
+    ("data/te/tr2/Engine/cfg", "../../../trx/ship/cfg"),
+    ("data/te/tr3/Engine/cfg", "../../../trx/ship/cfg"),
+)
+
+GAME_LINKS: dict[tuple[str, str], tuple[str, ...]] = {
+    ("tr1", "tr1-custom"): (
+        "catalog_item_actions.csv",
+        "catalog_lara_anims.csv",
+        "catalog_lara_states.csv",
+        "catalog_music.csv",
+        "catalog_objects.csv",
+        "catalog_samples.csv",
+        "inv_ring.json5",
+        "strings-de.json5",
+        "strings-en-gb.json5",
+        "strings-fr.json5",
+        "strings-gd.json5",
+        "strings-it.json5",
+        "strings.json5",
+        "strings-pl.json5",
+        "strings-ru.json5",
+        "weapons.json5",
+    ),
+    ("tr2", "tr2-custom"): (
+        "catalog_item_actions.csv",
+        "catalog_lara_anims.csv",
+        "catalog_lara_states.csv",
+        "catalog_music.csv",
+        "catalog_objects.csv",
+        "catalog_samples.csv",
+        "inv_ring.json5",
+        "strings-de.json5",
+        "strings-en-gb.json5",
+        "strings-fr.json5",
+        "strings-gd.json5",
+        "strings-it.json5",
+        "strings.json5",
+        "strings-pl.json5",
+        "weapons.json5",
+    ),
+    ("tr3", "tr3-custom"): (
+        "catalog_item_actions.csv",
+        "catalog_lara_anims.csv",
+        "catalog_lara_states.csv",
+        "catalog_music.csv",
+        "catalog_objects.csv",
+        "catalog_samples.csv",
+        "inv_ring.json5",
+        "strings-de.json5",
+        "strings-it.json5",
+        "strings.json5",
+        "strings-pl.json5",
+        "weapons.json5",
+    ),
+}
+
+INJECTION_LINKS: dict[tuple[str, str], tuple[str, ...]] = {
+    ("tr1", "tr1-custom"): (
+        "crystal.bin",
+        "font.bin",
+        "gun_glow.bin",
+        "lara_animations.bin",
+        "lara_extra.bin",
+        "lara_guns.bin",
+        "lara_outfits.bin",
+        "misc_sprites.bin",
+        "pda_model.bin",
+        "photo.bin",
+        "pickup_aid.bin",
+        "uzi_sfx.bin",
+    ),
+    ("tr2", "tr2-custom"): (
+        "boat_bits.bin",
+        "crystal.bin",
+        "font.bin",
+        "lara_animations.bin",
+        "lara_extra.bin",
+        "lara_guns.bin",
+        "lara_outfits.bin",
+        "misc_sprites.bin",
+        "pda_model.bin",
+        "photo.bin",
+        "pickup_aid.bin",
+        "secret_models_gm.bin",
+        "secret_models_og.bin",
+    ),
+    ("tr3", "tr3-custom"): (
+        "font.bin",
+        "globe_model.bin",
+        "lara_animations.bin",
+        "lara_extra.bin",
+        "lara_guns.bin",
+        "lara_outfits.bin",
+        "misc_sprites.bin",
+        "pda_model.bin",
+        "pickup_aid.bin",
+    ),
+}
+
+
+def remove_te_symlinks() -> None:
+    for path in DATA_TE.rglob("*"):
+        if path.is_symlink():
+            path.unlink()
+
+
+def create_symlink(path: Path, target: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.symlink_to(target)
+
+
+def create_cfg_links() -> None:
+    for path_str, target in CFG_LINKS:
+        create_symlink(ROOT / path_str, target)
+
+
+def create_game_links() -> None:
+    for (game, custom), names in GAME_LINKS.items():
+        base_dir = ROOT / "data" / "te" / game / "Engine" / "games" / custom
+        target_prefix = Path("../../../../../trx/ship/games") / game
+        (base_dir / "injections").mkdir(parents=True, exist_ok=True)
+        for name in names:
+            create_symlink(base_dir / name, str(target_prefix / name))
+
+
+def create_injection_links() -> None:
+    for (game, custom), names in INJECTION_LINKS.items():
+        base_dir = ROOT / "data" / "te" / game / "Engine" / "games" / custom / "injections"
+        target_prefix = Path("../../../../../../trx/ship/games") / game / "injections"
+        base_dir.mkdir(parents=True, exist_ok=True)
+        for name in names:
+            create_symlink(base_dir / name, str(target_prefix / name))
+
+
+def main() -> None:
+    remove_te_symlinks()
+    create_cfg_links()
+    create_game_links()
+    create_injection_links()
+
+
+if __name__ == "__main__":
+    main()
