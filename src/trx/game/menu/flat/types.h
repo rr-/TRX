@@ -27,6 +27,7 @@ typedef enum {
     IF_OPENING,
     IF_BROWSE,
     IF_OPTION_MENU,
+    IF_COMBINE,
     IF_LOADSAVE,
     IF_CLOSING,
     IF_DONE,
@@ -75,6 +76,16 @@ typedef struct {
         GAME_STRING_ID labels[INV_FLAT_MAX_OPTIONS];
         int32_t count;
     } options;
+
+    // The "Combine with" partner row shown under the main row (the OG
+    // reuses its ammo ring for this).
+    struct {
+        INVENTORY_ITEM *items[INV_FLAT_MAX_OPTIONS * 2];
+        int32_t count;
+        int32_t target_idx;
+        float scroll_pos;
+        float prev_scroll_pos;
+    } second_row;
 
     // The memcard load/save slot picker.
     struct {

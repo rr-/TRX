@@ -40,6 +40,9 @@ typedef struct {
     uint16_t flares;
     uint8_t num_quest_item_5;
     uint8_t num_quest_item_6;
+    // TR4: waterskin fill in liters.
+    uint8_t small_water_skin;
+    uint8_t big_water_skin;
 
     struct {
         bool available;
@@ -57,6 +60,9 @@ typedef struct {
         bool has_harpoon;
         bool has_crossbow;
         bool has_revolver;
+        // TR4: lasersight mounted on the gun.
+        bool has_revolver_lasersight;
+        bool has_crossbow_lasersight;
     } flags;
 
     bool level_completed;

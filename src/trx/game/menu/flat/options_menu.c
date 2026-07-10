@@ -1,6 +1,7 @@
 #include <trx/game/menu/flat/options_menu.h>
 
 #include <trx/game/game_strings/entries.h>
+#include <trx/game/menu/interact/combine.h>
 #include <trx/game/ui/elements/anchor.h>
 #include <trx/game/ui/elements/label.h>
 #include <trx/game/ui/elements/modal.h>
@@ -16,6 +17,19 @@ static void M_AddOption(
     flat->options.actions[flat->options.count] = action;
     flat->options.labels[flat->options.count] = label;
     flat->options.count++;
+}
+
+static void M_AddCombineOptions(
+    INV_FLAT *const flat, const INVENTORY_ITEM *const inv_item)
+{
+    if (InvInteract_CanCombine(inv_item->object_id)) {
+        M_AddOption(
+            flat, IF_ACTION_COMBINE, GS_ID("general/inventory_flat/combine"));
+    }
+    if (InvInteract_CanSeparate(inv_item->object_id)) {
+        M_AddOption(
+            flat, IF_ACTION_SEPARATE, GS_ID("general/inventory_flat/separate"));
+    }
 }
 
 static void M_BuildOptions(
@@ -39,8 +53,8 @@ static void M_BuildOptions(
     case O_BINOCULARS_OPTION:
         M_AddOption(
             flat, IF_ACTION_EQUIP, GS_ID("general/inventory_flat/equip"));
-        // TODO: IF_ACTION_CHOOSE_AMMO and IF_ACTION_COMBINE (lasersight)
-        // once the ammo selector and combine tables land.
+        // TODO: IF_ACTION_CHOOSE_AMMO once the ammo selector lands.
+        M_AddCombineOptions(flat, inv_item);
         break;
 
     case O_MEMCARD_LOAD_OPTION:
@@ -56,7 +70,7 @@ static void M_BuildOptions(
     case O_LASERSIGHT_OPTION:
     case O_WATERSKIN_1_OPTION:
     case O_WATERSKIN_2_OPTION:
-        // TODO: combine-only items; nothing to offer until combining lands.
+        M_AddCombineOptions(flat, inv_item);
         break;
 
     case O_COMPASS_OPTION:
@@ -66,6 +80,7 @@ static void M_BuildOptions(
     default:
         // Medipacks, flares, keys, puzzles and other pickups.
         M_AddOption(flat, IF_ACTION_USE, GS_ID("general/inventory_flat/use"));
+        M_AddCombineOptions(flat, inv_item);
         // TODO: IF_ACTION_EXAMINE for examinable items.
         break;
     }

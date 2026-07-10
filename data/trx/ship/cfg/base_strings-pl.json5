@@ -31,7 +31,10 @@
             "area_6": "Obszar 6",
         },
         "inventory_flat": {
+            "combine": "\\{review}Połącz",
+            "combine_with": "\\{review}Połącz z",
             "equip": "\\{review}Wyposaż",
+            "separate": "\\{review}Rozdziel",
             "use": "\\{review}Użyj",
         },
         "inventory_ring": {

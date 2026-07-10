@@ -299,6 +299,11 @@ void Lara_InitialiseInventory(const GF_LEVEL *const level)
         }
         lara_info->revolver_ammo.ammo = resume->revolver_ammo;
 
+        lara_info->lasersight.revolver = resume->flags.has_revolver_lasersight;
+        lara_info->lasersight.crossbow = resume->flags.has_crossbow_lasersight;
+        lara_info->small_water_skin = resume->small_water_skin;
+        lara_info->big_water_skin = resume->big_water_skin;
+
         Inv_AddItemNTimes(O_SMALL_MEDIPACK_ITEM, resume->small_medipacks);
         Inv_AddItemNTimes(O_LARGE_MEDIPACK_ITEM, resume->large_medipacks);
         Inv_AddItemNTimes(O_FLARE_ITEM, resume->flares);

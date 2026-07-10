@@ -705,6 +705,11 @@ void Savegame_PersistGameToCurrentInfo(const GF_LEVEL *const level)
     resume->flags.has_revolver = Inv_RequestItem(O_REVOLVER_ITEM) > 0;
     resume->revolver_ammo = lara->revolver_ammo.ammo;
 
+    resume->flags.has_revolver_lasersight = lara->lasersight.revolver;
+    resume->flags.has_crossbow_lasersight = lara->lasersight.crossbow;
+    resume->small_water_skin = lara->small_water_skin;
+    resume->big_water_skin = lara->big_water_skin;
+
     resume->flares = Inv_RequestItem(O_FLARE_ITEM);
     resume->num_scions = Inv_RequestItem(O_SCION_ITEM_1);
     resume->num_quest_item_1 = Inv_RequestItem(O_QUEST_ITEM_1);
@@ -762,6 +767,10 @@ void Savegame_ApplyLogicToCurrentInfo(const GF_LEVEL *const level)
         resume->flags.has_rocket = false;
         resume->flags.has_crossbow = false;
         resume->flags.has_revolver = false;
+        resume->flags.has_revolver_lasersight = false;
+        resume->flags.has_crossbow_lasersight = false;
+        resume->small_water_skin = 0;
+        resume->big_water_skin = 0;
 
         resume->pistol_ammo = 0;
         resume->shotgun_ammo = 0;
@@ -828,6 +837,10 @@ void Savegame_ApplyLogicToCurrentInfo(const GF_LEVEL *const level)
         resume->flags.has_rocket = false;
         resume->flags.has_crossbow = false;
         resume->flags.has_revolver = false;
+        resume->flags.has_revolver_lasersight = false;
+        resume->flags.has_crossbow_lasersight = false;
+        resume->small_water_skin = 0;
+        resume->big_water_skin = 0;
         resume->harpoon_ammo = 0;
         resume->m16_ammo = 0;
         resume->mp5_ammo = 0;

@@ -31,7 +31,10 @@
             "area_6": "Raon 6",
         },
         "inventory_flat": {
+            "combine": "\\{review}",
+            "combine_with": "\\{review}",
             "equip": "\\{review}",
+            "separate": "\\{review}",
             "use": "\\{review}",
         },
         "inventory_ring": {

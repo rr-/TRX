@@ -31,7 +31,10 @@
             "area_6": "\\{review}Bereich 6",
         },
         "inventory_flat": {
+            "combine": "\\{review}Kombinieren",
+            "combine_with": "\\{review}Kombinieren mit",
             "equip": "\\{review}Ausrüsten",
+            "separate": "\\{review}Trennen",
             "use": "\\{review}Benutzen",
         },
         "inventory_ring": {

@@ -308,6 +308,12 @@ static void M_WriteResumeInfo(
     JSONW_WRITE(io, "has_harpoon", resume->flags.has_harpoon);
     JSONW_WRITE(io, "has_crossbow", resume->flags.has_crossbow);
     JSONW_WRITE(io, "has_revolver", resume->flags.has_revolver);
+    JSONW_WRITE(
+        io, "has_revolver_lasersight", resume->flags.has_revolver_lasersight);
+    JSONW_WRITE(
+        io, "has_crossbow_lasersight", resume->flags.has_crossbow_lasersight);
+    JSONW_WRITE(io, "small_water_skin", resume->small_water_skin);
+    JSONW_WRITE(io, "big_water_skin", resume->big_water_skin);
 
     JSONW_WRITE(io, "costume", resume->flags.costume);
     JSONW_WRITE(io, "timer", resume->stats.timer);
@@ -639,6 +645,10 @@ void SG_File_DumpLara(JSON_WRITE_IO *const io)
     M_WriteAmmo(io, "mp5", &lara->mp5_ammo);
     M_WriteAmmo(io, "crossbow", &lara->crossbow_ammo);
     M_WriteAmmo(io, "revolver", &lara->revolver_ammo);
+    JSONW_WRITE(io, "revolver_lasersight", lara->lasersight.revolver);
+    JSONW_WRITE(io, "crossbow_lasersight", lara->lasersight.crossbow);
+    JSONW_WRITE(io, "small_water_skin", lara->small_water_skin);
+    JSONW_WRITE(io, "big_water_skin", lara->big_water_skin);
 
     if (lara->gun_item_num != NO_ITEM) {
         JSONW_PUSH_OBJECT(io);

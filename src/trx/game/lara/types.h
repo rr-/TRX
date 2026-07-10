@@ -132,6 +132,16 @@ typedef struct {
     AMMO_INFO mp5_ammo;
     AMMO_INFO crossbow_ammo;
     AMMO_INFO revolver_ammo;
+
+    // TR4: a mounted lasersight leaves the inventory and lives on the gun.
+    struct {
+        bool revolver;
+        bool crossbow;
+    } lasersight;
+    // TR4: waterskin fill in liters (held state lives in the inventory).
+    int8_t small_water_skin;
+    int8_t big_water_skin;
+
     struct {
         bool control;
         int16_t age;

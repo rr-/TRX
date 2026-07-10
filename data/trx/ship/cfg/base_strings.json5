@@ -31,7 +31,10 @@
             "area_6": "Area 6",
         },
         "inventory_flat": {
+            "combine": "Combine",
+            "combine_with": "Combine With",
             "equip": "Equip",
+            "separate": "Separate",
             "use": "Use",
         },
         "inventory_ring": {

@@ -411,6 +411,7 @@ common_sources = [
   'trx/game/menu/flat/options_menu.c',
   'trx/game/menu/flat/pause_menu.c',
   'trx/game/menu/flat/title_menu.c',
+  'trx/game/menu/interact/combine.c',
   'trx/game/menu/item_draw.c',
   'trx/game/menu/ring/control.c',
   'trx/game/menu/ring/draw.c',

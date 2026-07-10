@@ -31,7 +31,10 @@
             "area_6": "Area 6",
         },
         "inventory_flat": {
+            "combine": "\\{review}Combina",
+            "combine_with": "\\{review}Combina con",
             "equip": "\\{review}Equipaggia",
+            "separate": "\\{review}Separa",
             "use": "\\{review}Usa",
         },
         "inventory_ring": {

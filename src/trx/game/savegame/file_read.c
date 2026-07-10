@@ -260,6 +260,15 @@ static bool M_ReadLara(JSON_READ_IO *const io)
     M_SHOULD(M_ReadAmmo(io, "rocket", &lara->rocket_ammo));
     M_SHOULD(M_ReadAmmo(io, "crossbow", &lara->crossbow_ammo));
     M_SHOULD(M_ReadAmmo(io, "revolver", &lara->revolver_ammo));
+    M_SHOULD(JSON_READ(io, "revolver_lasersight", &lara->lasersight.revolver));
+    M_SHOULD(JSON_READ(io, "crossbow_lasersight", &lara->lasersight.crossbow));
+    int32_t water_skin = 0;
+    if (M_SHOULD(JSON_READ(io, "small_water_skin", &water_skin))) {
+        lara->small_water_skin = water_skin;
+    }
+    if (M_SHOULD(JSON_READ(io, "big_water_skin", &water_skin))) {
+        lara->big_water_skin = water_skin;
+    }
 
     if (M_OPTIONAL(JSON_PUSH(io, "weapon"))) {
         lara->gun_item_num = Item_Create();
@@ -916,6 +925,17 @@ static bool M_ReadResumeInfo(JSON_READ_IO *const io, RESUME_INFO *const resume)
     M_SHOULD(JSON_READ(io, "crossbow_ammo", &resume->crossbow_ammo));
     M_SHOULD(JSON_READ(io, "has_revolver", &resume->flags.has_revolver));
     M_SHOULD(JSON_READ(io, "revolver_ammo", &resume->revolver_ammo));
+    M_SHOULD(JSON_READ(
+        io, "has_revolver_lasersight", &resume->flags.has_revolver_lasersight));
+    M_SHOULD(JSON_READ(
+        io, "has_crossbow_lasersight", &resume->flags.has_crossbow_lasersight));
+    int32_t resume_water_skin = 0;
+    if (M_SHOULD(JSON_READ(io, "small_water_skin", &resume_water_skin))) {
+        resume->small_water_skin = resume_water_skin;
+    }
+    if (M_SHOULD(JSON_READ(io, "big_water_skin", &resume_water_skin))) {
+        resume->big_water_skin = resume_water_skin;
+    }
 
     M_MUST(JSON_READ(io, "timer", &resume->stats.timer));
     M_MUST(JSON_READ(io, "ammo_hits", &resume->stats.ammo_hits));

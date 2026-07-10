@@ -4,6 +4,7 @@
 #include <trx/core/math.h>
 #include <trx/core/utils.h>
 #include <trx/game/const.h>
+#include <trx/game/game_strings/entries.h>
 #include <trx/game/interpolation.h>
 #include <trx/game/matrix.h>
 #include <trx/game/menu/flat/options_menu.h>
@@ -11,6 +12,9 @@
 #include <trx/game/objects.h>
 #include <trx/game/output.h>
 #include <trx/game/output/scene_compositor.h>
+#include <trx/game/ui/elements/label.h>
+#include <trx/game/ui/elements/modal.h>
+#include <trx/game/ui/elements/text_role.h>
 #include <trx/game/viewport.h>
 
 #include <math.h>
@@ -18,6 +22,8 @@
 // Distance of the item row from the camera and its vertical placement.
 #define M_ROW_Z 1400
 #define M_ROW_Y (-96)
+// The "Combine with" partner row sits below the main row.
+#define M_SECOND_ROW_Y 224
 // Horizontal distance between two adjacent items; OG spaces them a quarter
 // of the screen width apart.
 #define M_ITEM_SPACING 352
@@ -85,14 +91,13 @@ static void M_DrawCompass(const INV_FLAT *const flat)
 }
 
 static void M_DrawItem(
-    const INV_FLAT *const flat, const int32_t idx, const float scroll_pos,
-    const int16_t spin_rot)
+    const INVENTORY_ITEM *const inv_item, const int32_t idx,
+    const float scroll_pos, const int16_t spin_rot, const int32_t row_y)
 {
-    const INVENTORY_ITEM *const inv_item = flat->items[idx];
     const float offset = idx - scroll_pos;
 
     Matrix_Push();
-    Matrix_TranslateRel(offset * M_ITEM_SPACING, M_ROW_Y, M_ROW_Z);
+    Matrix_TranslateRel(offset * M_ITEM_SPACING, row_y, M_ROW_Z);
 
     const float focus = 1.0f - MIN(1.0f, fabsf(offset));
     Output_SetLightAdder(
@@ -145,11 +150,27 @@ void InvFlat_Draw(INV_FLAT *const flat)
     M_Light();
 
     if (flat->state != IF_LOADSAVE) {
+        // While the partner row is open, the main row holds still and the
+        // focused partner spins instead.
+        const int16_t main_spin = flat->state == IF_COMBINE ? 0 : draw_spin_rot;
         for (int32_t i = 0; i < flat->item_count; i++) {
             if (fabsf(i - draw_scroll_pos) > M_VISIBLE_RANGE) {
                 continue;
             }
-            M_DrawItem(flat, i, draw_scroll_pos, draw_spin_rot);
+            M_DrawItem(flat->items[i], i, draw_scroll_pos, main_spin, M_ROW_Y);
+        }
+        if (flat->state == IF_COMBINE) {
+            const float second_scroll_pos = LERP(
+                flat->second_row.prev_scroll_pos, flat->second_row.scroll_pos,
+                interp_rate);
+            for (int32_t i = 0; i < flat->second_row.count; i++) {
+                if (fabsf(i - second_scroll_pos) > M_VISIBLE_RANGE) {
+                    continue;
+                }
+                M_DrawItem(
+                    flat->second_row.items[i], i, second_scroll_pos,
+                    draw_spin_rot, M_SECOND_ROW_Y);
+            }
         }
         M_DrawCompass(flat);
     }
@@ -161,6 +182,13 @@ void InvFlat_Draw(INV_FLAT *const flat)
 
     if (flat->state == IF_OPTION_MENU) {
         InvFlatOptions_Draw(flat);
+    } else if (flat->state == IF_COMBINE) {
+        // "Combine with" header above the partner row.
+        UI_BeginModal(0.5f, 0.62f);
+        UI_BeginTextRole(UI_TEXT_ROLE_HEADING);
+        UI_Label(GS("general/inventory_flat/combine_with"));
+        UI_EndTextRole();
+        UI_EndModal();
     } else if (flat->state == IF_LOADSAVE) {
         UI_SaveSlotDialog(flat->save_slot.dialog);
     }

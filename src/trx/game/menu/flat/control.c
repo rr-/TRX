@@ -10,6 +10,7 @@
 #include <trx/game/inventory.h>
 #include <trx/game/lara.h>
 #include <trx/game/menu/flat/options_menu.h>
+#include <trx/game/menu/interact/combine.h>
 #include <trx/game/menu/ring/control.h>
 #include <trx/game/menu/ring/priv.h>
 #include <trx/game/menu/ring/vars.h>
@@ -95,6 +96,86 @@ static void M_BuildItemList(INV_FLAT *const flat)
     }
 }
 
+// Rebuilds the row after the inventory changed, refocusing on the given
+// object.
+static void M_RefreshItems(INV_FLAT *const flat, const OBJECT_ID focus_obj)
+{
+    flat->item_count = 0;
+    flat->compass = nullptr;
+    flat->target_idx = 0;
+    M_BuildItemList(flat);
+    for (int32_t i = 0; i < flat->item_count; i++) {
+        if (flat->items[i]->object_id == focus_obj) {
+            flat->target_idx = i;
+            break;
+        }
+    }
+    flat->scroll_pos = flat->target_idx;
+    flat->prev_scroll_pos = flat->scroll_pos;
+}
+
+static bool M_OpenCombineRow(INV_FLAT *const flat)
+{
+    const OBJECT_ID obj = flat->items[flat->target_idx]->object_id;
+    OBJECT_ID partners[ARRAY_SIZE(flat->second_row.items)];
+    const int32_t count =
+        InvInteract_GetCombinePartners(obj, partners, ARRAY_SIZE(partners));
+    if (count == 0) {
+        return false;
+    }
+
+    flat->second_row.count = 0;
+    for (int32_t i = 0; i < count; i++) {
+        INVENTORY_ITEM *const inv_item = InvRing_GetByObjectID(partners[i]);
+        if (inv_item != nullptr) {
+            InvRing_InitInvItem(inv_item);
+            flat->second_row.items[flat->second_row.count++] = inv_item;
+        }
+    }
+    if (flat->second_row.count == 0) {
+        return false;
+    }
+
+    flat->second_row.target_idx = 0;
+    flat->second_row.scroll_pos = 0.0f;
+    flat->second_row.prev_scroll_pos = 0.0f;
+    return true;
+}
+
+static void M_ControlCombine(INV_FLAT *const flat)
+{
+    const bool settled = flat->second_row.target_idx
+        == (int32_t)roundf(flat->second_row.scroll_pos);
+
+    if (g_Input.menu_right && settled
+        && flat->second_row.target_idx < flat->second_row.count - 1) {
+        flat->second_row.target_idx++;
+        Sound_Effect(SFX_MENU_ROTATE, nullptr, SPM_ALWAYS);
+    } else if (
+        g_Input.menu_left && settled && flat->second_row.target_idx > 0) {
+        flat->second_row.target_idx--;
+        Sound_Effect(SFX_MENU_ROTATE, nullptr, SPM_ALWAYS);
+    } else if (g_InputDB.menu_back) {
+        flat->state = IF_BROWSE;
+        Sound_Effect(SFX_MENU_SPINOUT, nullptr, SPM_ALWAYS);
+    } else if (g_InputDB.menu_confirm && settled) {
+        const OBJECT_ID sel = flat->items[flat->target_idx]->object_id;
+        const OBJECT_ID partner =
+            flat->second_row.items[flat->second_row.target_idx]->object_id;
+        OBJECT_ID combined = NO_OBJECT;
+        if (InvInteract_Combine(sel, partner, &combined)) {
+            // TODO: play the OG combine sample once it is cataloged.
+            Sound_Effect(SFX_MENU_CHOOSE, nullptr, SPM_ALWAYS);
+            M_RefreshItems(flat, combined);
+        } else {
+            Sound_Effect(SFX_LARA_NO, nullptr, SPM_ALWAYS);
+        }
+        flat->state = IF_BROWSE;
+    }
+    g_Input = (INPUT_STATE) {};
+    g_InputDB = (INPUT_STATE) {};
+}
+
 static void M_OpenSaveSlotDialog(
     INV_FLAT *const flat, const UI_SAVE_SLOT_DIALOG_TYPE type)
 {
@@ -112,6 +193,17 @@ static void M_OpenSaveSlotDialog(
 
 static void M_ShowTexts(const INV_FLAT *const flat)
 {
+    if (flat->state == IF_COMBINE) {
+        if (flat->second_row.target_idx
+            == (int32_t)roundf(flat->second_row.scroll_pos)) {
+            InvRing_ShowItemName(
+                flat->second_row.items[flat->second_row.target_idx]);
+        } else {
+            InvRing_RemoveItemTexts();
+        }
+        return;
+    }
+
     if ((flat->state != IF_BROWSE && flat->state != IF_OPTION_MENU)
         || flat->target_idx != (int32_t)roundf(flat->scroll_pos)) {
         InvRing_RemoveItemTexts();
@@ -121,8 +213,17 @@ static void M_ShowTexts(const INV_FLAT *const flat)
     const INVENTORY_ITEM *const inv_item = flat->items[flat->target_idx];
     InvRing_ShowItemName(inv_item);
 
+    const LARA_INFO *const lara = Lara_GetLaraInfo();
     const int32_t qty = Inv_RequestItem(inv_item->object_id);
     switch (inv_item->object_id) {
+    case O_WATERSKIN_1_OPTION:
+        InvRing_ShowItemQuantity("%dL", lara->small_water_skin);
+        break;
+
+    case O_WATERSKIN_2_OPTION:
+        InvRing_ShowItemQuantity("%dL", lara->big_water_skin);
+        break;
+
     case O_SMALL_MEDIPACK_OPTION:
     case O_LARGE_MEDIPACK_OPTION:
         Overlay_ForceHealthBar(true);
@@ -306,10 +407,39 @@ GF_COMMAND InvFlat_Control(INV_FLAT *const flat)
             M_OpenSaveSlotDialog(flat, UI_SAVE_SLOT_DIALOG_SAVE_GAME);
             break;
 
-        // TODO: examine, combine/separate, and ammo selection.
+        case IF_ACTION_COMBINE:
+            InvFlatOptions_Close(flat);
+            if (M_OpenCombineRow(flat)) {
+                flat->state = IF_COMBINE;
+                Sound_Effect(SFX_MENU_CHOOSE, nullptr, SPM_ALWAYS);
+            } else {
+                flat->state = IF_BROWSE;
+                Sound_Effect(SFX_LARA_NO, nullptr, SPM_ALWAYS);
+            }
+            break;
+
+        case IF_ACTION_SEPARATE: {
+            InvFlatOptions_Close(flat);
+            const OBJECT_ID obj = flat->items[flat->target_idx]->object_id;
+            OBJECT_ID part = NO_OBJECT;
+            if (InvInteract_Separate(obj, &part)) {
+                Sound_Effect(SFX_MENU_CHOOSE, nullptr, SPM_ALWAYS);
+                M_RefreshItems(flat, part);
+            } else {
+                Sound_Effect(SFX_LARA_NO, nullptr, SPM_ALWAYS);
+            }
+            flat->state = IF_BROWSE;
+            break;
+        }
+
+        // TODO: examine and ammo selection.
         default:
             break;
         }
+        break;
+
+    case IF_COMBINE:
+        M_ControlCombine(flat);
         break;
 
     case IF_LOADSAVE: {
@@ -378,8 +508,21 @@ GF_COMMAND InvFlat_Control(INV_FLAT *const flat)
         }
         flat->scroll_pos += step;
         flat->spin_rot = 0;
-    } else if (flat->state == IF_BROWSE || flat->state == IF_OPTION_MENU) {
+    } else if (
+        flat->state == IF_BROWSE || flat->state == IF_OPTION_MENU
+        || flat->state == IF_COMBINE) {
         flat->spin_rot += M_SPIN_SPEED;
+    }
+
+    flat->second_row.prev_scroll_pos = flat->second_row.scroll_pos;
+    const float second_delta =
+        flat->second_row.target_idx - flat->second_row.scroll_pos;
+    if (second_delta != 0.0f) {
+        float step = second_delta < 0.0f ? -M_SCROLL_SPEED : M_SCROLL_SPEED;
+        if (fabsf(second_delta) < M_SCROLL_SPEED) {
+            step = second_delta;
+        }
+        flat->second_row.scroll_pos += step;
     }
 
     M_ShowTexts(flat);

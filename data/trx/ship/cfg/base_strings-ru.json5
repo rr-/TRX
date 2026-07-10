@@ -31,7 +31,10 @@
             "area_6": "\\{review}Зона 6",
         },
         "inventory_flat": {
+            "combine": "\\{review}Объединить",
+            "combine_with": "\\{review}Объединить с",
             "equip": "\\{review}Экипировать",
+            "separate": "\\{review}Разделить",
             "use": "\\{review}Использовать",
         },
         "inventory_ring": {
