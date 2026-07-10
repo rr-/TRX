@@ -2575,6 +2575,9 @@
         "lizard": {
             "name": "\\{review}Echse",
         },
+        "load_game": {
+            "name": "Spiel laden",
+        },
         "m16": {
             "name": "M16",
         },
@@ -3096,6 +3099,9 @@
         },
         "save_crystal": {
             "name": "Speicherkristall",
+        },
+        "save_game": {
+            "name": "Spiel speichern",
         },
         "scion": {
             "name": "Scion",

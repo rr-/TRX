@@ -2593,6 +2593,9 @@
         "lizard": {
             "name": "Lizard",
         },
+        "load_game": {
+            "name": "Load Game",
+        },
         "m16": {
             "name": "M16",
         },
@@ -3131,6 +3134,9 @@
         },
         "save_crystal": {
             "name": "Savegame Crystal",
+        },
+        "save_game": {
+            "name": "Save Game",
         },
         "scion": {
             "name": "Scion",

@@ -2578,6 +2578,9 @@
         "lizard": {
             "name": "Laghairt",
         },
+        "load_game": {
+            "name": "Luchdaich Geama",
+        },
         "m16": {
             "name": "M16",
         },
@@ -3102,6 +3105,9 @@
         },
         "save_crystal": {
             "name": "Criostal Geama Sàbhalaidh",
+        },
+        "save_game": {
+            "name": "Sàbhail Geama",
         },
         "scion": {
             "name": "Scion",

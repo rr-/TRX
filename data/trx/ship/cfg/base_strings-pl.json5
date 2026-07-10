@@ -2574,6 +2574,9 @@
         "lizard": {
             "name": "Jaszczur",
         },
+        "load_game": {
+            "name": "Wczytaj grę",
+        },
         "m16": {
             "name": "M16",
         },
@@ -3077,6 +3080,9 @@
         },
         "save_crystal": {
             "name": "Kryształ do zapisu",
+        },
+        "save_game": {
+            "name": "Zapisz grę",
         },
         "scion": {
             "name": "Scion",

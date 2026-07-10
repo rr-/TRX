@@ -2572,6 +2572,9 @@
         "lizard": {
             "name": "\\{review}Lézard",
         },
+        "load_game": {
+            "name": "Charger une partie",
+        },
         "m16": {
             "name": "\\{review}M16",
         },
@@ -3090,6 +3093,9 @@
         },
         "save_crystal": {
             "name": "Cristal de Sauvegarde",
+        },
+        "save_game": {
+            "name": "Sauvegarder la partie",
         },
         "scion": {
             "name": "Scion",

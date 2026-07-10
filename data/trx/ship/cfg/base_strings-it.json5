@@ -2594,6 +2594,9 @@
         "lizard": {
             "name": "Lucertola",
         },
+        "load_game": {
+            "name": "Carica Partita",
+        },
         "m16": {
             "name": "M16",
         },
@@ -3126,6 +3129,9 @@
         },
         "save_crystal": {
             "name": "Cristallo di Salvataggio",
+        },
+        "save_game": {
+            "name": "Salva Partita",
         },
         "scion": {
             "name": "Scion",
