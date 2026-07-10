@@ -3,6 +3,8 @@
 #include <trx/config/enum.h>
 #include <trx/core/colors.h>
 
+#include <stdint.h>
+
 typedef struct {
     float opacity;
     float desaturation; // 0 = off
@@ -13,7 +15,14 @@ void Output_Overlay_DrawPattern(bool wave);
 void Output_Overlay_DrawPatternOpacity(bool wave, float opacity);
 void Output_Overlay_DrawBlackRectangle(float opacity, bool post_ui);
 bool Output_Overlay_LoadImage(const char *file_name);
+// Registers a raw RGBA image under a synthetic cache key.
+bool Output_Overlay_LoadImageFromMemory(
+    const char *cache_key, const uint8_t *rgba, int32_t width, int32_t height);
 void Output_Overlay_DrawImage(const char *file_name);
+// Draws a previously loaded image into a rectangle normalized to the UI
+// viewport, with alpha blending.
+void Output_Overlay_DrawImageRect(
+    const char *cache_key, float x, float y, float w, float h);
 void Output_Overlay_DrawImageBilinear(const char *file_name);
 void Output_Overlay_DrawImageMono(const char *file_name, float intensity);
 void Output_Overlay_CaptureSnapshot(void);

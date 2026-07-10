@@ -75,6 +75,16 @@ typedef struct {
 
 typedef struct {
     M_DRAW_OP base;
+    GLuint texture_id;
+    // Destination rectangle, normalized to the UI viewport.
+    float x;
+    float y;
+    float w;
+    float h;
+} M_DRAW_OP_IMAGE_RECT;
+
+typedef struct {
+    M_DRAW_OP base;
     bool wave;
     float opacity;
 } M_DRAW_OP_PATTERN;
@@ -169,6 +179,28 @@ static bool M_CreateTextureRGB8(
         GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE,
         data);
     glPixelStorei(GL_UNPACK_ALIGNMENT, prev_unpack_alignment);
+    TRX_GL_CheckError();
+    return true;
+}
+
+static bool M_CreateTextureRGBA8(
+    TRX_GL_TEXTURE *const texture, const int32_t width, const int32_t height,
+    const void *const data)
+{
+    if (texture == nullptr || width <= 0 || height <= 0) {
+        return false;
+    }
+    if (!texture->initialized) {
+        TRX_GL_Texture_Init(texture, GL_TEXTURE_2D);
+    }
+    TRX_GL_Texture_Bind(texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(
+        GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+        data);
     TRX_GL_CheckError();
     return true;
 }
@@ -580,6 +612,47 @@ static void M_DrawOp_Image(const M_DRAW_OP_IMAGE *const op)
     }
 }
 
+static void M_DrawOp_ImageRect(const M_DRAW_OP_IMAGE_RECT *const op)
+{
+    const M_PRIV *const p = &m_Priv;
+    if (op->texture_id == 0 || op->w <= 0.0f || op->h <= 0.0f) {
+        return;
+    }
+
+    // Constrain the render to the destination rectangle via the GL
+    // viewport; the quad itself stays a stretched fullscreen quad. The
+    // rectangle is carved out of whatever viewport is active, so it works
+    // regardless of the render target's size.
+    GLint prev_viewport[4];
+    glGetIntegerv(GL_VIEWPORT, prev_viewport);
+
+    // The destination follows the UI viewport's top-left-origin
+    // convention; GL viewports originate at the bottom-left corner of the
+    // render target.
+    const VIEWPORT_RECT ui = Viewport_GetRect(VIEWPORT_UI);
+    const int32_t rect_x =
+        prev_viewport[0] + ui.x + (int32_t)(op->x * ui.width);
+    const int32_t rect_w = (int32_t)(op->w * ui.width);
+    const int32_t rect_h = (int32_t)(op->h * ui.height);
+    const int32_t rect_y = prev_viewport[1] + prev_viewport[3] - ui.y
+        - (int32_t)(op->y * ui.height) - rect_h;
+    glViewport(rect_x, rect_y, rect_w, rect_h);
+
+    Output_Quad_SetExternalTexture(
+        p->image.renderer, op->texture_id, 1, 1, false);
+    Output_Quad_SetEffect(p->image.renderer, OUTPUT_QUAD_EFFECT_NONE);
+    Output_Quad_SetRepeat(p->image.renderer, 1, 1);
+    Output_Quad_SetTextureSize(p->image.renderer, nullptr);
+    Output_Quad_SetFilter(p->image.renderer, TEXTURE_FILTER_BILINEAR);
+    Output_Quad_SetDesaturation(p->image.renderer, 0.0f);
+    Output_Quad_ClearFit(p->image.renderer);
+    Output_Quad_SetOpacity(p->image.renderer, 1.0f);
+    Output_Quad_RenderWithBlend(p->image.renderer);
+
+    glViewport(
+        prev_viewport[0], prev_viewport[1], prev_viewport[2], prev_viewport[3]);
+}
+
 static void M_DrawImageImpl(
     const char *const file_name, const float intensity,
     const TEXTURE_FILTER texture_filter)
@@ -838,6 +911,59 @@ bool Output_Overlay_LoadImage(const char *const file_name)
     }
     e->last_used_token = p->image.next_use_token++;
     return M_ImageCache_Load(e);
+}
+
+bool Output_Overlay_LoadImageFromMemory(
+    const char *const cache_key, const uint8_t *const rgba, const int32_t width,
+    const int32_t height)
+{
+    if (cache_key == nullptr || rgba == nullptr) {
+        return false;
+    }
+
+    M_PRIV *const p = &m_Priv;
+    M_IMAGE_CACHE_ENTRY *const e = M_ImageCache_GetEntry(p, cache_key);
+    if (p->image.next_use_token == 0) {
+        p->image.next_use_token = 1;
+    }
+    e->last_used_token = p->image.next_use_token++;
+    if (e->texture.initialized) {
+        return true;
+    }
+    if (!M_CreateTextureRGBA8(&e->texture, width, height, rgba)) {
+        return false;
+    }
+    e->texture_width = width;
+    e->texture_height = height;
+    // Not backed by a file; keep the candidate scan from kicking in.
+    if (e->loaded_path == nullptr) {
+        e->loaded_path = Memory_DupStr(cache_key);
+    }
+    return true;
+}
+
+void Output_Overlay_DrawImageRect(
+    const char *const cache_key, const float x, const float y, const float w,
+    const float h)
+{
+    const M_PRIV *const p = &m_Priv;
+    for (int32_t i = 0; i < M_IMAGE_CACHE_CAPACITY; i++) {
+        const M_IMAGE_CACHE_ENTRY *const e = &p->image.entries[i];
+        if (e->in_use && e->file_name != nullptr
+            && String_Equivalent(e->file_name, cache_key)
+            && e->texture.initialized) {
+            M_SCHEDULE_OP(
+                false, M_DrawOp_ImageRect,
+                ((M_DRAW_OP_IMAGE_RECT) {
+                    .texture_id = e->texture.id,
+                    .x = x,
+                    .y = y,
+                    .w = w,
+                    .h = h,
+                }));
+            return;
+        }
+    }
 }
 
 void Output_Overlay_DrawImage(const char *const file_name)

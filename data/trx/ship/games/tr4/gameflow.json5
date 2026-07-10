@@ -25,6 +25,8 @@
     "title": {
         "path": "title.tr4",
         "music_track": 104,
+        // The flyby camera sequence of title.tr4 played behind the menu.
+        "flyby_sequence": 1,
         "sequence": [
             {"type": "play_fmv", "fmv_id": 0},
             {"type": "exit_to_title"},
