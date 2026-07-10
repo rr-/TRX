@@ -5,7 +5,7 @@
 #include <trx/game/fader.h>
 #include <trx/game/game.h>
 #include <trx/game/interpolation.h>
-#include <trx/game/inventory_ring.h>
+#include <trx/game/menu/ring.h>
 #include <trx/game/output/overlay.h>
 #include <trx/game/shell.h>
 

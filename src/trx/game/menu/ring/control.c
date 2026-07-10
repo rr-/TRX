@@ -1,4 +1,4 @@
-#include <trx/game/inventory_ring/control.h>
+#include <trx/game/menu/ring/control.h>
 
 #include <trx/config.h>
 #include <trx/core/memory.h>
@@ -12,9 +12,9 @@
 #include <trx/game/input.h>
 #include <trx/game/interpolation.h>
 #include <trx/game/inventory.h>
-#include <trx/game/inventory_ring/priv.h>
-#include <trx/game/inventory_ring/vars.h>
 #include <trx/game/lara.h>
+#include <trx/game/menu/ring/priv.h>
+#include <trx/game/menu/ring/vars.h>
 #include <trx/game/music.h>
 #include <trx/game/objects.h>
 #include <trx/game/option.h>

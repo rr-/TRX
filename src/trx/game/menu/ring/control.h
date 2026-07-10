@@ -1,7 +1,7 @@
 #pragma once
 
 #include <trx/game/game_flow/types.h>
-#include <trx/game/inventory_ring/types.h>
+#include <trx/game/menu/ring/types.h>
 #include <trx/game/objects/types.h>
 
 typedef void (*INV_RING_BUTTON_HINT_DRAWER)(void *user_data);

@@ -2,8 +2,8 @@
 
 #include <trx/config/enum.h>
 #include <trx/game/fader.h>
-#include <trx/game/inventory_ring/enum.h>
 #include <trx/game/matrix.h>
+#include <trx/game/menu/ring/enum.h>
 #include <trx/game/objects/types.h>
 
 #include <stdint.h>

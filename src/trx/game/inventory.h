@@ -1,7 +1,7 @@
 #pragma once
 
-#include <trx/game/inventory_ring/types.h>
 #include <trx/game/lara/types.h>
+#include <trx/game/menu/ring/types.h>
 #include <trx/game/objects/ids.h>
 
 #include <stdint.h>

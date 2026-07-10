@@ -8,8 +8,8 @@
 #include <trx/game/game_flow/vars.h>
 #include <trx/game/game_strings/table.h>
 #include <trx/game/inventory.h>
-#include <trx/game/inventory_ring/control.h>
 #include <trx/game/level.h>
+#include <trx/game/menu/ring/control.h>
 #include <trx/game/objects/vars.h>
 #include <trx/game/phase.h>
 #include <trx/game/savegame.h>

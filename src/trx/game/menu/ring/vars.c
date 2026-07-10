@@ -1,4 +1,4 @@
-#include <trx/game/inventory_ring/vars.h>
+#include <trx/game/menu/ring/vars.h>
 
 #include <trx/core/json/util/file.h>
 #include <trx/core/memory.h>

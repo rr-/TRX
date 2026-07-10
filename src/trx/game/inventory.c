@@ -4,8 +4,8 @@
 #include <trx/debug.h>
 #include <trx/game/game.h>
 #include <trx/game/gun.h>
-#include <trx/game/inventory_ring.h>
 #include <trx/game/lara.h>
+#include <trx/game/menu/ring.h>
 #include <trx/game/objects/vars.h>
 #include <trx/game/stats.h>
 

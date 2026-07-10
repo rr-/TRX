@@ -1,6 +1,6 @@
 #pragma once
 
-#include <trx/game/inventory_ring/types.h>
+#include <trx/game/menu/ring/types.h>
 
 void Option_Stats_Control(INVENTORY_ITEM *inv_item, bool is_busy);
 void Option_Stats_Draw(void);

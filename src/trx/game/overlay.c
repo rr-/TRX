@@ -9,7 +9,7 @@
 #include <trx/game/gym.h>
 #include <trx/game/interpolation.h>
 #include <trx/game/inventory.h>
-#include <trx/game/inventory_ring.h>
+#include <trx/game/menu/ring.h>
 #include <trx/game/music.h>
 #include <trx/game/objects.h>
 #include <trx/game/output.h>

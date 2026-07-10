@@ -6,7 +6,7 @@
 #include <trx/game/game_strings/entries.h>
 #include <trx/game/input.h>
 #include <trx/game/inventory.h>
-#include <trx/game/inventory_ring.h>
+#include <trx/game/menu/ring.h>
 #include <trx/game/overlay.h>
 #include <trx/game/savegame.h>
 

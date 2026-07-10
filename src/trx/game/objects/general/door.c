@@ -3,8 +3,8 @@
 #include <trx/game/game_flow/common.h>
 #include <trx/game/game_flow/sequencer.h>
 #include <trx/game/inventory.h>
-#include <trx/game/inventory_ring/control.h>
 #include <trx/game/lara.h>
+#include <trx/game/menu/ring/control.h>
 #include <trx/game/objects/common.h>
 #include <trx/game/pathing.h>
 #include <trx/game/rooms.h>

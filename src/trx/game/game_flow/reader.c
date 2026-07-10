@@ -11,8 +11,8 @@
 #include <trx/game/game_flow/common.h>
 #include <trx/game/game_flow/types.h>
 #include <trx/game/game_flow/vars.h>
-#include <trx/game/inventory_ring/types.h>
 #include <trx/game/lara/skin/storage.h>
+#include <trx/game/menu/ring/types.h>
 #include <trx/game/objects/names.h>
 #include <trx/game/output/sky.h>
 #include <trx/game/shell.h>

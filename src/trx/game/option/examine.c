@@ -5,8 +5,8 @@
 #include <trx/game/const.h>
 #include <trx/game/game_strings/entries.h>
 #include <trx/game/input.h>
-#include <trx/game/inventory_ring/control.h>
 #include <trx/game/matrix.h>
+#include <trx/game/menu/ring/control.h>
 #include <trx/game/objects/names.h>
 #include <trx/game/ui.h>
 #include <trx/game/ui/scaler.h>

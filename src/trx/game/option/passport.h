@@ -1,6 +1,6 @@
 #pragma once
 
-#include <trx/game/inventory_ring/types.h>
+#include <trx/game/menu/ring/types.h>
 #include <trx/game/savegame/types.h>
 
 typedef enum {

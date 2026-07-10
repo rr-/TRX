@@ -1,4 +1,4 @@
-#include <trx/game/inventory_ring/draw.h>
+#include <trx/game/menu/ring/draw.h>
 
 #include <trx/config.h>
 #include <trx/core/math.h>
@@ -6,10 +6,10 @@
 #include <trx/game/game.h>
 #include <trx/game/input.h>
 #include <trx/game/interpolation.h>
-#include <trx/game/inventory_ring.h>
-#include <trx/game/inventory_ring/priv.h>
-#include <trx/game/inventory_ring/vars.h>
 #include <trx/game/matrix.h>
+#include <trx/game/menu/ring.h>
+#include <trx/game/menu/ring/priv.h>
+#include <trx/game/menu/ring/vars.h>
 #include <trx/game/objects.h>
 #include <trx/game/option.h>
 #include <trx/game/option/globe_select.h>

@@ -5,7 +5,7 @@
 #include <trx/debug.h>
 #include <trx/game/fader.h>
 #include <trx/game/game_flow.h>
-#include <trx/game/inventory_ring.h>
+#include <trx/game/menu/ring.h>
 #include <trx/game/music.h>
 #include <trx/game/output.h>
 #include <trx/game/overlay.h>

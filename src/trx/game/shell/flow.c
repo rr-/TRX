@@ -19,12 +19,12 @@
 #include <trx/game/gun.h>
 #include <trx/game/input.h>
 #include <trx/game/input/backends/touch.h>
-#include <trx/game/inventory_ring.h>
 #include <trx/game/items/walkable.h>
 #include <trx/game/lara/pose.h>
 #include <trx/game/lara/skin.h>
 #include <trx/game/level.h>
 #include <trx/game/lua.h>
+#include <trx/game/menu/ring.h>
 #include <trx/game/music.h>
 #include <trx/game/objects.h>
 #include <trx/game/option.h>
