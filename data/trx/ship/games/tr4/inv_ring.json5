@@ -1078,6 +1078,7 @@
 
     {
         "object_id": "O_EXAMINE_OPTION_1",
+        "examine": true,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -1091,6 +1092,7 @@
 
     {
         "object_id": "O_EXAMINE_OPTION_2",
+        "examine": true,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -1104,6 +1106,7 @@
 
     {
         "object_id": "O_EXAMINE_OPTION_3",
+        "examine": true,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,

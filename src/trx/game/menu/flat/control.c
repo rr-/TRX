@@ -204,7 +204,8 @@ static void M_ShowTexts(const INV_FLAT *const flat)
         return;
     }
 
-    if ((flat->state != IF_BROWSE && flat->state != IF_OPTION_MENU)
+    if ((flat->state != IF_BROWSE && flat->state != IF_OPTION_MENU
+         && flat->state != IF_EXAMINE)
         || flat->target_idx != (int32_t)roundf(flat->scroll_pos)) {
         InvRing_RemoveItemTexts();
         return;
@@ -443,7 +444,16 @@ GF_COMMAND InvFlat_Control(INV_FLAT *const flat)
             }
             break;
 
-        // TODO: examine.
+        case IF_ACTION_EXAMINE:
+            InvFlatOptions_Close(flat);
+            flat->examine.x_rot = 0;
+            flat->examine.y_rot = 0;
+            flat->examine.prev_x_rot = 0;
+            flat->examine.prev_y_rot = 0;
+            flat->state = IF_EXAMINE;
+            Sound_Effect(SFX_MENU_CHOOSE, nullptr, SPM_ALWAYS);
+            break;
+
         default:
             break;
         }
@@ -451,6 +461,29 @@ GF_COMMAND InvFlat_Control(INV_FLAT *const flat)
 
     case IF_COMBINE:
         M_ControlCombine(flat);
+        break;
+
+    case IF_EXAMINE:
+        flat->examine.prev_x_rot = flat->examine.x_rot;
+        flat->examine.prev_y_rot = flat->examine.y_rot;
+        if (g_Input.menu_left) {
+            flat->examine.y_rot -= M_SPIN_SPEED;
+        }
+        if (g_Input.menu_right) {
+            flat->examine.y_rot += M_SPIN_SPEED;
+        }
+        if (g_Input.menu_up) {
+            flat->examine.x_rot -= M_SPIN_SPEED;
+        }
+        if (g_Input.menu_down) {
+            flat->examine.x_rot += M_SPIN_SPEED;
+        }
+        if (g_InputDB.menu_back || g_InputDB.menu_confirm) {
+            flat->state = IF_BROWSE;
+            Sound_Effect(SFX_MENU_SPINOUT, nullptr, SPM_ALWAYS);
+        }
+        g_Input = (INPUT_STATE) {};
+        g_InputDB = (INPUT_STATE) {};
         break;
 
     case IF_AMMO:

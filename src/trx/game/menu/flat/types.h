@@ -30,6 +30,7 @@ typedef enum {
     IF_OPTION_MENU,
     IF_COMBINE,
     IF_AMMO,
+    IF_EXAMINE,
     IF_LOADSAVE,
     IF_CLOSING,
     IF_DONE,
@@ -94,6 +95,14 @@ typedef struct {
         INV_AMMO_SESSION session;
         UI_REQUESTER_STATE req;
     } ammo;
+
+    // Close-up inspection of the focused item.
+    struct {
+        int16_t x_rot;
+        int16_t y_rot;
+        int16_t prev_x_rot;
+        int16_t prev_y_rot;
+    } examine;
 
     // The memcard load/save slot picker.
     struct {

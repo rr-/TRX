@@ -56,6 +56,8 @@ typedef struct {
     uint32_t meshes_drawn;
     int16_t inv_pos;
     INVENTORY_ITEM_ACTION action;
+    // TR4: the item can be inspected up close in the flat menu.
+    bool can_examine;
 } INVENTORY_ITEM;
 
 typedef struct {

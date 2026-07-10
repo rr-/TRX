@@ -149,7 +149,29 @@ void InvFlat_Draw(INV_FLAT *const flat)
 
     M_Light();
 
-    if (flat->state != IF_LOADSAVE) {
+    if (flat->state == IF_EXAMINE) {
+        // Close-up inspection: only the focused item, steered by input.
+        const INVENTORY_ITEM *const inv_item = flat->items[flat->target_idx];
+        Matrix_Push();
+        Matrix_TranslateRel(0, 0, M_ROW_Z / 2);
+        Output_SetLightAdder(M_SHADE_FOCUSED);
+        Matrix_RotY((int16_t)(uint16_t)Math_AngleMean(
+            (uint16_t)flat->examine.prev_y_rot, (uint16_t)flat->examine.y_rot,
+            interp_rate));
+        Matrix_RotX(
+            inv_item->x_rot
+            + (int16_t)(uint16_t)Math_AngleMean(
+                (uint16_t)flat->examine.prev_x_rot,
+                (uint16_t)flat->examine.x_rot, interp_rate));
+
+        const OBJECT *const obj = Object_Get(inv_item->object_id);
+        if (obj->loaded && obj->mesh_count >= 0) {
+            const ANIM_FRAME *const frame =
+                &obj->frame_base[inv_item->current_frame];
+            InvItem_DrawObject(inv_item, frame, frame, 0, 1);
+        }
+        Matrix_Pop();
+    } else if (flat->state != IF_LOADSAVE) {
         // While the partner row is open, the main row holds still and the
         // focused partner spins instead.
         const int16_t main_spin = flat->state == IF_COMBINE ? 0 : draw_spin_rot;

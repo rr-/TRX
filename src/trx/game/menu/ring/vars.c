@@ -78,6 +78,7 @@ void InvRing_LoadVars(const char *const path)
         L_READ_INT("meshes_sel", item->meshes_sel);
         L_READ_INT("meshes_drawn", item->meshes_drawn);
         L_READ_INT("inv_pos", item->inv_pos);
+        item->can_examine = JSON_ObjectGetBool(obj, "examine", false);
         Vector_Add(g_InvRing_Items, &item);
     }
 

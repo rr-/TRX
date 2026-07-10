@@ -83,9 +83,14 @@ static void M_BuildOptions(
 
     default:
         // Medipacks, flares, keys, puzzles and other pickups.
-        M_AddOption(flat, IF_ACTION_USE, GS_ID("general/inventory_flat/use"));
+        if (inv_item->can_examine) {
+            M_AddOption(
+                flat, IF_ACTION_EXAMINE, GS_ID("general/actions/examine_item"));
+        } else {
+            M_AddOption(
+                flat, IF_ACTION_USE, GS_ID("general/inventory_flat/use"));
+        }
         M_AddCombineOptions(flat, inv_item);
-        // TODO: IF_ACTION_EXAMINE for examinable items.
         break;
     }
 }
