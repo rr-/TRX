@@ -64,6 +64,15 @@ typedef struct {
     RGBA_8888 heading_outline;
 } UI_MENU_COLORS_PS1;
 
+// Named text color shared by inline \{color ...} markers and role styles.
+typedef struct {
+    const char *name;
+    RGBA_F light;
+    RGBA_F dark;
+    // OG 32-frame triangle brightness wave.
+    bool pulse;
+} UI_TEXT_COLOR;
+
 void UI_Settings_LoadFromFile(const char *path);
 
 const UI_BAR_THEME *UI_Settings_GetBarTheme(UI_BAR_TYPE type);
@@ -71,3 +80,14 @@ bool UI_Settings_IsCurrentBarLookPS1(void);
 
 const UI_MENU_COLORS_PC *UI_Settings_GetMenuColorsPC(void);
 const UI_MENU_COLORS_PS1 *UI_Settings_GetMenuColorsPS1(void);
+
+int32_t UI_Settings_GetTextColorCount(void);
+const UI_TEXT_COLOR *UI_Settings_GetTextColorByIndex(int32_t idx);
+// Resolves aliases (e.g. the legacy numeric marker names) as well.
+const UI_TEXT_COLOR *UI_Settings_GetTextColorByName(const char *name);
+// Whether the dark bottom gradient applies for the running game version.
+bool UI_Settings_GetTextGradient(void);
+// The color bound to a text role under the given style profile, or
+// nullptr for classic palette behavior.
+const UI_TEXT_COLOR *UI_Settings_GetTextStyleRoleColor(
+    const char *profile, int32_t role);

@@ -2,6 +2,7 @@
 
 #include <trx/game/game_flow/types.h>
 #include <trx/game/menu/enum.h>
+#include <trx/game/ui/text.h>
 
 // Opaque per-strategy menu state. Each strategy defines its own layout.
 typedef struct INV_MENU INV_MENU;
@@ -21,6 +22,13 @@ typedef struct {
     bool draw_menu_chrome;
     // Multiplier applied on top of the user text scale.
     float text_base_scale;
+    // Vertical glyph stretch (0 = none); the OG TR4 draws its glyphs
+    // noticeably taller than they are stored (capitals land at roughly a
+    // 1.37 height/width ratio on screen).
+    float text_v_stretch;
+    // ui.json5 text style profile binding colors to the semantic text
+    // roles; nullptr keeps the classic text palette.
+    const char *text_style;
 } INV_MENU_STYLE;
 
 typedef struct {

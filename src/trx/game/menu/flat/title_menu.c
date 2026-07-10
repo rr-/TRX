@@ -15,6 +15,7 @@
 #include <trx/game/items/manager.h>
 #include <trx/game/lara.h>
 #include <trx/game/menu/flat/logo.h>
+#include <trx/game/menu/flat/types.h>
 #include <trx/game/output.h>
 #include <trx/game/output/sky.h>
 #include <trx/game/output/state.h>
@@ -320,10 +321,7 @@ const INV_MENU_OPS *InvFlatTitle_GetMenuOps(void)
         .close = M_Close,
         .is_done = M_IsDone,
         .get_caps = M_GetCaps,
-        .style = {
-            .draw_menu_chrome = false,
-            .text_base_scale = 1.5f,
-        },
+        .style = INV_FLAT_MENU_STYLE_INIT,
     };
     return &ops;
 }

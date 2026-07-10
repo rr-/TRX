@@ -1,9 +1,17 @@
 #include <trx/game/ui/elements/row_arrows.h>
 
+#include <trx/game/menu/common.h>
 #include <trx/game/ui/elements/hide.h>
 #include <trx/game/ui/elements/label.h>
 #include <trx/game/ui/elements/stack.h>
 #include <trx/game/ui/helpers.h>
+
+// Chrome-less menu styles (TR4) show no arrow buttons, like the OG;
+// the reserved space stays so rows keep their alignment.
+static bool M_ShowArrows(void)
+{
+    return InvMenu_GetStyle()->draw_menu_chrome;
+}
 
 void UI_BeginRowArrows(
     const bool left_arrow, const bool right_arrow, const int32_t spacing)
@@ -24,7 +32,7 @@ void UI_BeginRowArrows(
         },
         .spacing = { .h = spacing },
     });
-    UI_BeginHide(!left_arrow);
+    UI_BeginHide(!left_arrow || !M_ShowArrows());
     UI_Label("\\{button left}");
     UI_EndHide();
 
@@ -37,7 +45,7 @@ void UI_EndRowArrows(void)
     const UI_NODE *const node = UI_GetCurrent();
     const bool right_arrow = *(bool *)(intptr_t)node->data;
     UI_PopCurrent();
-    UI_BeginHide(!right_arrow);
+    UI_BeginHide(!right_arrow || !M_ShowArrows());
     UI_Label("\\{button right}");
     UI_EndHide();
     UI_EndStack();

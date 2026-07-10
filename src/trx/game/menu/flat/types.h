@@ -11,6 +11,18 @@
 #define INV_FLAT_MAX_ITEMS 64
 #define INV_FLAT_MAX_OPTIONS 4
 
+// Styling shared between the flat inventory and title menu strategies;
+// text role colors come from the "tr4" style profile in ui.json5.
+#define INV_FLAT_MENU_STYLE_INIT                                               \
+    {                                                                          \
+        .draw_menu_chrome =                                                    \
+            false, /* TR4 draws its UI with a much larger typeface than TR1-3  \
+                      (originally 3/40th of the screen height per line). */    \
+        .text_base_scale = 1.5f,                                               \
+        .text_v_stretch = 1.3f,                                                \
+        .text_style = "tr4",                                                   \
+    }
+
 typedef enum {
     IF_OPENING,
     IF_BROWSE,

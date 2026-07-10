@@ -11,24 +11,24 @@
             "area_6": "Antarctique",
         },
         "inventory_ring": {
-            "heading_fmt": "\\{color 5}%s",
-            "item_count_fmt": "\\{color 3}%s",
-            "object_name_fmt": "\\{color 5}%s",
+            "heading_fmt": "\\{color gold}%s",
+            "item_count_fmt": "\\{color red}%s",
+            "object_name_fmt": "\\{color gold}%s",
         },
         "misc": {
             "empty_slot_fmt": "- Emplacement vide -",
         },
         "overlay": {
             "item_count_fmt_pc": "%s",
-            "item_count_fmt_ps1": "\\{color 3}%s",
+            "item_count_fmt_ps1": "\\{color red}%s",
         },
         "pause": {
-            "paused": "\\{color 5}En pause",
+            "paused": "\\{color gold}En pause",
         },
         "stats": {
-            "assault_other_times_fmt": "\\{color 2}%s",
-            "gym_assault_course": "\\{color 5}Entraînement",
-            "gym_racetrack_course": "\\{color 5}Course de quad",
+            "assault_other_times_fmt": "\\{color grey}%s",
+            "gym_assault_course": "\\{color gold}Entraînement",
+            "gym_racetrack_course": "\\{color gold}Course de quad",
         }
     },
     "objects": {

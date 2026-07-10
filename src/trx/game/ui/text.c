@@ -7,23 +7,26 @@
 #include <trx/core/strings.h>
 #include <trx/core/utils.h>
 #include <trx/debug.h>
+#include <trx/game/clock.h>
+#include <trx/game/const.h>
 #include <trx/game/input/common.h>
+#include <trx/game/menu/common.h>
 #include <trx/game/objects.h>
 #include <trx/game/output.h>
 #include <trx/game/ui/common.h>
 #include <trx/game/ui/draw.h>
 #include <trx/game/ui/scaler.h>
+#include <trx/game/ui/settings.h>
 #include <trx/version.h>
 
 #include <ctype.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <uthash.h>
 
 #define M_LETTER_SPACING 0.5f
 #define M_WORD_SPACING 6.0f
-#define M_DIM_COLOR 12
-#define M_MAX_COLOR 13
 
 typedef enum {
     M_FONT_DEFAULT = 0,
@@ -52,6 +55,8 @@ typedef enum {
     GLYPH_DIM_MARKER,
     // Marker that changes the color of the following text.
     GLYPH_COLOR_MARKER,
+    // Marker that applies a semantic text role to the following text.
+    GLYPH_ROLE_MARKER,
     // Marker that changes the font of the following text.
     // - mesh_idx = 0: default font (O_ALPHABET).
     // - mesh_idx = 1: default font (O_ALPHABET_SMALL).
@@ -68,6 +73,9 @@ typedef struct {
         int32_t mesh_idx;
         INPUT_ROLE input_role; // for role == GLYPH_INPUT
     };
+    // Allocated at runtime (input keys, named color markers) rather than
+    // coming from the static .def table.
+    bool dynamic;
 } M_GLYPH_INFO;
 
 typedef struct {
@@ -97,43 +105,60 @@ OBJECT_ID m_FontObjects[M_FONT_COUNT] = {
     [M_FONT_SMALL] = O_ALPHABET_SMALL,
 };
 
-static RGB_888 m_ColorLight[M_MAX_COLOR] = {
-    // clang-format off
-    [0]  = { 0xFF, 0xFF, 0xFF },
-    [1]  = { 0xB0, 0xB0, 0x00 },
-    [2]  = { 0xA0, 0xA0, 0xA0 },
-    [3]  = { 0xFF, 0x60, 0x60 },
-    [4]  = { 0x80, 0x80, 0xFF },
-    [5]  = { 0xC0, 0x80, 0x40 },
-    [6]  = { 0xB6, 0xD1, 0x64 },
-    [7]  = { 0xC0, 0xFF, 0xC0 },
-    [8]  = { 0xFF, 0xFF, 0xFF },
-    [9]  = { 0xFF, 0x00, 0xFF },
-    [10] = { 0xFF, 0x00, 0xFF },
-    [11] = { 0xFF, 0x00, 0xFF },
-    [12] = { 0x80, 0x80, 0x80 },
-    // clang-format on
-};
+static UI_TEXT_ROLE m_ContextRole = UI_TEXT_ROLE_NORMAL;
 
-static RGB_888 m_ColorDark[M_MAX_COLOR] = {
-    // clang-format off
-    [0]  = { 0x80, 0x80, 0x80 },
-    [1]  = { 0x50, 0x50, 0x00 },
-    [2]  = { 0x18, 0x18, 0x18 },
-    [3]  = { 0x18, 0x00, 0x00 },
-    [4]  = { 0x00, 0x00, 0x18 },
-    [5]  = { 0x40, 0x10, 0x00 },
-    [6]  = { 0xB6, 0x20, 0x13 },
-    [7]  = { 0xC0, 0xFF, 0xC0 },
-    [8]  = { 0xFF, 0xFF, 0xFF },
-    [9]  = { 0x3F, 0x00, 0x3F },
-    [10] = { 0x3F, 0x00, 0x3F },
-    [11] = { 0x3F, 0x00, 0x3F },
-    [12] = { 0x80, 0x80, 0x80 },
-    // clang-format on
-};
+// The OG pulses the selected text between black and its base color over
+// 32 logic frames (tomb4 UpdatePulseColour). Render-only: derived from the
+// wall clock so no per-owner timers are needed.
+static float M_GetPulseLevel(void)
+{
+    const double period = 32.0 / LOGIC_FPS;
+    const double phase = fmod(Clock_GetRealTime(), period) / period;
+    return phase < 0.5 ? phase * 2.0 : 2.0 - phase * 2.0;
+}
 
-static RGBA_F m_TextColor[M_MAX_COLOR][4] = {};
+// The color a text role resolves to under the active menu style profile;
+// nullptr = classic palette behavior.
+static const UI_TEXT_COLOR *M_GetRoleColor(const UI_TEXT_ROLE role)
+{
+    return UI_Settings_GetTextStyleRoleColor(
+        InvMenu_GetStyle()->text_style, role);
+}
+
+// Build the per-vertex draw colors for the current glyph run: an inline
+// marker color wins, then the active role color, then the settings
+// default.
+static const RGBA_F *M_GetDrawColors(
+    const UI_TEXT_COLOR *marker_color, const UI_TEXT_COLOR *const role_color,
+    RGBA_F out_colors[4])
+{
+    if (marker_color == nullptr) {
+        marker_color = role_color;
+    }
+    if (marker_color == nullptr) {
+        marker_color = UI_Settings_GetTextColorByName("default");
+    }
+    if (marker_color == nullptr) {
+        out_colors[0] = out_colors[1] = out_colors[2] = out_colors[3] =
+            (RGBA_F) { 1.0f, 1.0f, 1.0f, 1.0f };
+        return out_colors;
+    }
+
+    out_colors[0] = marker_color->light;
+    out_colors[1] = marker_color->light;
+    const bool gradient = UI_Settings_GetTextGradient();
+    out_colors[2] = gradient ? marker_color->dark : marker_color->light;
+    out_colors[3] = out_colors[2];
+    if (marker_color->pulse) {
+        const float level = M_GetPulseLevel();
+        for (int32_t i = 0; i < 4; i++) {
+            out_colors[i].r *= level;
+            out_colors[i].g *= level;
+            out_colors[i].b *= level;
+        }
+    }
+    return out_colors;
+}
 
 static float M_ScaleScreen(const float value)
 {
@@ -145,16 +170,6 @@ static float M_ScaleNeutral(const float value)
     // Text extents in canvas units: the strategy base multiplier is
     // already part of the canvas scale.
     return value * g_Config.ui.text_scale;
-}
-
-static RGBA_F M_ToRGBA_F(const RGB_888 color)
-{
-    return (RGBA_F) {
-        .r = color.r / 255.0f,
-        .g = color.g / 255.0f,
-        .b = color.b / 255.0f,
-        .a = 1.0f,
-    };
 }
 
 static int32_t M_HasGlyph(const M_FONT font, const M_GLYPH_INFO *const glyph)
@@ -471,20 +486,30 @@ static void M_Process(
     const M_GLYPH_INFO **glyphs = M_DecomposeWithCache(text, nullptr);
     ASSERT(glyphs != nullptr);
 
+    const float v_stretch_raw = InvMenu_GetStyle()->text_v_stretch;
+    const float v_stretch = v_stretch_raw > 0.0f ? v_stretch_raw : 1.0f;
     const float scale = scale_func(UI_TEXT_BASE_SCALE * settings.scale);
 
     float x = scale_func(base_x / g_Config.ui.text_scale);
     float y = scale_func(
-        base_y / g_Config.ui.text_scale + settings.scale * UI_TEXT_HEIGHT);
+        base_y / g_Config.ui.text_scale
+        + settings.scale * UI_TEXT_HEIGHT * v_stretch);
     int32_t z = settings.z;
 
     float max_width = 0.0f;
     const float start_x = x;
 
     M_FONT current_font = M_FONT_DEFAULT;
-    int32_t color_idx = 0;
-    int32_t prev_color_idx = color_idx;
+    const UI_TEXT_COLOR *marker_color = nullptr;
+    const UI_TEXT_COLOR *prev_marker_color = nullptr;
+    RGBA_F draw_colors[4];
     bool visible = true;
+
+    // Role styling replaces the default palette entry only; inline
+    // \{color N} markers always win.
+    const UI_TEXT_ROLE role =
+        settings.role != UI_TEXT_ROLE_DEFAULT ? settings.role : m_ContextRole;
+    const UI_TEXT_COLOR *const role_color = M_GetRoleColor(role);
 
     const M_GLYPH_INFO **glyph_ptr = glyphs;
     while (*glyph_ptr != nullptr) {
@@ -510,26 +535,36 @@ static void M_Process(
 
         if (glyph->role == GLYPH_DIM_MARKER) {
             if (glyph->mesh_idx != 0) {
-                prev_color_idx = color_idx;
-                color_idx = M_DIM_COLOR;
+                prev_marker_color = marker_color;
+                marker_color = UI_Settings_GetTextColorByName("dim");
             } else {
-                color_idx = prev_color_idx;
+                marker_color = prev_marker_color;
             }
             goto loop_end;
         }
 
         if (glyph->role == GLYPH_COLOR_MARKER) {
             if (glyph->mesh_idx != -1) {
-                prev_color_idx = color_idx;
-                color_idx = glyph->mesh_idx;
+                prev_marker_color = marker_color;
+                marker_color = UI_Settings_GetTextColorByIndex(glyph->mesh_idx);
             } else {
-                color_idx = prev_color_idx;
+                marker_color = prev_marker_color;
+            }
+            goto loop_end;
+        }
+
+        if (glyph->role == GLYPH_ROLE_MARKER) {
+            if (glyph->mesh_idx != -1) {
+                prev_marker_color = marker_color;
+                marker_color = M_GetRoleColor(glyph->mesh_idx);
+            } else {
+                marker_color = prev_marker_color;
             }
             goto loop_end;
         }
 
         if (glyph->role == GLYPH_NEW_LINE || glyph->role == GLYPH_NEW_PAGE) {
-            y += UI_TEXT_HEIGHT * scale / UI_TEXT_BASE_SCALE;
+            y += UI_TEXT_HEIGHT * v_stretch * scale / UI_TEXT_BASE_SCALE;
             x = start_x;
             goto loop_end;
         }
@@ -558,7 +593,8 @@ static void M_Process(
             if (visible && draw_func != nullptr) {
                 draw_func(
                     x + scale_func(10), y, z, output_scale, output_scale,
-                    sprite_idx, m_TextColor[color_idx]);
+                    sprite_idx,
+                    M_GetDrawColors(marker_color, role_color, draw_colors));
             }
             x += glyph->width[current_font] * scale / UI_TEXT_BASE_SCALE;
             goto loop_end;
@@ -584,8 +620,9 @@ static void M_Process(
         if (visible && draw_func != nullptr) {
             const OBJECT *object = Object_Get(m_FontObjects[glyph_font]);
             draw_func(
-                x, y, z, scale, scale, object->mesh_idx + glyph->mesh_idx,
-                m_TextColor[color_idx]);
+                x, y, z, scale, scale * v_stretch,
+                object->mesh_idx + glyph->mesh_idx,
+                M_GetDrawColors(marker_color, role_color, draw_colors));
         }
 
         x += spacing * scale / UI_TEXT_BASE_SCALE;
@@ -643,18 +680,6 @@ void UI_InitText(void)
 
 void UI_LoadText(void)
 {
-    for (int32_t i = 0; i < M_MAX_COLOR; i++) {
-        m_TextColor[i][0] = M_ToRGBA_F(m_ColorLight[i]);
-        m_TextColor[i][1] = M_ToRGBA_F(m_ColorLight[i]);
-        if (g_TRVersion == 3) {
-            m_TextColor[i][2] = M_ToRGBA_F(m_ColorDark[i]);
-            m_TextColor[i][3] = M_ToRGBA_F(m_ColorDark[i]);
-        } else {
-            m_TextColor[i][2] = M_ToRGBA_F(m_ColorLight[i]);
-            m_TextColor[i][3] = M_ToRGBA_F(m_ColorLight[i]);
-        }
-    }
-
     for (M_FONT font = 0; font < M_FONT_COUNT; font++) {
         for (M_GLYPH_INFO *glyph_ptr = m_Glyphs; glyph_ptr->text != nullptr;
              glyph_ptr++) {
@@ -669,7 +694,8 @@ void UI_ShutdownText(void)
         M_GLYPH_MAP_ENTRY *current, *tmp;
         HASH_ITER(hh, m_GlyphMap, current, tmp)
         {
-            if (current->glyph->role == GLYPH_INPUT) {
+            if (current->glyph->role == GLYPH_INPUT
+                || current->glyph->dynamic) {
                 Memory_FreePointer(&current->glyph->text);
                 Memory_FreePointer(&current->glyph);
             }
@@ -688,6 +714,40 @@ void UI_ShutdownText(void)
             Memory_FreePointer(&current);
         }
     }
+}
+
+float UI_Text_GetLineHeight(void)
+{
+    const float v_stretch = InvMenu_GetStyle()->text_v_stretch;
+    return UI_TEXT_HEIGHT * (v_stretch > 0.0f ? v_stretch : 1.0f);
+}
+
+UI_TEXT_ROLE UI_Text_SwapContextRole(const UI_TEXT_ROLE role)
+{
+    const UI_TEXT_ROLE previous = m_ContextRole;
+    m_ContextRole = role;
+    return previous;
+}
+
+void UI_Text_RegisterColorMarker(
+    const char *const token, const int32_t color_index)
+{
+    M_GLYPH_MAP_ENTRY *entry = nullptr;
+    HASH_FIND_STR(m_GlyphMap, token, entry);
+    if (entry != nullptr) {
+        entry->glyph->mesh_idx = color_index;
+        return;
+    }
+
+    M_GLYPH_INFO *const glyph = Memory_Alloc(sizeof(*glyph));
+    glyph->text = Memory_DupStr(token);
+    glyph->role = GLYPH_COLOR_MARKER;
+    glyph->mesh_idx = color_index;
+    glyph->dynamic = true;
+
+    entry = Memory_Alloc(sizeof(*entry));
+    entry->glyph = glyph;
+    HASH_ADD_KEYPTR(hh, m_GlyphMap, glyph->text, strlen(glyph->text), entry);
 }
 
 void UI_Text_Measure(

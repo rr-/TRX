@@ -47,12 +47,7 @@ const INV_MENU_OPS *InvFlat_GetMenuOps(void)
         .close = M_Close,
         .is_done = M_IsDone,
         .get_caps = M_GetCaps,
-        .style = {
-            .draw_menu_chrome = false,
-            // TR4 draws its UI with a much larger typeface than TR1-3
-            // (originally 3/40th of the screen height per line).
-            .text_base_scale = 1.5f,
-        },
+        .style = INV_FLAT_MENU_STYLE_INIT,
     };
     return &ops;
 }

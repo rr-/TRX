@@ -5,10 +5,13 @@
 #include <trx/core/json/util/read_io.h>
 #include <trx/core/memory.h>
 #include <trx/core/strings.h>
+#include <trx/core/utils.h>
 #include <trx/game/game_strings/entries.h>
 #include <trx/game/shell.h>
+#include <trx/game/ui/text.h>
 #include <trx/version.h>
 
+#include <string.h>
 #include <uthash.h>
 
 typedef struct {
@@ -87,6 +90,67 @@ static M_SETTINGS m_Settings;
 
 static UI_MENU_COLORS_PC m_MenuColorsPC[3]; // indexed [g_TRVersion - 1]
 static UI_MENU_COLORS_PS1 m_MenuColorsPS1[3]; // indexed [g_TRVersion - 1]
+
+typedef struct M_TEXT_COLOR_LOOKUP {
+    char *name;
+    int32_t index;
+    UT_hash_handle hh;
+} M_TEXT_COLOR_LOOKUP;
+
+typedef struct {
+    char *name;
+    int32_t role_color[UI_TEXT_ROLE_NUMBER_OF]; // -1 = classic behavior
+} M_TEXT_STYLE;
+
+static struct {
+    int32_t count;
+    UI_TEXT_COLOR *colors;
+    M_TEXT_COLOR_LOOKUP *lookup; // color names and aliases alike
+    bool gradient[5]; // indexed [g_TRVersion - 1]
+    int32_t style_count;
+    M_TEXT_STYLE *styles;
+} m_TextColors;
+
+static const char *const m_TextRoleNames[UI_TEXT_ROLE_NUMBER_OF] = {
+    [UI_TEXT_ROLE_NORMAL] = "normal",
+    [UI_TEXT_ROLE_SELECTED] = "selected",
+    [UI_TEXT_ROLE_HEADING] = "heading",
+    [UI_TEXT_ROLE_VALUE] = "value",
+};
+
+// Compiled-in defaults matching the legacy palette, used when the
+// settings file predates the "text" section.
+typedef struct {
+    const char *name;
+    RGB_888 light;
+    RGB_888 dark;
+} M_TEXT_COLOR_DEFAULT;
+
+static const M_TEXT_COLOR_DEFAULT m_TextColorDefaults[] = {
+    // clang-format off
+    { "default",     { 0xFF, 0xFF, 0xFF }, { 0x80, 0x80, 0x80 } },
+    { "yellow",      { 0xB0, 0xB0, 0x00 }, { 0x50, 0x50, 0x00 } },
+    { "grey",        { 0xA0, 0xA0, 0xA0 }, { 0x18, 0x18, 0x18 } },
+    { "red",         { 0xFF, 0x60, 0x60 }, { 0x18, 0x00, 0x00 } },
+    { "blue",        { 0x80, 0x80, 0xFF }, { 0x00, 0x00, 0x18 } },
+    { "gold",        { 0xC0, 0x80, 0x40 }, { 0x40, 0x10, 0x00 } },
+    { "green",       { 0xB6, 0xD1, 0x64 }, { 0xB6, 0x20, 0x13 } },
+    { "pale_green",  { 0xC0, 0xFF, 0xC0 }, { 0xC0, 0xFF, 0xC0 } },
+    { "white",       { 0xFF, 0xFF, 0xFF }, { 0xFF, 0xFF, 0xFF } },
+    { "placeholder", { 0xFF, 0x00, 0xFF }, { 0x3F, 0x00, 0x3F } },
+    { "dim",         { 0x80, 0x80, 0x80 }, { 0x80, 0x80, 0x80 } },
+    // clang-format on
+};
+
+static const char *const m_TextColorDefaultAliases[][2] = {
+    // clang-format off
+    { "0", "default" }, { "1", "yellow" },      { "2", "grey" },
+    { "3", "red" },     { "4", "blue" },        { "5", "gold" },
+    { "6", "green" },   { "7", "pale_green" },  { "8", "white" },
+    { "9", "placeholder" }, { "10", "placeholder" },
+    { "11", "placeholder" },
+    // clang-format on
+};
 
 static void M_ExitWithJSONError(
     const char *const source_path, const JSON_READ_IO *const io)
@@ -606,6 +670,229 @@ static bool M_LoadMenuColors(JSON_READ_IO *const io)
     JSON_FINISH();
 }
 
+static RGBA_F M_TextColorToRGBAF(const RGB_888 color)
+{
+    return (RGBA_F) {
+        .r = color.r / 255.0f,
+        .g = color.g / 255.0f,
+        .b = color.b / 255.0f,
+        .a = 1.0f,
+    };
+}
+
+static void M_FreeTextColors(void)
+{
+    M_TEXT_COLOR_LOOKUP *entry = nullptr;
+    M_TEXT_COLOR_LOOKUP *tmp = nullptr;
+    HASH_ITER(hh, m_TextColors.lookup, entry, tmp)
+    {
+        HASH_DEL(m_TextColors.lookup, entry);
+        Memory_FreePointer(&entry->name);
+        Memory_FreePointer(&entry);
+    }
+    for (int32_t i = 0; i < m_TextColors.count; i++) {
+        Memory_FreePointer(&m_TextColors.colors[i].name);
+    }
+    Memory_FreePointer(&m_TextColors.colors);
+    m_TextColors.count = 0;
+    memset(m_TextColors.gradient, 0, sizeof(m_TextColors.gradient));
+    for (int32_t i = 0; i < m_TextColors.style_count; i++) {
+        Memory_FreePointer(&m_TextColors.styles[i].name);
+    }
+    Memory_FreePointer(&m_TextColors.styles);
+    m_TextColors.style_count = 0;
+}
+
+static void M_AddTextColorAlias(const char *const name, const int32_t index)
+{
+    M_TEXT_COLOR_LOOKUP *entry = nullptr;
+    HASH_FIND_STR(m_TextColors.lookup, name, entry);
+    if (entry != nullptr) {
+        entry->index = index;
+        return;
+    }
+    entry = Memory_Alloc(sizeof(*entry));
+    entry->name = Memory_DupStr(name);
+    entry->index = index;
+    HASH_ADD_KEYPTR(hh, m_TextColors.lookup, entry->name, strlen(name), entry);
+}
+
+static void M_LoadTextColorDefaults(void)
+{
+    m_TextColors.count = ARRAY_SIZE(m_TextColorDefaults);
+    m_TextColors.colors =
+        Memory_Alloc(sizeof(UI_TEXT_COLOR) * m_TextColors.count);
+    for (int32_t i = 0; i < m_TextColors.count; i++) {
+        const M_TEXT_COLOR_DEFAULT *const def = &m_TextColorDefaults[i];
+        m_TextColors.colors[i] = (UI_TEXT_COLOR) {
+            .name = Memory_DupStr(def->name),
+            .light = M_TextColorToRGBAF(def->light),
+            .dark = M_TextColorToRGBAF(def->dark),
+            .pulse = false,
+        };
+        M_AddTextColorAlias(def->name, i);
+    }
+    for (size_t i = 0; i < ARRAY_SIZE(m_TextColorDefaultAliases); i++) {
+        const UI_TEXT_COLOR *const target =
+            UI_Settings_GetTextColorByName(m_TextColorDefaultAliases[i][1]);
+        if (target != nullptr) {
+            M_AddTextColorAlias(
+                m_TextColorDefaultAliases[i][0],
+                (int32_t)(target - m_TextColors.colors));
+        }
+    }
+    m_TextColors.gradient[2] = true; // TR3
+    m_TextColors.gradient[3] = true; // TR4
+}
+
+static bool M_LoadTextColors(JSON_READ_IO *const io)
+{
+    JSON_MUST(JSON_PUSH(io, "colors"));
+    JSON_OBJECT *const colors_obj = JSON_ReadIO_GetCurrentObject(io);
+    if (colors_obj == nullptr) {
+        JSON_ReadIO_SetError(io, "'text.colors' must be an object");
+        JSON_FAIL();
+    }
+
+    size_t color_count = 0;
+    for (JSON_OBJECT_ELEMENT *elem = colors_obj->start; elem != nullptr;
+         elem = elem->next) {
+        color_count++;
+    }
+    if (color_count == 0) {
+        JSON_ReadIO_SetError(io, "'text.colors' has no entries");
+        JSON_FAIL();
+    }
+
+    m_TextColors.colors = Memory_Alloc(sizeof(UI_TEXT_COLOR) * color_count);
+    m_TextColors.count = (int32_t)color_count;
+
+    int32_t idx = 0;
+    for (JSON_OBJECT_ELEMENT *elem = colors_obj->start; elem != nullptr;
+         elem = elem->next) {
+        const char *const color_name = elem->name->string;
+        JSON_MUST(JSON_PUSH(io, color_name));
+
+        RGB_888 light = {};
+        RGB_888 dark = {};
+        bool pulse = false;
+        JSON_MUST(JSON_READ(io, "light", &light));
+        dark = light;
+        JSON_OPTIONAL(JSON_READ(io, "dark", &dark));
+        JSON_OPTIONAL(JSON_READ(io, "pulse", &pulse));
+
+        m_TextColors.colors[idx] = (UI_TEXT_COLOR) {
+            .name = Memory_DupStr(color_name),
+            .light = M_TextColorToRGBAF(light),
+            .dark = M_TextColorToRGBAF(dark),
+            .pulse = pulse,
+        };
+        M_AddTextColorAlias(color_name, idx);
+        idx++;
+
+        JSON_MUST(JSON_POP(io));
+    }
+    JSON_MUST(JSON_POP(io)); // colors
+
+    if (JSON_PUSH(io, "aliases")) {
+        JSON_OBJECT *const aliases_obj = JSON_ReadIO_GetCurrentObject(io);
+        for (JSON_OBJECT_ELEMENT *elem =
+                 aliases_obj != nullptr ? aliases_obj->start : nullptr;
+             elem != nullptr; elem = elem->next) {
+            const char *target_name = nullptr;
+            JSON_MUST(JSON_READ(io, elem->name->string, &target_name));
+            const UI_TEXT_COLOR *const target =
+                UI_Settings_GetTextColorByName(target_name);
+            if (target == nullptr) {
+                JSON_ReadIO_SetError(
+                    io, "'text.aliases.%s' references unknown color '%s'",
+                    elem->name->string, target_name);
+                JSON_FAIL();
+            }
+            M_AddTextColorAlias(
+                elem->name->string, (int32_t)(target - m_TextColors.colors));
+        }
+        JSON_MUST(JSON_POP(io));
+    }
+
+    if (JSON_PUSH(io, "gradient_versions")) {
+        const int32_t len = JSON_ARRAY_LEN(io);
+        for (int32_t i = 0; i < len; i++) {
+            int32_t version = 0;
+            JSON_MUST(JSON_READ_A(io, i, &version));
+            if (version >= 1 && version <= 5) {
+                m_TextColors.gradient[version - 1] = true;
+            }
+        }
+        JSON_MUST(JSON_POP(io));
+    }
+
+    if (JSON_PUSH(io, "styles")) {
+        JSON_OBJECT *const styles_obj = JSON_ReadIO_GetCurrentObject(io);
+        size_t style_count = 0;
+        for (JSON_OBJECT_ELEMENT *elem =
+                 styles_obj != nullptr ? styles_obj->start : nullptr;
+             elem != nullptr; elem = elem->next) {
+            style_count++;
+        }
+        if (style_count > 0) {
+            m_TextColors.styles =
+                Memory_Alloc(sizeof(M_TEXT_STYLE) * style_count);
+            m_TextColors.style_count = (int32_t)style_count;
+        }
+
+        int32_t style_idx = 0;
+        for (JSON_OBJECT_ELEMENT *elem =
+                 styles_obj != nullptr ? styles_obj->start : nullptr;
+             elem != nullptr; elem = elem->next) {
+            M_TEXT_STYLE *const style = &m_TextColors.styles[style_idx++];
+            style->name = Memory_DupStr(elem->name->string);
+            for (int32_t i = 0; i < UI_TEXT_ROLE_NUMBER_OF; i++) {
+                style->role_color[i] = -1;
+            }
+
+            JSON_MUST(JSON_PUSH(io, elem->name->string));
+            for (int32_t role = 0; role < UI_TEXT_ROLE_NUMBER_OF; role++) {
+                if (m_TextRoleNames[role] == nullptr) {
+                    continue;
+                }
+                const char *color_name = nullptr;
+                if (!JSON_OPTIONAL(
+                        JSON_READ(io, m_TextRoleNames[role], &color_name))) {
+                    continue;
+                }
+                const UI_TEXT_COLOR *const color =
+                    UI_Settings_GetTextColorByName(color_name);
+                if (color == nullptr) {
+                    JSON_ReadIO_SetError(
+                        io,
+                        "'text.styles.%s.%s' references unknown color "
+                        "'%s'",
+                        style->name, m_TextRoleNames[role], color_name);
+                    JSON_FAIL();
+                }
+                style->role_color[role] =
+                    (int32_t)(color - m_TextColors.colors);
+            }
+            JSON_MUST(JSON_POP(io));
+        }
+        JSON_MUST(JSON_POP(io));
+    }
+
+    JSON_FINISH();
+}
+
+static void M_RegisterTextColorMarkers(void)
+{
+    M_TEXT_COLOR_LOOKUP *entry = nullptr;
+    M_TEXT_COLOR_LOOKUP *tmp = nullptr;
+    HASH_ITER(hh, m_TextColors.lookup, entry, tmp)
+    {
+        UI_Text_RegisterColorMarker(
+            String_FormatStatic("\\{color %s}", entry->name), entry->index);
+    }
+}
+
 void UI_Settings_LoadFromFile(const char *const path)
 {
     JSON_VALUE *const root = JSONFile_ReadEx(path, true);
@@ -619,6 +906,16 @@ void UI_Settings_LoadFromFile(const char *const path)
     if (!JSON_PUSH(io, "ui") || !M_LoadMenuColors(io) || !JSON_POP(io)) {
         M_ExitWithJSONError(path, io);
     }
+
+    M_FreeTextColors();
+    if (JSON_PUSH(io, "text")) {
+        if (!M_LoadTextColors(io) || !JSON_POP(io)) {
+            M_ExitWithJSONError(path, io);
+        }
+    } else {
+        M_LoadTextColorDefaults();
+    }
+    M_RegisterTextColorMarkers();
 
     M_SeedDynamicEnumValues();
 
@@ -698,4 +995,53 @@ const UI_MENU_COLORS_PC *UI_Settings_GetMenuColorsPC(void)
 const UI_MENU_COLORS_PS1 *UI_Settings_GetMenuColorsPS1(void)
 {
     return &m_MenuColorsPS1[g_TRVersion - 1];
+}
+
+int32_t UI_Settings_GetTextColorCount(void)
+{
+    return m_TextColors.count;
+}
+
+const UI_TEXT_COLOR *UI_Settings_GetTextColorByIndex(const int32_t idx)
+{
+    if (idx < 0 || idx >= m_TextColors.count) {
+        return nullptr;
+    }
+    return &m_TextColors.colors[idx];
+}
+
+const UI_TEXT_COLOR *UI_Settings_GetTextColorByName(const char *const name)
+{
+    if (name == nullptr) {
+        return nullptr;
+    }
+    M_TEXT_COLOR_LOOKUP *entry = nullptr;
+    HASH_FIND_STR(m_TextColors.lookup, name, entry);
+    if (entry == nullptr) {
+        return nullptr;
+    }
+    return UI_Settings_GetTextColorByIndex(entry->index);
+}
+
+bool UI_Settings_GetTextGradient(void)
+{
+    if (g_TRVersion < 1 || g_TRVersion > 5) {
+        return false;
+    }
+    return m_TextColors.gradient[g_TRVersion - 1];
+}
+
+const UI_TEXT_COLOR *UI_Settings_GetTextStyleRoleColor(
+    const char *const profile, const int32_t role)
+{
+    if (profile == nullptr || role < 0 || role >= UI_TEXT_ROLE_NUMBER_OF) {
+        return nullptr;
+    }
+    for (int32_t i = 0; i < m_TextColors.style_count; i++) {
+        if (String_Equivalent(m_TextColors.styles[i].name, profile)) {
+            const int32_t color_idx = m_TextColors.styles[i].role_color[role];
+            return UI_Settings_GetTextColorByIndex(color_idx);
+        }
+    }
+    return nullptr;
 }

@@ -488,7 +488,7 @@ float UI_SettingsEditor_GetContentHeight(
         return -1.0f;
     }
 
-    return rows * UI_TEXT_HEIGHT;
+    return rows * UI_Text_GetLineHeight();
 }
 
 int32_t UI_SettingsEditor_GetItemCount(const UI_SETTINGS_EDITOR_STATE *const s)
@@ -577,7 +577,7 @@ void UI_SettingsEditor_RecomputeSizes(
     int32_t visible_rows = 0;
     const int32_t row_count = M_GetRowCount(s);
     if (max_content_height > 0.0f) {
-        visible_rows = max_content_height / UI_TEXT_HEIGHT;
+        visible_rows = max_content_height / UI_Text_GetLineHeight();
     }
     CLAMP(visible_rows, 0, row_count);
     s->visible_rows = visible_rows;
@@ -750,6 +750,8 @@ void UI_SettingsEditor_Draw(
         if (is_row_focused) {
             UI_BeginFrame(UI_FRAME_SELECTED_OPTION);
         }
+        UI_BeginTextRole(
+            is_row_focused ? UI_TEXT_ROLE_SELECTED : UI_TEXT_ROLE_NORMAL);
         UI_BeginPad(
             (g_TRVersion == 1 ? 1.0f : 0.0f), g_TRVersion == 1 ? 1.0f : 0.0f);
         UI_BeginStackEx((UI_STACK_SETTINGS) {
@@ -773,6 +775,10 @@ void UI_SettingsEditor_Draw(
             is_row_focused && M_CanChangeValue(s, row, -1),
             is_row_focused && M_CanChangeValue(s, row, +1),
             UI_ROW_ARROWS_MEDIUM);
+        // The OG gilds option values unless the row is selected, in which
+        // case the whole row pulses.
+        UI_BeginTextRole(
+            is_row_focused ? UI_TEXT_ROLE_SELECTED : UI_TEXT_ROLE_VALUE);
         {
             const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, row);
             if (M_IsBarColorEnum(option)) {
@@ -804,6 +810,7 @@ void UI_SettingsEditor_Draw(
                 M_OptionLabel(option, value, false);
             }
         }
+        UI_EndTextRole();
         UI_EndRowArrows();
 
         UI_EndAnchor();
@@ -812,6 +819,7 @@ void UI_SettingsEditor_Draw(
         UI_EndStack();
 
         UI_EndPad();
+        UI_EndTextRole();
         if (is_row_focused) {
             UI_EndFrame();
         }

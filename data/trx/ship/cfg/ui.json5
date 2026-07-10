@@ -190,5 +190,49 @@
         "heading_outline":          "#000000FF",
       }
     }
+  },
+
+  "text": {
+    // Named text colors used by inline \{color <name>} markers and the
+    // menu text roles. "light" fills the top glyph vertices, "dark" the
+    // bottom ones on versions listed in gradient_versions; "pulse" runs
+    // the OG 32-frame triangle brightness wave.
+    "colors": {
+      "default":     { "light": "#FFFFFF", "dark": "#808080" },
+      "yellow":      { "light": "#B0B000", "dark": "#505000" },
+      "grey":        { "light": "#A0A0A0", "dark": "#181818" },
+      "red":         { "light": "#FF6060", "dark": "#180000" },
+      "blue":        { "light": "#8080FF", "dark": "#000018" },
+      "gold":        { "light": "#C08040", "dark": "#401000" },
+      "green":       { "light": "#B6D164", "dark": "#B62013" },
+      "pale_green":  { "light": "#C0FFC0" },
+      "white":       { "light": "#FFFFFF" },
+      "placeholder": { "light": "#FF00FF", "dark": "#3F003F" },
+      "dim":         { "light": "#808080" },
+      // TR4 menu palette (the OG ShadeFromTo ramps, pre-converted from
+      // the 127-neutral modulate-2x scale).
+      "tr4_body":    { "light": "#FFFFFF" },
+      "tr4_pulse":   { "light": "#FFFFFF", "pulse": true },
+      "tr4_gold":    { "light": "#FFFF80", "dark": "#802000" },
+      "tr4_value":   { "light": "#FFFF00", "dark": "#804000" },
+    },
+    // Legacy numeric markers resolve through these aliases.
+    "aliases": {
+      "0": "default", "1": "yellow", "2": "grey",  "3": "red",
+      "4": "blue",    "5": "gold",   "6": "green", "7": "pale_green",
+      "8": "white",   "9": "placeholder", "10": "placeholder",
+      "11": "placeholder",
+    },
+    "gradient_versions": [3, 4],
+    // Text role bindings per menu style profile; a missing role or
+    // profile keeps the classic palette behavior.
+    "styles": {
+      "tr4": {
+        "normal":   "tr4_body",
+        "selected": "tr4_pulse",
+        "heading":  "tr4_gold",
+        "value":    "tr4_value",
+      },
+    },
   }
 }

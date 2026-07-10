@@ -474,7 +474,7 @@ static void M_Group(
     for (int32_t i = 0; i < s->scroll.vis_items; i++) {
         const int32_t row_idx = s->scroll.first_item + i;
         if (row_idx >= s->scroll.max_items) {
-            UI_Spacer(0.0f, UI_TEXT_HEIGHT);
+            UI_Spacer(0.0f, UI_Text_GetLineHeight());
             continue;
         }
 

@@ -50,7 +50,7 @@ static float M_GetVisibleContentHeight(void)
     if (visible_rows <= 0) {
         return 0.0f;
     }
-    return visible_rows * UI_TEXT_HEIGHT;
+    return visible_rows * UI_Text_GetLineHeight();
 }
 
 static UI_SETTINGS_TAB *M_GetActiveTab(UI_SETTINGS_DIALOG_STATE *const s)
@@ -109,7 +109,8 @@ static void M_RecomputeSizes(UI_SETTINGS_DIALOG_STATE *const s)
                 tab_content_height =
                     tab->ops->get_content_height(tab->user_data);
             } else if (tab_scroll != nullptr && tab_scroll->vis_items > 0) {
-                tab_content_height = tab_scroll->vis_items * UI_TEXT_HEIGHT;
+                tab_content_height =
+                    tab_scroll->vis_items * UI_Text_GetLineHeight();
             }
             max_content_height = MAX(max_content_height, tab_content_height);
         }
@@ -362,7 +363,7 @@ void UI_SettingsDialog(UI_SETTINGS_DIALOG_STATE *const s)
         && tab->ops->draw_footer != nullptr) {
         tab->ops->draw_footer(tab->user_data, s->phase);
     } else {
-        UI_Spacer(0.0f, UI_TEXT_HEIGHT);
+        UI_Spacer(0.0f, UI_Text_GetLineHeight());
     }
 
     UI_EndStack();

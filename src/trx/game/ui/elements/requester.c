@@ -110,7 +110,7 @@ void UI_BeginRequester(
     if (s->reserve_space) {
         UI_BeginResize(
             -1.0f,
-            s->scroll.vis_items * UI_TEXT_HEIGHT
+            s->scroll.vis_items * UI_Text_GetLineHeight()
                 + (s->scroll.vis_items - 1) * s->row_spacing);
     }
 
@@ -137,12 +137,16 @@ void UI_BeginRequesterRow(const UI_REQUESTER_STATE *const s, const int32_t i)
     if (UI_Requester_IsRowSelected(s, i)) {
         UI_BeginFrame(UI_FRAME_SELECTED_OPTION);
     }
+    UI_BeginTextRole(
+        UI_Requester_IsRowSelected(s, i) ? UI_TEXT_ROLE_SELECTED
+                                         : UI_TEXT_ROLE_NORMAL);
     UI_BeginPad(s->row_pad, g_TRVersion == 1 ? 1.0f : 0.0f);
 }
 
 void UI_EndRequesterRow(const UI_REQUESTER_STATE *const s, const int32_t i)
 {
     UI_EndPad();
+    UI_EndTextRole();
     if (UI_Requester_IsRowSelected(s, i)) {
         UI_EndFrame();
     }

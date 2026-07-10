@@ -807,6 +807,7 @@ common_sources = [
   'trx/game/ui/elements/span.c',
   'trx/game/ui/elements/stack.c',
   'trx/game/ui/elements/tab_switch.c',
+  'trx/game/ui/elements/text_role.c',
   'trx/game/ui/elements/window.c',
   'trx/game/ui/events.c',
   'trx/game/ui/helpers.c',

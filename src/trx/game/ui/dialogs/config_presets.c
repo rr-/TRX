@@ -114,7 +114,7 @@ static void M_Header(void *const user_data)
     UI_CONFIG_PRESETS_STATE *const s = user_data;
     if (s->phase == M_PHASE_CONFIRM) {
         UI_Label(GS("general/config_presets/confirm_description"));
-        UI_Spacer(0.0f, UI_TEXT_HEIGHT);
+        UI_Spacer(0.0f, UI_Text_GetLineHeight());
     }
 }
 
@@ -122,7 +122,7 @@ static void M_Footer(void *const user_data)
 {
     UI_CONFIG_PRESETS_STATE *const s = user_data;
     if (s->phase == M_PHASE_CONFIRM) {
-        UI_Spacer(0.0f, UI_TEXT_HEIGHT);
+        UI_Spacer(0.0f, UI_Text_GetLineHeight());
         UI_Label(GS("general/config_presets/confirm_restart_note"));
     }
 }
@@ -164,7 +164,7 @@ void UI_ConfigPresets_RecomputeSizes(
     const int32_t count = Config_Presets_GetCount();
     if (max_content_height > 0.0f) {
         clamped_rows = (max_content_height + M_LIST_ROW_SPACING)
-            / (UI_TEXT_HEIGHT + M_LIST_ROW_SPACING);
+            / (UI_Text_GetLineHeight() + M_LIST_ROW_SPACING);
     }
     if (clamped_rows > count) {
         clamped_rows = count;
@@ -186,7 +186,7 @@ float UI_ConfigPresets_GetContentHeight(UI_CONFIG_PRESETS_STATE *const s)
     if (rows <= 0) {
         return -1.0f;
     }
-    return rows * UI_TEXT_HEIGHT + (rows - 1) * M_LIST_ROW_SPACING;
+    return rows * UI_Text_GetLineHeight() + (rows - 1) * M_LIST_ROW_SPACING;
 }
 
 UI_SCROLLABLE *UI_ConfigPresets_GetScrollable(UI_CONFIG_PRESETS_STATE *const s)
@@ -278,7 +278,7 @@ void UI_ConfigPresets(UI_CONFIG_PRESETS_STATE *const s)
             UI_EndAnchor();
             UI_EndRequesterRow(&s->req, row);
         } else {
-            UI_Spacer(0.0f, UI_TEXT_HEIGHT);
+            UI_Spacer(0.0f, UI_Text_GetLineHeight());
         }
     }
 

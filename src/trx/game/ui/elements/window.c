@@ -63,11 +63,13 @@ static void M_ScrollHintRow(
 static void M_Title(const char *const title)
 {
     UI_BeginFrame(UI_FRAME_DIALOG_HEADING);
+    UI_BeginTextRole(UI_TEXT_ROLE_HEADING);
     UI_BeginPad(10.0f, g_TRVersion >= 2 ? 1.0f : 2.0f);
     UI_BeginAnchor(0.5f, 0.5f);
     UI_Label(title);
     UI_EndAnchor();
     UI_EndPad();
+    UI_EndTextRole();
     UI_EndFrame();
 }
 

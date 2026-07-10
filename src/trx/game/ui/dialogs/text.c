@@ -172,7 +172,7 @@ void UI_TextDialogEx(
         } else if (s->page_content->count == 1) {
             UI_BeginResize(-1.0f, -1.0f);
         } else {
-            UI_BeginResize(-1.0f, UI_TEXT_HEIGHT * s->max_vis_lines);
+            UI_BeginResize(-1.0f, UI_Text_GetLineHeight() * s->max_vis_lines);
         }
         UI_Label(*(char **)Vector_Get(s->page_content, i));
         UI_EndResize();

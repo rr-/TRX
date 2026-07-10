@@ -27,4 +27,5 @@
 #include <trx/game/ui/elements/spacer.h>
 #include <trx/game/ui/elements/span.h>
 #include <trx/game/ui/elements/stack.h>
+#include <trx/game/ui/elements/text_role.h>
 #include <trx/game/ui/elements/window.h>
