@@ -11,6 +11,14 @@
             "unbind": "Falamhaich",
             "use_item": "Cleachd",
         },
+        "ammo_types": {
+            "explosive": "\\{review}",
+            "flash": "\\{review}",
+            "normal": "\\{review}",
+            "poison": "\\{review}",
+            "super": "\\{review}",
+            "wideshot": "\\{review}",
+        },
         "config_presets": {
             "applied": "Ro-shealladh air a chur an sàs.",
             "confirm_description": "Bidh na suidheachaidhean a leanas air an atharrachadh:",
@@ -31,6 +39,7 @@
             "area_6": "Raon 6",
         },
         "inventory_flat": {
+            "choose_ammo": "\\{review}",
             "combine": "\\{review}",
             "combine_with": "\\{review}",
             "equip": "\\{review}",

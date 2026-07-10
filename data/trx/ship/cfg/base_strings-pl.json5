@@ -11,6 +11,14 @@
             "unbind": "Usuń przypisanie",
             "use_item": "Użyj",
         },
+        "ammo_types": {
+            "explosive": "\\{review}Wybuchowe bełty",
+            "flash": "\\{review}Amunicja błyskowa",
+            "normal": "\\{review}Zwykła amunicja",
+            "poison": "\\{review}Zatrute bełty",
+            "super": "\\{review}Super amunicja",
+            "wideshot": "\\{review}Amunicja rozrzutowa",
+        },
         "config_presets": {
             "applied": "Ustawienia zastosowane.",
             "confirm_description": "Następujące ustawienia zostaną zmienione:",
@@ -31,6 +39,7 @@
             "area_6": "Obszar 6",
         },
         "inventory_flat": {
+            "choose_ammo": "\\{review}Wybierz amunicję",
             "combine": "\\{review}Połącz",
             "combine_with": "\\{review}Połącz z",
             "equip": "\\{review}Wyposaż",

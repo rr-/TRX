@@ -53,7 +53,11 @@ static void M_BuildOptions(
     case O_BINOCULARS_OPTION:
         M_AddOption(
             flat, IF_ACTION_EQUIP, GS_ID("general/inventory_flat/equip"));
-        // TODO: IF_ACTION_CHOOSE_AMMO once the ammo selector lands.
+        if (InvInteract_HasAmmoOptions(inv_item->object_id)) {
+            M_AddOption(
+                flat, IF_ACTION_CHOOSE_AMMO,
+                GS_ID("general/inventory_flat/choose_ammo"));
+        }
         M_AddCombineOptions(flat, inv_item);
         break;
 
@@ -132,4 +136,60 @@ void InvFlatOptions_Close(INV_FLAT *const flat)
 {
     UI_Requester_Free(&flat->options.req);
     flat->options.count = 0;
+}
+
+bool InvFlatAmmo_Open(
+    INV_FLAT *const flat, const INVENTORY_ITEM *const inv_item)
+{
+    if (!InvInteract_BeginAmmoSession(
+            inv_item->object_id, &flat->ammo.session)) {
+        return false;
+    }
+    UI_Requester_Init(
+        &flat->ammo.req, flat->ammo.session.option_count,
+        flat->ammo.session.option_count, true);
+    UI_Requester_SelectRow(
+        &flat->ammo.req,
+        InvInteract_GetSelectedAmmoOption(&flat->ammo.session));
+    return true;
+}
+
+INV_FLAT_ACTION InvFlatAmmo_Control(INV_FLAT *const flat)
+{
+    const int32_t choice = UI_Requester_Control(&flat->ammo.req);
+    if (choice == UI_REQUESTER_CANCEL) {
+        InvInteract_CancelAmmoSession(&flat->ammo.session);
+        return IF_ACTION_CANCEL;
+    }
+    if (choice >= 0 && choice < flat->ammo.session.option_count) {
+        InvInteract_SelectAmmoOption(&flat->ammo.session, choice);
+        return IF_ACTION_CHOOSE_AMMO;
+    }
+    return IF_ACTION_NONE;
+}
+
+void InvFlatAmmo_Draw(INV_FLAT *const flat)
+{
+    UI_BeginModal(0.5f, 0.75f);
+    UI_BeginRequester(&flat->ammo.req, nullptr);
+
+    for (int32_t i = UI_Requester_GetFirstRow(&flat->ammo.req);
+         i < UI_Requester_GetLastRow(&flat->ammo.req); i++) {
+        UI_BeginRequesterRow(&flat->ammo.req, i);
+        UI_BeginAnchor(0.5f, 0.5f);
+        UI_LabelFmt(
+            "%d x %s", InvInteract_GetAmmoOptionCount(&flat->ammo.session, i),
+            GameString_Get(
+                InvInteract_GetAmmoOptionName(&flat->ammo.session, i)));
+        UI_EndAnchor();
+        UI_EndRequesterRow(&flat->ammo.req, i);
+    }
+
+    UI_EndRequester(&flat->ammo.req);
+    UI_EndModal();
+}
+
+void InvFlatAmmo_Close(INV_FLAT *const flat)
+{
+    UI_Requester_Free(&flat->ammo.req);
 }

@@ -10,6 +10,7 @@
 #include <trx/game/game_buf.h>
 #include <trx/game/game_flow.h>
 #include <trx/game/gun.h>
+#include <trx/game/gun/ammo_types.h>
 #include <trx/game/inventory.h>
 #include <trx/game/items/carrier.h>
 #include <trx/game/lara.h>
@@ -25,6 +26,8 @@
 #include <trx/game/savegame.h>
 #include <trx/game/stats.h>
 #include <trx/version.h>
+
+#include <string.h>
 
 #define M_SHOULD JSON_SHOULD
 #define M_OPTIONAL JSON_OPTIONAL
@@ -260,6 +263,30 @@ static bool M_ReadLara(JSON_READ_IO *const io)
     M_SHOULD(M_ReadAmmo(io, "rocket", &lara->rocket_ammo));
     M_SHOULD(M_ReadAmmo(io, "crossbow", &lara->crossbow_ammo));
     M_SHOULD(M_ReadAmmo(io, "revolver", &lara->revolver_ammo));
+    {
+        int32_t counts[GUN_MAX_AMMO_TYPES] = {};
+        int32_t selected = 0;
+        counts[0] = lara->shotgun_ammo.ammo;
+        M_SHOULD(JSON_READ(io, "shotgun_ammo_2", &counts[1]));
+        M_SHOULD(JSON_READ(io, "shotgun_ammo_selected", &selected));
+        Gun_SetAmmoTypePools(LGT_SHOTGUN, counts, selected);
+
+        memset(counts, 0, sizeof(counts));
+        selected = 0;
+        counts[0] = lara->grenade_ammo.ammo;
+        M_SHOULD(JSON_READ(io, "grenade_ammo_2", &counts[1]));
+        M_SHOULD(JSON_READ(io, "grenade_ammo_3", &counts[2]));
+        M_SHOULD(JSON_READ(io, "grenade_ammo_selected", &selected));
+        Gun_SetAmmoTypePools(LGT_GRENADE, counts, selected);
+
+        memset(counts, 0, sizeof(counts));
+        selected = 0;
+        counts[0] = lara->crossbow_ammo.ammo;
+        M_SHOULD(JSON_READ(io, "crossbow_ammo_2", &counts[1]));
+        M_SHOULD(JSON_READ(io, "crossbow_ammo_3", &counts[2]));
+        M_SHOULD(JSON_READ(io, "crossbow_ammo_selected", &selected));
+        Gun_SetAmmoTypePools(LGT_CROSSBOW, counts, selected);
+    }
     M_SHOULD(JSON_READ(io, "revolver_lasersight", &lara->lasersight.revolver));
     M_SHOULD(JSON_READ(io, "crossbow_lasersight", &lara->lasersight.crossbow));
     int32_t water_skin = 0;
@@ -929,13 +956,30 @@ static bool M_ReadResumeInfo(JSON_READ_IO *const io, RESUME_INFO *const resume)
         io, "has_revolver_lasersight", &resume->flags.has_revolver_lasersight));
     M_SHOULD(JSON_READ(
         io, "has_crossbow_lasersight", &resume->flags.has_crossbow_lasersight));
-    int32_t resume_water_skin = 0;
-    if (M_SHOULD(JSON_READ(io, "small_water_skin", &resume_water_skin))) {
-        resume->small_water_skin = resume_water_skin;
+    int32_t resume_tmp = 0;
+    if (M_SHOULD(JSON_READ(io, "small_water_skin", &resume_tmp))) {
+        resume->small_water_skin = resume_tmp;
     }
-    if (M_SHOULD(JSON_READ(io, "big_water_skin", &resume_water_skin))) {
-        resume->big_water_skin = resume_water_skin;
+    if (M_SHOULD(JSON_READ(io, "big_water_skin", &resume_tmp))) {
+        resume->big_water_skin = resume_tmp;
     }
+
+#define M_READ_RESUME_U(name)                                                  \
+    if (M_SHOULD(JSON_READ(io, #name, &resume_tmp))) {                         \
+        resume->name = resume_tmp;                                             \
+    }
+    M_READ_RESUME_U(shotgun_ammo_1);
+    M_READ_RESUME_U(shotgun_ammo_2);
+    M_READ_RESUME_U(shotgun_ammo_selected);
+    M_READ_RESUME_U(grenade_ammo_1);
+    M_READ_RESUME_U(grenade_ammo_2);
+    M_READ_RESUME_U(grenade_ammo_3);
+    M_READ_RESUME_U(grenade_ammo_selected);
+    M_READ_RESUME_U(crossbow_ammo_1);
+    M_READ_RESUME_U(crossbow_ammo_2);
+    M_READ_RESUME_U(crossbow_ammo_3);
+    M_READ_RESUME_U(crossbow_ammo_selected);
+#undef M_READ_RESUME_U
 
     M_MUST(JSON_READ(io, "timer", &resume->stats.timer));
     M_MUST(JSON_READ(io, "ammo_hits", &resume->stats.ammo_hits));

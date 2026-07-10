@@ -432,7 +432,18 @@ GF_COMMAND InvFlat_Control(INV_FLAT *const flat)
             break;
         }
 
-        // TODO: examine and ammo selection.
+        case IF_ACTION_CHOOSE_AMMO:
+            InvFlatOptions_Close(flat);
+            if (InvFlatAmmo_Open(flat, flat->items[flat->target_idx])) {
+                flat->state = IF_AMMO;
+                Sound_Effect(SFX_MENU_CHOOSE, nullptr, SPM_ALWAYS);
+            } else {
+                flat->state = IF_BROWSE;
+                Sound_Effect(SFX_LARA_NO, nullptr, SPM_ALWAYS);
+            }
+            break;
+
+        // TODO: examine.
         default:
             break;
         }
@@ -440,6 +451,25 @@ GF_COMMAND InvFlat_Control(INV_FLAT *const flat)
 
     case IF_COMBINE:
         M_ControlCombine(flat);
+        break;
+
+    case IF_AMMO:
+        switch (InvFlatAmmo_Control(flat)) {
+        case IF_ACTION_CANCEL:
+            InvFlatAmmo_Close(flat);
+            flat->state = IF_BROWSE;
+            Sound_Effect(SFX_MENU_SPINOUT, nullptr, SPM_ALWAYS);
+            break;
+
+        case IF_ACTION_CHOOSE_AMMO:
+            InvFlatAmmo_Close(flat);
+            flat->state = IF_BROWSE;
+            Sound_Effect(SFX_MENU_CHOOSE, nullptr, SPM_ALWAYS);
+            break;
+
+        default:
+            break;
+        }
         break;
 
     case IF_LOADSAVE: {
@@ -510,7 +540,7 @@ GF_COMMAND InvFlat_Control(INV_FLAT *const flat)
         flat->spin_rot = 0;
     } else if (
         flat->state == IF_BROWSE || flat->state == IF_OPTION_MENU
-        || flat->state == IF_COMBINE) {
+        || flat->state == IF_COMBINE || flat->state == IF_AMMO) {
         flat->spin_rot += M_SPIN_SPEED;
     }
 
@@ -536,6 +566,10 @@ void InvFlat_Close(INV_FLAT *const flat)
 {
     if (flat->state == IF_OPTION_MENU) {
         InvFlatOptions_Close(flat);
+    }
+    if (flat->state == IF_AMMO) {
+        InvInteract_CancelAmmoSession(&flat->ammo.session);
+        InvFlatAmmo_Close(flat);
     }
     if (flat->save_slot.dialog != nullptr) {
         UI_SaveSlotDialog_Free(flat->save_slot.dialog);

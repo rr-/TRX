@@ -11,6 +11,14 @@
             "unbind": "Очистить",
             "use_item": "Использовать",
         },
+        "ammo_types": {
+            "explosive": "\\{review}Разрывные боеприпасы",
+            "flash": "\\{review}Световые боеприпасы",
+            "normal": "\\{review}Обычные боеприпасы",
+            "poison": "\\{review}Отравленные боеприпасы",
+            "super": "\\{review}Супербоеприпасы",
+            "wideshot": "\\{review}Боеприпасы с широким разбросом",
+        },
         "config_presets": {
             "applied": "\\{review}Предустановка применена.",
             "confirm_description": "\\{review}Следующие настройки будут изменены:",
@@ -31,6 +39,7 @@
             "area_6": "\\{review}Зона 6",
         },
         "inventory_flat": {
+            "choose_ammo": "\\{review}Выбрать боеприпасы",
             "combine": "\\{review}Объединить",
             "combine_with": "\\{review}Объединить с",
             "equip": "\\{review}Экипировать",

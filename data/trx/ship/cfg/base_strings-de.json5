@@ -11,6 +11,14 @@
             "unbind": "Freigeben",
             "use_item": "Benutzen",
         },
+        "ammo_types": {
+            "explosive": "\\{review}Explosiv-Munition",
+            "flash": "\\{review}Blitz-Munition",
+            "normal": "\\{review}Normale Munition",
+            "poison": "\\{review}Gift-Munition",
+            "super": "\\{review}Super-Munition",
+            "wideshot": "\\{review}Streuschuss-Munition",
+        },
         "config_presets": {
             "applied": "\\{review}Voreinstellung angewendet.",
             "confirm_description": "\\{review}Die folgenden Einstellungen werden geändert:",
@@ -31,6 +39,7 @@
             "area_6": "\\{review}Bereich 6",
         },
         "inventory_flat": {
+            "choose_ammo": "\\{review}Munition wählen",
             "combine": "\\{review}Kombinieren",
             "combine_with": "\\{review}Kombinieren mit",
             "equip": "\\{review}Ausrüsten",

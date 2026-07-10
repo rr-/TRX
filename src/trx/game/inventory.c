@@ -4,6 +4,7 @@
 #include <trx/debug.h>
 #include <trx/game/game.h>
 #include <trx/game/gun.h>
+#include <trx/game/gun/ammo_types.h>
 #include <trx/game/lara.h>
 #include <trx/game/menu/ring.h>
 #include <trx/game/objects/vars.h>
@@ -98,10 +99,12 @@ static void M_AddGun(const LARA_GUN_TYPE gun_type)
     Item_GlobalReplace(gun_object, ammo_object);
 }
 
-static void M_AddAmmo(const LARA_GUN_TYPE gun_type)
+static void M_AddAmmo(
+    const LARA_GUN_TYPE gun_type, const OBJECT_ID pickup_object_id)
 {
     const OBJECT_ID gun_object = Gun_GetGunObject(gun_type);
-    M_IncreaseAmmo(gun_type, Gun_GetAmmoPickupQuantity(gun_type));
+    Gun_AddAmmoFromPickup(
+        gun_type, pickup_object_id, Gun_GetAmmoPickupQuantity(gun_type));
     if (!Inv_RequestItem(gun_object)) {
         Inv_InsertItem(M_GetAmmoInvItem(gun_type));
     }
@@ -259,8 +262,9 @@ bool Inv_AddItem(const OBJECT_ID object_id)
                     const LARA_GUN_TYPE gun_type =
                         Gun_GetType(Object_GetCognateInverse(
                             pickup_object_id, g_GunAmmoObjectMap));
-                    M_IncreaseAmmo(
-                        gun_type, Gun_GetAmmoPickupQuantity(gun_type));
+                    Gun_AddAmmoFromPickup(
+                        gun_type, pickup_object_id,
+                        Gun_GetAmmoPickupQuantity(gun_type));
                 }
                 source->qtys[i] += qty;
                 CLAMPG(source->qtys[i], MAX_QTY);
@@ -284,8 +288,10 @@ bool Inv_AddItem(const OBJECT_ID object_id)
         return true;
     }
     if (Object_IsType(pickup_object_id, g_GunAmmoObjects)) {
-        M_AddAmmo(Gun_GetType(
-            Object_GetCognateInverse(pickup_object_id, g_GunAmmoObjectMap)));
+        M_AddAmmo(
+            Gun_GetType(
+                Object_GetCognateInverse(pickup_object_id, g_GunAmmoObjectMap)),
+            pickup_object_id);
         return true;
     }
 

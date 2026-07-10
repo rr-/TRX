@@ -43,6 +43,18 @@ typedef struct {
     // TR4: waterskin fill in liters.
     uint8_t small_water_skin;
     uint8_t big_water_skin;
+    // TR4: ammo variant pools; index 1 duplicates the classic counters.
+    uint16_t shotgun_ammo_1;
+    uint16_t shotgun_ammo_2;
+    uint16_t grenade_ammo_1;
+    uint16_t grenade_ammo_2;
+    uint16_t grenade_ammo_3;
+    uint16_t crossbow_ammo_1;
+    uint16_t crossbow_ammo_2;
+    uint16_t crossbow_ammo_3;
+    uint8_t shotgun_ammo_selected;
+    uint8_t grenade_ammo_selected;
+    uint8_t crossbow_ammo_selected;
 
     struct {
         bool available;

@@ -11,6 +11,14 @@
             "unbind": "Unbind",
             "use_item": "Use",
         },
+        "ammo_types": {
+            "explosive": "Explosive Ammo",
+            "flash": "Flash Ammo",
+            "normal": "Normal Ammo",
+            "poison": "Poison Ammo",
+            "super": "Super Ammo",
+            "wideshot": "Wideshot Ammo",
+        },
         "config_presets": {
             "applied": "Preset applied.",
             "confirm_description": "The following settings will be changed:",
@@ -31,6 +39,7 @@
             "area_6": "Area 6",
         },
         "inventory_flat": {
+            "choose_ammo": "Choose Ammo",
             "combine": "Combine",
             "combine_with": "Combine With",
             "equip": "Equip",

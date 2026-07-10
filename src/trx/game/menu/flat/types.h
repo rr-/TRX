@@ -4,6 +4,7 @@
 #include <trx/game/game_flow/types.h>
 #include <trx/game/game_strings/entries.h>
 #include <trx/game/menu/enum.h>
+#include <trx/game/menu/interact/ammo.h>
 #include <trx/game/menu/ring/types.h>
 #include <trx/game/ui/dialogs/save_slot.h>
 #include <trx/game/ui/elements/requester.h>
@@ -28,6 +29,7 @@ typedef enum {
     IF_BROWSE,
     IF_OPTION_MENU,
     IF_COMBINE,
+    IF_AMMO,
     IF_LOADSAVE,
     IF_CLOSING,
     IF_DONE,
@@ -86,6 +88,12 @@ typedef struct {
         float scroll_pos;
         float prev_scroll_pos;
     } second_row;
+
+    // The ammo variant picker for the focused weapon.
+    struct {
+        INV_AMMO_SESSION session;
+        UI_REQUESTER_STATE req;
+    } ammo;
 
     // The memcard load/save slot picker.
     struct {

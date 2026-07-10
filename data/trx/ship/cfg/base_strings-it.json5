@@ -11,6 +11,14 @@
             "unbind": "Dissocia",
             "use_item": "Usa",
         },
+        "ammo_types": {
+            "explosive": "\\{review}Munizioni esplosive",
+            "flash": "\\{review}Munizioni flash",
+            "normal": "\\{review}Munizioni normali",
+            "poison": "\\{review}Munizioni avvelenate",
+            "super": "\\{review}Super munizioni",
+            "wideshot": "\\{review}Munizioni a rosa larga",
+        },
         "config_presets": {
             "applied": "Profilo applicato.",
             "confirm_description": "Verranno modificate le seguenti impostazioni:",
@@ -31,6 +39,7 @@
             "area_6": "Area 6",
         },
         "inventory_flat": {
+            "choose_ammo": "\\{review}Scegli munizioni",
             "combine": "\\{review}Combina",
             "combine_with": "\\{review}Combina con",
             "equip": "\\{review}Equipaggia",

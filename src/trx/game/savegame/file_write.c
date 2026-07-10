@@ -7,6 +7,7 @@
 #include <trx/game/fx/ring.h>
 #include <trx/game/fx/weather.h>
 #include <trx/game/game.h>
+#include <trx/game/gun/ammo_types.h>
 #include <trx/game/inventory.h>
 #include <trx/game/items.h>
 #include <trx/game/items/carrier.h>
@@ -314,6 +315,17 @@ static void M_WriteResumeInfo(
         io, "has_crossbow_lasersight", resume->flags.has_crossbow_lasersight);
     JSONW_WRITE(io, "small_water_skin", resume->small_water_skin);
     JSONW_WRITE(io, "big_water_skin", resume->big_water_skin);
+    JSONW_WRITE(io, "shotgun_ammo_1", resume->shotgun_ammo_1);
+    JSONW_WRITE(io, "shotgun_ammo_2", resume->shotgun_ammo_2);
+    JSONW_WRITE(io, "shotgun_ammo_selected", resume->shotgun_ammo_selected);
+    JSONW_WRITE(io, "grenade_ammo_1", resume->grenade_ammo_1);
+    JSONW_WRITE(io, "grenade_ammo_2", resume->grenade_ammo_2);
+    JSONW_WRITE(io, "grenade_ammo_3", resume->grenade_ammo_3);
+    JSONW_WRITE(io, "grenade_ammo_selected", resume->grenade_ammo_selected);
+    JSONW_WRITE(io, "crossbow_ammo_1", resume->crossbow_ammo_1);
+    JSONW_WRITE(io, "crossbow_ammo_2", resume->crossbow_ammo_2);
+    JSONW_WRITE(io, "crossbow_ammo_3", resume->crossbow_ammo_3);
+    JSONW_WRITE(io, "crossbow_ammo_selected", resume->crossbow_ammo_selected);
 
     JSONW_WRITE(io, "costume", resume->flags.costume);
     JSONW_WRITE(io, "timer", resume->stats.timer);
@@ -645,6 +657,20 @@ void SG_File_DumpLara(JSON_WRITE_IO *const io)
     M_WriteAmmo(io, "mp5", &lara->mp5_ammo);
     M_WriteAmmo(io, "crossbow", &lara->crossbow_ammo);
     M_WriteAmmo(io, "revolver", &lara->revolver_ammo);
+    Gun_SyncAmmoTypes(LGT_SHOTGUN);
+    Gun_SyncAmmoTypes(LGT_GRENADE);
+    Gun_SyncAmmoTypes(LGT_CROSSBOW);
+    JSONW_WRITE(io, "shotgun_ammo_2", lara->shotgun_ammo_types.counts[1].ammo);
+    JSONW_WRITE(io, "shotgun_ammo_selected", lara->shotgun_ammo_types.selected);
+    JSONW_WRITE(io, "grenade_ammo_2", lara->grenade_ammo_types.counts[1].ammo);
+    JSONW_WRITE(io, "grenade_ammo_3", lara->grenade_ammo_types.counts[2].ammo);
+    JSONW_WRITE(io, "grenade_ammo_selected", lara->grenade_ammo_types.selected);
+    JSONW_WRITE(
+        io, "crossbow_ammo_2", lara->crossbow_ammo_types.counts[1].ammo);
+    JSONW_WRITE(
+        io, "crossbow_ammo_3", lara->crossbow_ammo_types.counts[2].ammo);
+    JSONW_WRITE(
+        io, "crossbow_ammo_selected", lara->crossbow_ammo_types.selected);
     JSONW_WRITE(io, "revolver_lasersight", lara->lasersight.revolver);
     JSONW_WRITE(io, "crossbow_lasersight", lara->lasersight.crossbow);
     JSONW_WRITE(io, "small_water_skin", lara->small_water_skin);

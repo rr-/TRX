@@ -7,6 +7,7 @@
 #include <trx/game/creature.h>
 #include <trx/game/game.h>
 #include <trx/game/gun.h>
+#include <trx/game/gun/ammo_types.h>
 #include <trx/game/inventory.h>
 #include <trx/game/lara.h>
 #include <trx/game/lara/draw.h>
@@ -303,6 +304,29 @@ void Lara_InitialiseInventory(const GF_LEVEL *const level)
         lara_info->lasersight.crossbow = resume->flags.has_crossbow_lasersight;
         lara_info->small_water_skin = resume->small_water_skin;
         lara_info->big_water_skin = resume->big_water_skin;
+
+        {
+            const int32_t shotgun_counts[GUN_MAX_AMMO_TYPES] = {
+                resume->shotgun_ammo_1,
+                resume->shotgun_ammo_2,
+            };
+            Gun_SetAmmoTypePools(
+                LGT_SHOTGUN, shotgun_counts, resume->shotgun_ammo_selected);
+            const int32_t grenade_counts[GUN_MAX_AMMO_TYPES] = {
+                resume->grenade_ammo_1,
+                resume->grenade_ammo_2,
+                resume->grenade_ammo_3,
+            };
+            Gun_SetAmmoTypePools(
+                LGT_GRENADE, grenade_counts, resume->grenade_ammo_selected);
+            const int32_t crossbow_counts[GUN_MAX_AMMO_TYPES] = {
+                resume->crossbow_ammo_1,
+                resume->crossbow_ammo_2,
+                resume->crossbow_ammo_3,
+            };
+            Gun_SetAmmoTypePools(
+                LGT_CROSSBOW, crossbow_counts, resume->crossbow_ammo_selected);
+        }
 
         Inv_AddItemNTimes(O_SMALL_MEDIPACK_ITEM, resume->small_medipacks);
         Inv_AddItemNTimes(O_LARGE_MEDIPACK_ITEM, resume->large_medipacks);

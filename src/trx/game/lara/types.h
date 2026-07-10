@@ -138,6 +138,12 @@ typedef struct {
         bool revolver;
         bool crossbow;
     } lasersight;
+    // TR4: per-variant ammo pools; the weapon's classic AMMO_INFO above
+    // always holds the selected variant's count (see gun/ammo_types.h).
+    struct {
+        AMMO_INFO counts[3];
+        int8_t selected;
+    } shotgun_ammo_types, grenade_ammo_types, crossbow_ammo_types;
     // TR4: waterskin fill in liters (held state lives in the inventory).
     int8_t small_water_skin;
     int8_t big_water_skin;

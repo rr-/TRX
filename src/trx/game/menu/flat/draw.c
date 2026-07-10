@@ -182,6 +182,8 @@ void InvFlat_Draw(INV_FLAT *const flat)
 
     if (flat->state == IF_OPTION_MENU) {
         InvFlatOptions_Draw(flat);
+    } else if (flat->state == IF_AMMO) {
+        InvFlatAmmo_Draw(flat);
     } else if (flat->state == IF_COMBINE) {
         // "Combine with" header above the partner row.
         UI_BeginModal(0.5f, 0.62f);

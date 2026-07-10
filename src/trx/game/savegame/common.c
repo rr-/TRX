@@ -8,6 +8,7 @@
 #include <trx/game/game.h>
 #include <trx/game/game_flow.h>
 #include <trx/game/gun.h>
+#include <trx/game/gun/ammo_types.h>
 #include <trx/game/inventory.h>
 #include <trx/game/lara.h>
 #include <trx/game/objects.h>
@@ -709,6 +710,21 @@ void Savegame_PersistGameToCurrentInfo(const GF_LEVEL *const level)
     resume->flags.has_crossbow_lasersight = lara->lasersight.crossbow;
     resume->small_water_skin = lara->small_water_skin;
     resume->big_water_skin = lara->big_water_skin;
+
+    Gun_SyncAmmoTypes(LGT_SHOTGUN);
+    Gun_SyncAmmoTypes(LGT_GRENADE);
+    Gun_SyncAmmoTypes(LGT_CROSSBOW);
+    resume->shotgun_ammo_1 = lara->shotgun_ammo_types.counts[0].ammo;
+    resume->shotgun_ammo_2 = lara->shotgun_ammo_types.counts[1].ammo;
+    resume->shotgun_ammo_selected = lara->shotgun_ammo_types.selected;
+    resume->grenade_ammo_1 = lara->grenade_ammo_types.counts[0].ammo;
+    resume->grenade_ammo_2 = lara->grenade_ammo_types.counts[1].ammo;
+    resume->grenade_ammo_3 = lara->grenade_ammo_types.counts[2].ammo;
+    resume->grenade_ammo_selected = lara->grenade_ammo_types.selected;
+    resume->crossbow_ammo_1 = lara->crossbow_ammo_types.counts[0].ammo;
+    resume->crossbow_ammo_2 = lara->crossbow_ammo_types.counts[1].ammo;
+    resume->crossbow_ammo_3 = lara->crossbow_ammo_types.counts[2].ammo;
+    resume->crossbow_ammo_selected = lara->crossbow_ammo_types.selected;
 
     resume->flares = Inv_RequestItem(O_FLARE_ITEM);
     resume->num_scions = Inv_RequestItem(O_SCION_ITEM_1);
