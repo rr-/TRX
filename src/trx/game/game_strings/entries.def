@@ -955,6 +955,9 @@ GS_DEFINE(general/settings/sound/title,                     "Sound Options")
 GS_DEFINE(general/settings/sound/tabs/volume,                "Volume")
 GS_DEFINE(general/settings/sound/tabs/misc,                  "Misc")
 
+GS_DEFINE(general/settings/combined/title,                  "Options")
+GS_DEFINE(general/settings/combined/tab,                    "All Settings")
+
 GS_DEFINE(general/settings/gameplay/title,                  "Gameplay Options")
 GS_DEFINE(general/settings/gameplay/tabs/general,            "General")
 GS_DEFINE(general/settings/gameplay/tabs/controls,           "Controls")

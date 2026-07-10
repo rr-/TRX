@@ -1,43 +1,22 @@
 #include <trx/game/ui/dialogs/gameplay_settings.h>
 
-#include <trx/config.h>
-#include <trx/game/lara/const.h>
-#include <trx/game/ui/dialogs/setting_helpers/enums.h>
-#include <trx/game/ui/dialogs/setting_helpers/handlers.h>
+#include <trx/game/ui/dialogs/settings_catalog.h>
 #include <trx/game/ui/dialogs/settings_tabs.h>
 
-static const UI_SETTINGS_OPTION m_GeneralOptions[] = {
-#include <trx/game/ui/dialogs/setting_tabs/gameplay_general.def>
-    { .target = nullptr },
-};
-
-static const UI_SETTINGS_OPTION m_ControlOptions[] = {
-#include <trx/game/ui/dialogs/setting_tabs/gameplay_controls.def>
-    { .target = nullptr },
-};
-
-static const UI_SETTINGS_OPTION m_GameplayModOptions[] = {
-#include <trx/game/ui/dialogs/setting_tabs/gameplay_mods.def>
-    { .target = nullptr },
-};
-
-static const UI_SETTINGS_OPTION m_GameplayFixOptions[] = {
-#include <trx/game/ui/dialogs/setting_tabs/gameplay_fixes.def>
-    { .target = nullptr },
-};
+static UI_SETTINGS_TAB M_MakeTab(const UI_SETTINGS_GROUP_ID group_id)
+{
+    const UI_SETTINGS_GROUP *const group =
+        UI_SettingsCatalog_GetGroup(group_id);
+    return UI_SettingsTab_MakeEditor(group->header_gs, group->options);
+}
 
 UI_SETTINGS_DIALOG_STATE *UI_GameplaySettings_Init(void)
 {
     const UI_SETTINGS_TAB tabs[] = {
-        UI_SettingsTab_MakeEditor(
-            GS_ID("general/settings/gameplay/tabs/general"), m_GeneralOptions),
-        UI_SettingsTab_MakeEditor(
-            GS_ID("general/settings/gameplay/tabs/controls"), m_ControlOptions),
-        UI_SettingsTab_MakeEditor(
-            GS_ID("general/settings/gameplay/tabs/mods"), m_GameplayModOptions),
-        UI_SettingsTab_MakeEditor(
-            GS_ID("general/settings/gameplay/tabs/fixes"),
-            m_GameplayFixOptions),
+        M_MakeTab(UI_SETTINGS_GROUP_GAMEPLAY_GENERAL),
+        M_MakeTab(UI_SETTINGS_GROUP_GAMEPLAY_CONTROLS),
+        M_MakeTab(UI_SETTINGS_GROUP_GAMEPLAY_MODS),
+        M_MakeTab(UI_SETTINGS_GROUP_GAMEPLAY_FIXES),
         UI_SettingsTab_MakePresets(
             GS_ID("general/settings/gameplay/tabs/presets")),
     };

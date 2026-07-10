@@ -209,6 +209,10 @@
             "toggle_help": "Tionndaidh cuideachadh",
         },
         "settings": {
+            "combined": {
+                "tab": "\\{review}",
+                "title": "\\{review}",
+            },
             "common": {
                 "all_hidden_disclaimer": "Tha na roghainnean ciorramach airson nan ìrean seo.",
                 "chroma": "Chroma",

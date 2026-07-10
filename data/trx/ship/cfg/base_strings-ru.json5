@@ -209,6 +209,10 @@
             "toggle_help": "Вкл/выкл помощь",
         },
         "settings": {
+            "combined": {
+                "tab": "\\{review}Все настройки",
+                "title": "\\{review}Опции",
+            },
             "common": {
                 "all_hidden_disclaimer": "\\{review}Настройки отключены для этого набора уровней.",
                 "chroma": "Chroma",

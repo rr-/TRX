@@ -209,6 +209,10 @@
             "toggle_help": "Pokaż/ukryj pomoc",
         },
         "settings": {
+            "combined": {
+                "tab": "\\{review}Wszystkie ustawienia",
+                "title": "\\{review}Opcje",
+            },
             "common": {
                 "all_hidden_disclaimer": "Ustawienia są wyłączone dla tego zestawu poziomów.",
                 "chroma": "Chroma",

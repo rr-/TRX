@@ -209,6 +209,10 @@
             "toggle_help": "Visualizza guida",
         },
         "settings": {
+            "combined": {
+                "tab": "\\{review}Tutte le impostazioni",
+                "title": "\\{review}Opzioni",
+            },
             "common": {
                 "all_hidden_disclaimer": "Le impostazioni sono disabilitate per questo gruppo di livelli.",
                 "chroma": "Chroma",

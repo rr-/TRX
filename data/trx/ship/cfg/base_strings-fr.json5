@@ -209,6 +209,10 @@
             "toggle_help": "Basculer l'aide",
         },
         "settings": {
+            "combined": {
+                "tab": "\\{review}Tous les paramètres",
+                "title": "\\{review}Options",
+            },
             "common": {
                 "all_hidden_disclaimer": "\\{review}Les paramètres sont désactivés pour cet ensemble de niveaux.",
                 "chroma": "Chroma",

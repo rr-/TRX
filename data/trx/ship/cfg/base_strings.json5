@@ -209,6 +209,10 @@
             "toggle_help": "Toggle help",
         },
         "settings": {
+            "combined": {
+                "tab": "All Settings",
+                "title": "Options",
+            },
             "common": {
                 "all_hidden_disclaimer": "Settings are disabled for this level set.",
                 "chroma": "Chroma",

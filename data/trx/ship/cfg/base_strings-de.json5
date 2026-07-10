@@ -209,6 +209,10 @@
             "toggle_help": "Hilfe Ein/Aus",
         },
         "settings": {
+            "combined": {
+                "tab": "\\{review}Alle Einstellungen",
+                "title": "\\{review}Optionen",
+            },
             "common": {
                 "all_hidden_disclaimer": "\\{review}Die Einstellungen sind für dieses Level-Set deaktiviert.",
                 "chroma": "Chroma",
