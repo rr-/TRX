@@ -27,6 +27,10 @@
             "area_5": "\\{review}Zone 5",
             "area_6": "\\{review}Zone 6",
         },
+        "inventory_flat": {
+            "equip": "\\{review}Équiper",
+            "use": "\\{review}Utiliser",
+        },
         "inventory_ring": {
             "heading_adventure": "\\{review}Aventure",
             "heading_fmt": "%s",

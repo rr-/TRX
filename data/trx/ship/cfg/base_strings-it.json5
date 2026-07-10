@@ -27,6 +27,10 @@
             "area_5": "Area 5",
             "area_6": "Area 6",
         },
+        "inventory_flat": {
+            "equip": "\\{review}Equipaggia",
+            "use": "\\{review}Usa",
+        },
         "inventory_ring": {
             "heading_adventure": "Avventura",
             "heading_fmt": "%s",

@@ -27,6 +27,10 @@
             "area_5": "Obszar 5",
             "area_6": "Obszar 6",
         },
+        "inventory_flat": {
+            "equip": "\\{review}Wyposaż",
+            "use": "\\{review}Użyj",
+        },
         "inventory_ring": {
             "heading_adventure": "Przygoda",
             "heading_fmt": "%s",

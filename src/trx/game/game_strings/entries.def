@@ -663,6 +663,8 @@ GS_DEFINE(general/stats/gym_assault_course, "Assault Course")
 GS_DEFINE(general/stats/gym_racetrack_course, "Race Track Course")
 
 // Misc
+GS_DEFINE(general/inventory_flat/use, "Use")
+GS_DEFINE(general/inventory_flat/equip, "Equip")
 GS_DEFINE(general/inventory_ring/heading_inventory, "INVENTORY")
 GS_DEFINE(general/inventory_ring/heading_game_over, "GAME OVER")
 GS_DEFINE(general/inventory_ring/heading_option, "OPTION")

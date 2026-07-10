@@ -27,6 +27,10 @@
             "area_5": "Area 5",
             "area_6": "Area 6",
         },
+        "inventory_flat": {
+            "equip": "Equip",
+            "use": "Use",
+        },
         "inventory_ring": {
             "heading_adventure": "Adventure",
             "heading_fmt": "%s",
