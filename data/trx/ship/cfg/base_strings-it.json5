@@ -183,10 +183,14 @@
         "pause": {
             "are_you_sure": "Sei sicuro?",
             "continue": "Continua",
+            "controls": "\\{review}Comandi",
             "exit_to_title": "Vuoi tornare al menu?",
+            "exit_to_title_action": "\\{review}Esci al titolo",
             "no": "No",
+            "options": "\\{review}Opzioni",
             "paused": "Pausa",
             "quit": "Esci",
+            "statistics": "\\{review}Statistiche",
             "yes": "Sì",
         },
         "photo_mode": {

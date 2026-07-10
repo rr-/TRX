@@ -183,10 +183,14 @@
         "pause": {
             "are_you_sure": "Are you sure?",
             "continue": "Continue",
+            "controls": "Controls",
             "exit_to_title": "Exit to title?",
+            "exit_to_title_action": "Exit to Title",
             "no": "No",
+            "options": "Options",
             "paused": "Paused",
             "quit": "Quit",
+            "statistics": "Statistics",
             "yes": "Yes",
         },
         "photo_mode": {

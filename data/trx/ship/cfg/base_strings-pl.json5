@@ -183,10 +183,14 @@
         "pause": {
             "are_you_sure": "Czy na pewno?",
             "continue": "Nie, kontynuuj grę",
+            "controls": "\\{review}Sterowanie",
             "exit_to_title": "Wyjść do menu głównego?",
+            "exit_to_title_action": "\\{review}Wyjdź do menu",
             "no": "Nie",
+            "options": "\\{review}Opcje",
             "paused": "Pauza",
             "quit": "Tak, wyjdź",
+            "statistics": "\\{review}Statystyki",
             "yes": "Tak",
         },
         "photo_mode": {

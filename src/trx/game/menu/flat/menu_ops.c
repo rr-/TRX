@@ -2,6 +2,7 @@
 
 #include <trx/game/menu/flat/control.h>
 #include <trx/game/menu/flat/draw.h>
+#include <trx/game/menu/flat/pause_menu.h>
 
 static INV_MENU *M_Open(const INVENTORY_MODE mode)
 {
@@ -40,7 +41,7 @@ static INV_MENU_CAPS M_GetCaps(const INVENTORY_MODE mode)
 
 const INV_MENU_OPS *InvFlat_GetMenuOps(void)
 {
-    static const INV_MENU_OPS ops = {
+    static INV_MENU_OPS ops = {
         .open = M_Open,
         .control = M_Control,
         .draw = M_Draw,
@@ -49,5 +50,6 @@ const INV_MENU_OPS *InvFlat_GetMenuOps(void)
         .get_caps = M_GetCaps,
         .style = INV_FLAT_MENU_STYLE_INIT,
     };
+    ops.pause_menu = InvFlatPause_GetOps();
     return &ops;
 }

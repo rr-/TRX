@@ -183,10 +183,14 @@
         "pause": {
             "are_you_sure": "A bheil thu cinnteach?",
             "continue": "Lean air adhart",
+            "controls": "\\{review}",
             "exit_to_title": "Theid dhan tiotal?",
+            "exit_to_title_action": "\\{review}",
             "no": "Chan eil",
+            "options": "\\{review}",
             "paused": "Air a stad",
             "quit": "Dùin",
+            "statistics": "\\{review}",
             "yes": "Tha",
         },
         "photo_mode": {

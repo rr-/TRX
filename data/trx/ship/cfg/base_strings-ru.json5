@@ -183,10 +183,14 @@
         "pause": {
             "are_you_sure": "Вы уверены?",
             "continue": "Остаться",
+            "controls": "\\{review}Управление",
             "exit_to_title": "Выйти в меню?",
+            "exit_to_title_action": "\\{review}Выйти в меню",
             "no": "Нет",
+            "options": "\\{review}Опции",
             "paused": "Пауза",
             "quit": "Выйти в меню",
+            "statistics": "\\{review}Статистика",
             "yes": "Да",
         },
         "photo_mode": {

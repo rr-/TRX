@@ -15,6 +15,23 @@ typedef struct {
     bool live_scene;
 } INV_MENU_CAPS;
 
+typedef enum {
+    INV_PAUSE_NOOP,
+    INV_PAUSE_RESUME,
+    INV_PAUSE_EXIT_TO_TITLE,
+} INV_PAUSE_CHOICE;
+
+// Opaque pause menu state; strategies replacing the classic paused
+// screen provide these ops.
+typedef struct INV_PAUSE_MENU INV_PAUSE_MENU;
+
+typedef struct {
+    INV_PAUSE_MENU *(*init)(void);
+    INV_PAUSE_CHOICE (*control)(INV_PAUSE_MENU *menu);
+    void (*draw)(INV_PAUSE_MENU *menu);
+    void (*free)(INV_PAUSE_MENU *menu);
+} INV_PAUSE_MENU_OPS;
+
 // Menu-wide UI styling implied by the strategy; consulted also outside of
 // the inventory phase (dialogs, pause, HUD text).
 typedef struct {
@@ -39,4 +56,6 @@ typedef struct {
     bool (*is_done)(const INV_MENU *menu);
     INV_MENU_CAPS (*get_caps)(INVENTORY_MODE mode);
     INV_MENU_STYLE style;
+    // Replaces the classic pause screen when set.
+    const INV_PAUSE_MENU_OPS *pause_menu;
 } INV_MENU_OPS;

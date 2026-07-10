@@ -6,6 +6,7 @@
 #include <trx/game/fader.h>
 #include <trx/game/game_strings/entries.h>
 #include <trx/game/input.h>
+#include <trx/game/menu/common.h>
 #include <trx/game/music.h>
 #include <trx/game/output.h>
 #include <trx/game/overlay.h>
@@ -30,6 +31,9 @@ typedef struct {
         bool is_ready;
         UI_PAUSE_STATE state;
     } ui;
+    // Strategy-provided pause menu replacing the classic UI when set.
+    const INV_PAUSE_MENU_OPS *menu_ops;
+    INV_PAUSE_MENU *menu;
     GF_ACTION action;
     FADER fader;
 } M_PRIV;
@@ -93,7 +97,12 @@ static PHASE_CONTROL M_Start(PHASE *const phase)
     M_PRIV *const p = phase->priv;
 
     p->ui.is_ready = false;
-    UI_Pause_Init(&p->ui.state);
+    p->menu_ops = InvMenu_GetOps(INV_GAME_MODE)->pause_menu;
+    if (p->menu_ops != nullptr) {
+        p->menu = p->menu_ops->init();
+    } else {
+        UI_Pause_Init(&p->ui.state);
+    }
     M_PauseGame(p);
     return (PHASE_CONTROL) { .action = PHASE_ACTION_CONTINUE };
 }
@@ -102,7 +111,12 @@ static void M_End(PHASE *const phase)
 {
     M_PRIV *const p = phase->priv;
     M_RemoveText(p);
-    UI_Pause_Free(&p->ui.state);
+    if (p->menu_ops != nullptr) {
+        p->menu_ops->free(p->menu);
+        p->menu = nullptr;
+    } else {
+        UI_Pause_Free(&p->ui.state);
+    }
 }
 
 static bool M_IsFadeActive(M_PRIV *const p)
@@ -117,7 +131,7 @@ static PHASE_CONTROL M_Control(PHASE *const phase)
     Input_Update();
     Shell_ProcessInput();
 
-    if (p->ui.is_ready) {
+    if (p->menu_ops == nullptr && p->ui.is_ready) {
         UI_Pause_Control(&p->ui.state);
     }
 
@@ -127,7 +141,8 @@ static PHASE_CONTROL M_Control(PHASE *const phase)
             M_ReturnToGame(p);
             return (PHASE_CONTROL) { .action = PHASE_ACTION_NO_WAIT };
         } else if (!M_IsFadeActive(p)) {
-            p->state = STATE_WAIT;
+            // A strategy pause menu shows its entries right away.
+            p->state = p->menu_ops != nullptr ? STATE_ASK : STATE_WAIT;
             M_CreateText(p);
             return (PHASE_CONTROL) { .action = PHASE_ACTION_NO_WAIT };
         }
@@ -143,6 +158,24 @@ static PHASE_CONTROL M_Control(PHASE *const phase)
         break;
 
     case STATE_ASK: {
+        if (p->menu_ops != nullptr) {
+            if (g_InputDB.pause) {
+                M_ReturnToGame(p);
+                return (PHASE_CONTROL) { .action = PHASE_ACTION_NO_WAIT };
+            }
+            switch (p->menu_ops->control(p->menu)) {
+            case INV_PAUSE_RESUME:
+                M_ReturnToGame(p);
+                return (PHASE_CONTROL) { .action = PHASE_ACTION_NO_WAIT };
+            case INV_PAUSE_EXIT_TO_TITLE:
+                M_ExitToTitle(p);
+                return (PHASE_CONTROL) { .action = PHASE_ACTION_NO_WAIT };
+            case INV_PAUSE_NOOP:
+                break;
+            }
+            break;
+        }
+
         const UI_PAUSE_EXIT_CHOICE choice = UI_Pause_Control(&p->ui.state);
         switch (choice) {
         case UI_PAUSE_RESUME_PAUSE:
@@ -184,7 +217,11 @@ static void M_Draw(PHASE *const phase)
         g_Config.ui.pause_background_style, progress, nullptr);
 
     if (p->state == STATE_ASK) {
-        UI_Pause(&p->ui.state);
+        if (p->menu_ops != nullptr) {
+            p->menu_ops->draw(p->menu);
+        } else {
+            UI_Pause(&p->ui.state);
+        }
     }
 }
 
