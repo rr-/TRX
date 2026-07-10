@@ -403,6 +403,7 @@ common_sources = [
   'trx/game/lua/utils.c',
   'trx/game/matrix.c',
   'trx/game/menu/common.c',
+  'trx/game/menu/credit_roll.c',
   'trx/game/menu/flat/control.c',
   'trx/game/menu/flat/draw.c',
   'trx/game/menu/flat/logo.c',

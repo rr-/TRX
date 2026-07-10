@@ -10,6 +10,7 @@
 #include <trx/game/game_flow/vars.h>
 #include <trx/game/lara.h>
 #include <trx/game/lua.h>
+#include <trx/game/menu/credit_roll.h>
 #include <trx/game/music.h>
 #include <trx/game/objects/creatures/bacon_lara.h>
 #include <trx/game/option/passport.h>
@@ -52,7 +53,8 @@
     X(GFS_SETUP_UV_ROTATE,   M_HandleSetupUVRotate)                            \
     X(GFS_ENABLE_LIGHTNING,  M_HandleEnableLightning)                          \
     X(GFS_SETUP_BACON_LARA,  M_HandleSetupBaconLara)                           \
-    X(GFS_DISABLE_FLOOR,     M_HandleDisableFloor)
+    X(GFS_DISABLE_FLOOR,     M_HandleDisableFloor)                             \
+    X(GFS_CREDIT_ROLL,       M_HandleCreditRoll)
 // clang-format on
 
 #define X(id, name) M_GF_HANDLER(name);
@@ -286,6 +288,23 @@ M_GF_HANDLER(M_HandlePicture)
     });
     gf_cmd = PhaseExecutor_Run(phase);
     Phase_Picture_Destroy(phase);
+    return gf_cmd;
+}
+
+M_GF_HANDLER(M_HandleCreditRoll)
+{
+    const GF_COMMAND gf_cmd = { .action = GF_NOOP };
+    if (seq_ctx == GFSC_STORY || seq_ctx == GFSC_SAVED) {
+        return gf_cmd;
+    }
+    if (!g_Config.gameplay.enable_credits) {
+        return gf_cmd;
+    }
+    const GF_SEQUENCE_EVENT *const event = &sequence->events[event_idx];
+    const GF_CREDIT_ROLL_DATA *const data = event->data;
+    // The roll plays over the title menu, mirroring the OG which runs the
+    // credits inside its title loop; here we only record the request.
+    CreditRoll_SetPending(data->strings_key, data->music_track);
     return gf_cmd;
 }
 

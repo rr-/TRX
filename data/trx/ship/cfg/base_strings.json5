@@ -19,6 +19,9 @@
             "no_changes": "No changes to apply.",
             "title_fmt": "Apply preset %s?",
         },
+        "credits": {
+            "roll": "# PC Programmer\nRichard Flower\n\n# AI Programming\nTom Scutt\n\n# PSX Programmers\nChris Coupe\nMartin Gibbins\nDerek Leigh-Gilchrist\n\n# Additional Programming\nMartin Jensen\n\n# Animators\nPhil Chapman\nJerr O'Carroll\n\n# Level Designers\nAndrea Cordella\nPete Duncan\nJamie Morton\nRichard Morton\nAndy Sandham\nJoby Wood\n\n# FMV Sequences\nPeter Barnard\nDavid Reading\nMatt Furniss\nSimeon Furniss\nJohn Lilley\n\n# Additional Artwork\nDamon Godley\nMark Hazelton\nSteve Huckle\nSteve Hawkes\nDarren Wakeman\n\n# Music & Sound FX\nPeter Connelly\n\n# Additional Sound FX\nMartin Iveson\n\n# Original Story\nPete Duncan\nDr Kieron O'Hara\nRichard Morton\nAndy Sandham\n\n# Script\nHope Canton\nAndy Sandham\n\n# Producer\nTroy Horton\n\n# QA\nTiziano Cirillo\nNick Conelly\nHayos Fatunmbi\nPaul Field\nSteve Wakeman\nDave Ward\nJason Churchman\n\n# Executive Producers\nJeremy H. Smith\nAdrian Smith",
+        },
         "globe_select": {
             "area_1": "Area 1",
             "area_2": "Area 2",

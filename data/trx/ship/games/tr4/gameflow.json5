@@ -859,6 +859,7 @@
                 // {"type": "loading_camera", "source_x": 22641, "source_y": 26432, "source_Z": 11943, "target_x": 21631, "target_y": 26906, "target_z": 12690, "room": 63},
                 {"type": "loop_game"},
                 {"type": "play_fmv", "fmv_id": 11},
+                {"type": "credit_roll", "strings_key": "general/credits/roll", "music_track": 98},
                 {"type": "level_complete"},
             ],
         },

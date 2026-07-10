@@ -46,6 +46,7 @@ typedef bool (*M_LOAD_ARRAY_FUNC)(
     const M_CONTEXT *ctx, void *target_elem, size_t target_elem_idx,
     void *user_arg);
 
+static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandleCreditRollEvent);
 static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandleIntEvent);
 static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandlePictureEvent);
 static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandleTotalStatsEvent);
@@ -79,6 +80,7 @@ static M_SEQUENCE_EVENT_HANDLER m_SequenceEventHandlers[] = {
     { GFS_SETUP_UV_ROTATE,   M_HandleIntEvent, "speed" },
 
     // Special cases with custom handlers
+    { GFS_CREDIT_ROLL,       M_HandleCreditRollEvent, nullptr },
     { GFS_LOADING_SCREEN,    M_HandlePictureEvent, nullptr },
     { GFS_DISPLAY_PICTURE,   M_HandlePictureEvent, nullptr },
     { GFS_TOTAL_STATS,       M_HandleTotalStatsEvent, nullptr },
@@ -476,6 +478,26 @@ static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandlePictureEvent)
 fail:
     Memory_FreePointer(&expanded_path);
     return 0;
+}
+
+static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandleCreditRollEvent)
+{
+    JSON_READ_IO *const io = ctx->io;
+    const char *strings_key = nullptr;
+    JSON_MUST(JSON_READ(io, "strings_key", &strings_key));
+
+    if (event != nullptr) {
+        GF_CREDIT_ROLL_DATA *const event_data = extra_data;
+        JSON_READ_D(io, "music_track", &event_data->music_track, -1);
+        event_data->strings_key =
+            (char *)extra_data + sizeof(GF_CREDIT_ROLL_DATA);
+        strcpy(event_data->strings_key, strings_key);
+        event->data = event_data;
+    }
+
+    return sizeof(GF_CREDIT_ROLL_DATA) + strlen(strings_key) + 1;
+fail:
+    return -1;
 }
 
 static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandleTotalStatsEvent)

@@ -1,5 +1,6 @@
 #include <trx/game/menu/flat/title_menu.h>
 
+#include <trx/config.h>
 #include <trx/core/memory.h>
 #include <trx/game/camera.h>
 #include <trx/game/effects.h>
@@ -14,8 +15,10 @@
 #include <trx/game/items/actions.h>
 #include <trx/game/items/manager.h>
 #include <trx/game/lara.h>
+#include <trx/game/menu/credit_roll.h>
 #include <trx/game/menu/flat/logo.h>
 #include <trx/game/menu/flat/types.h>
+#include <trx/game/music.h>
 #include <trx/game/output.h>
 #include <trx/game/output/sky.h>
 #include <trx/game/output/state.h>
@@ -33,6 +36,7 @@
 #include <trx/game/ui/elements/requester.h>
 
 typedef enum {
+    TM_CREDITS,
     TM_ROOT,
     TM_LOAD,
     TM_OPTIONS,
@@ -63,6 +67,7 @@ typedef struct {
     UI_SAVE_SLOT_DIALOG_STATE *save_slot;
     UI_COMBINED_SETTINGS_STATE *settings;
     UI_CONTROLS_STATE controls;
+    CREDIT_ROLL *credits;
     GF_COMMAND result;
     bool is_done;
 } M_TITLE_MENU;
@@ -112,8 +117,35 @@ static INV_MENU *M_Open(const INVENTORY_MODE mode)
         Output_Overlay_LoadImage(g_GameFlow.main_menu_background_path);
     }
 
+    if (CreditRoll_IsPending()) {
+        int32_t music_track = -1;
+        const char *const strings_key = CreditRoll_TakePending(&music_track);
+        menu->credits = CreditRoll_Create(GameString_Get(strings_key));
+        if (menu->credits != nullptr) {
+            menu->phase = TM_CREDITS;
+            if (music_track >= 0) {
+                Music_Stop();
+                Music_Play_Direct(music_track, MPM_ONCE);
+            }
+        }
+    }
+
     g_Inv_Mode = mode;
     return (INV_MENU *)menu;
+}
+
+static void M_FinishCredits(M_TITLE_MENU *const menu)
+{
+    CreditRoll_Free(menu->credits);
+    menu->credits = nullptr;
+    menu->phase = TM_ROOT;
+
+    // Hand the soundtrack back to the title theme.
+    Music_Stop();
+    const GF_LEVEL *const level = GF_GetTitleLevel();
+    if (g_Config.audio.enable_music_in_menu && level->music_track >= 0) {
+        Music_Play_Direct(level->music_track, MPM_LOOP);
+    }
 }
 
 static void M_Finish(M_TITLE_MENU *const menu, const GF_COMMAND result)
@@ -139,6 +171,14 @@ static GF_COMMAND M_Control(INV_MENU *const raw_menu)
     }
 
     switch (menu->phase) {
+    case TM_CREDITS:
+        CreditRoll_Control(menu->credits);
+        if (CreditRoll_IsDone(menu->credits) || g_InputDB.menu_confirm
+            || g_InputDB.menu_back) {
+            M_FinishCredits(menu);
+        }
+        break;
+
     case TM_ROOT: {
         const int32_t choice = UI_Requester_Control(&menu->req);
         switch (choice) {
@@ -244,6 +284,10 @@ static void M_Draw(INV_MENU *const raw_menu)
     }
 
     switch (menu->phase) {
+    case TM_CREDITS:
+        CreditRoll_Draw(menu->credits);
+        break;
+
     case TM_ROOT:
         InvFlatLogo_Draw();
         // Menu entries near the bottom of the screen, per the OG.
@@ -279,6 +323,9 @@ static void M_Close(INV_MENU *const raw_menu)
 {
     M_TITLE_MENU *const menu = (M_TITLE_MENU *)raw_menu;
     switch (menu->phase) {
+    case TM_CREDITS:
+        CreditRoll_Free(menu->credits);
+        break;
     case TM_LOAD:
         UI_SaveSlotDialog_Free(menu->save_slot);
         break;

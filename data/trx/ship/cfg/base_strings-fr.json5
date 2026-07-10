@@ -19,6 +19,9 @@
             "no_changes": "\\{review}Aucun changement à appliquer.",
             "title_fmt": "\\{review}Appliquer le préréglage %s ?",
         },
+        "credits": {
+            "roll": "\\{review}# Programmeur PC\\nRichard Flower\\n\\n# Programmation de l'IA\\nTom Scutt\\n\\n# Programmeurs PSX\\nChris Coupe\\nMartin Gibbins\\nDerek Leigh-Gilchrist\\n\\n# Programmation additionnelle\\nMartin Jensen\\n\\n# Animateurs\\nPhil Chapman\\nJerr O'Carroll\\n\\n# Concepteurs des niveaux\\nAndrea Cordella\\nPete Duncan\\nJamie Morton\\nRichard Morton\\nAndy Sandham\\nJoby Wood\\n\\n# Séquences FMV\\nPeter Barnard\\nDavid Reading\\nMatt Furniss\\nSimeon Furniss\\nJohn Lilley\\n\\n# Graphismes additionnels\\nDamon Godley\\nMark Hazelton\\nSteve Huckle\\nSteve Hawkes\\nDarren Wakeman\\n\\n# Musique et effets sonores\\nPeter Connelly\\n\\n# Effets sonores additionnels\\nMartin Iveson\\n\\n# Histoire originale\\nPete Duncan\\nDr Kieron O'Hara\\nRichard Morton\\nAndy Sandham\\n\\n# Scénario\\nHope Canton\\nAndy Sandham\\n\\n# Producteur\\nTroy Horton\\n\\n# Assurance qualité\\nTiziano Cirillo\\nNick Conelly\\nHayos Fatunmbi\\nPaul Field\\nSteve Wakeman\\nDave Ward\\nJason Churchman\\n\\n# Producteurs exécutifs\\nJeremy H. Smith\\nAdrian Smith",
+        },
         "globe_select": {
             "area_1": "\\{review}Zone 1",
             "area_2": "\\{review}Zone 2",

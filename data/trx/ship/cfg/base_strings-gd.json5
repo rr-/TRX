@@ -19,6 +19,9 @@
             "no_changes": "Chan eil atharrachaidhean ri chur an gnìomh.",
             "title_fmt": "Cuir an ro-shealladh %s an sàs?",
         },
+        "credits": {
+            "roll": "\\{review}",
+        },
         "globe_select": {
             "area_1": "Raon 1",
             "area_2": "Raon 2",

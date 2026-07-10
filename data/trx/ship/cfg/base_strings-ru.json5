@@ -19,6 +19,9 @@
             "no_changes": "\\{review}Нет изменений для применения.",
             "title_fmt": "\\{review}Применить предустановку %s?",
         },
+        "credits": {
+            "roll": "\\{review}# Программист версии для ПК\\nRichard Flower\\n\\n# Программирование ИИ\\nTom Scutt\\n\\n# Программисты версии для PSX\\nChris Coupe\\nMartin Gibbins\\nDerek Leigh-Gilchrist\\n\\n# Дополнительное программирование\\nMartin Jensen\\n\\n# Аниматоры\\nPhil Chapman\\nJerr O'Carroll\\n\\n# Дизайнеры уровней\\nAndrea Cordella\\nPete Duncan\\nJamie Morton\\nRichard Morton\\nAndy Sandham\\nJoby Wood\\n\\n# FMV-ролики\\nPeter Barnard\\nDavid Reading\\nMatt Furniss\\nSimeon Furniss\\nJohn Lilley\\n\\n# Дополнительная графика\\nDamon Godley\\nMark Hazelton\\nSteve Huckle\\nSteve Hawkes\\nDarren Wakeman\\n\\n# Музыка и звуковые эффекты\\nPeter Connelly\\n\\n# Дополнительные звуковые эффекты\\nMartin Iveson\\n\\n# Оригинальная история\\nPete Duncan\\nDr Kieron O'Hara\\nRichard Morton\\nAndy Sandham\\n\\n# Сценарий\\nHope Canton\\nAndy Sandham\\n\\n# Продюсер\\nTroy Horton\\n\\n# Контроль качества\\nTiziano Cirillo\\nNick Conelly\\nHayos Fatunmbi\\nPaul Field\\nSteve Wakeman\\nDave Ward\\nJason Churchman\\n\\n# Исполнительные продюсеры\\nJeremy H. Smith\\nAdrian Smith",
+        },
         "globe_select": {
             "area_1": "\\{review}Зона 1",
             "area_2": "\\{review}Зона 2",

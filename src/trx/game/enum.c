@@ -83,6 +83,7 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_SET_START_ANIM, "set_lara_start_anim");
     ENUM_MAP(
         GF_SEQUENCE_EVENT_TYPE, GFS_ADD_SECRET_REWARD, "add_secret_reward");
+    ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_CREDIT_ROLL, "credit_roll");
 
     ENUM_MAP(GF_LEVEL_TYPE, GFL_TITLE, "title");
     ENUM_MAP(GF_LEVEL_TYPE, GFL_NORMAL, "normal");

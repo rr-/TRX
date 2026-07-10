@@ -41,6 +41,12 @@ typedef struct {
     char *image_path;
 } GF_GLOBE_SELECT_DATA;
 
+typedef struct {
+    // Game string key holding the multiline roll text.
+    char *strings_key;
+    int32_t music_track;
+} GF_CREDIT_ROLL_DATA;
+
 typedef enum {
     GF_INV_REGULAR,
     GF_INV_SECRET,

@@ -946,6 +946,9 @@ GS_DEFINE(console/cmd/vsync/help,         "Toggles vertical sync.")
 GS_DEFINE(console/cmd/weather/help,       "Changes the current weather type.")
 GS_DEFINE(console/cmd/wireframe/help,     "Toggles wireframe rendering.")
 
+GS_DEFINE(general/credits/roll, "# PC Programmer\nRichard Flower\n\n# AI Programming\nTom Scutt\n\n# PSX Programmers\nChris Coupe\nMartin Gibbins\nDerek Leigh-Gilchrist\n\n# Additional Programming\nMartin Jensen\n\n# Animators\nPhil Chapman\nJerr O'Carroll\n\n# Level Designers\nAndrea Cordella\nPete Duncan\nJamie Morton\nRichard Morton\nAndy Sandham\nJoby Wood\n\n# FMV Sequences\nPeter Barnard\nDavid Reading\nMatt Furniss\nSimeon Furniss\nJohn Lilley\n\n# Additional Artwork\nDamon Godley\nMark Hazelton\nSteve Huckle\nSteve Hawkes\nDarren Wakeman\n\n# Music & Sound FX\nPeter Connelly\n\n# Additional Sound FX\nMartin Iveson\n\n# Original Story\nPete Duncan\nDr Kieron O'Hara\nRichard Morton\nAndy Sandham\n\n# Script\nHope Canton\nAndy Sandham\n\n# Producer\nTroy Horton\n\n# QA\nTiziano Cirillo\nNick Conelly\nHayos Fatunmbi\nPaul Field\nSteve Wakeman\nDave Ward\nJason Churchman\n\n# Executive Producers\nJeremy H. Smith\nAdrian Smith")
+
+
 GS_DEFINE(general/settings/common/all_hidden_disclaimer,    "Settings are disabled for this level set.")
 GS_DEFINE(general/settings/common/chroma,                   "Chroma")
 GS_DEFINE(general/settings/common/edit_value,               "Edit value")

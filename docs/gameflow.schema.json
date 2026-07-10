@@ -498,8 +498,32 @@
         },
         {
           "$ref": "#/definitions/seq_globe_select"
+        },
+        {
+          "$ref": "#/definitions/seq_credit_roll"
         }
       ]
+    },
+    "seq_credit_roll": {
+      "type": "object",
+      "description": "Schedules a scrolling text credit roll to play over the title menu once the sequence exits to the title.",
+      "properties": {
+        "type": {
+          "const": "credit_roll"
+        },
+        "strings_key": {
+          "type": "string",
+          "description": "Game string key holding the multiline roll text. Lines starting with # are headings."
+        },
+        "music_track": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "strings_key"
+      ],
+      "additionalProperties": false
     },
     "seq_loop_game": {
       "type": "object",

@@ -19,6 +19,9 @@
             "no_changes": "Brak zmian do zastosowania.",
             "title_fmt": "Zastosować ustawienia %s?",
         },
+        "credits": {
+            "roll": "\\{review}# Programista wersji PC\\nRichard Flower\\n\\n# Programowanie SI\\nTom Scutt\\n\\n# Programiści wersji PSX\\nChris Coupe\\nMartin Gibbins\\nDerek Leigh-Gilchrist\\n\\n# Dodatkowe programowanie\\nMartin Jensen\\n\\n# Animatorzy\\nPhil Chapman\\nJerr O'Carroll\\n\\n# Projektanci poziomów\\nAndrea Cordella\\nPete Duncan\\nJamie Morton\\nRichard Morton\\nAndy Sandham\\nJoby Wood\\n\\n# Sekwencje FMV\\nPeter Barnard\\nDavid Reading\\nMatt Furniss\\nSimeon Furniss\\nJohn Lilley\\n\\n# Dodatkowa oprawa graficzna\\nDamon Godley\\nMark Hazelton\\nSteve Huckle\\nSteve Hawkes\\nDarren Wakeman\\n\\n# Muzyka i efekty dźwiękowe\\nPeter Connelly\\n\\n# Dodatkowe efekty dźwiękowe\\nMartin Iveson\\n\\n# Fabuła\\nPete Duncan\\nDr Kieron O'Hara\\nRichard Morton\\nAndy Sandham\\n\\n# Scenariusz\\nHope Canton\\nAndy Sandham\\n\\n# Producent\\nTroy Horton\\n\\n# Kontrola jakości\\nTiziano Cirillo\\nNick Conelly\\nHayos Fatunmbi\\nPaul Field\\nSteve Wakeman\\nDave Ward\\nJason Churchman\\n\\n# Producenci wykonawczy\\nJeremy H. Smith\\nAdrian Smith",
+        },
         "globe_select": {
             "area_1": "Obszar 1",
             "area_2": "Obszar 2",
