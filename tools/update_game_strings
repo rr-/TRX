@@ -396,6 +396,20 @@ def get_used_mod_strings() -> Iterable[tuple[int, str]]:
             yield 0, f"dynamic/mods/{mod_path.name}/title"
 
 
+RE_GAMEFLOW_STRINGS_KEY = re.compile(r'"strings_key":\s*"([^"]+)"')
+
+
+def get_used_gameflow_strings() -> Iterable[tuple[int, str]]:
+    # Gameflow events (e.g. credit_roll) reference game strings by key.
+    for mod_path in (DATA_DIR / "trx" / "ship" / "games").glob("*"):
+        gameflow_path = mod_path / "gameflow.json5"
+        if not gameflow_path.exists():
+            continue
+        source = gameflow_path.read_text()
+        for match in RE_GAMEFLOW_STRINGS_KEY.finditer(source):
+            yield source.count("\n", 0, match.start()) + 1, match.group(1)
+
+
 def get_used_preset_strings(
     vfs: VirtualFilesystem, presets_dir: Path
 ) -> Iterable[tuple[int, str]]:
@@ -493,6 +507,7 @@ class RunContext:
             )
         )
         self.used_game_strings += list(get_used_mod_strings())
+        self.used_game_strings += list(get_used_gameflow_strings())
 
         self.object_names_dict = get_objects_map(source_files)
 
