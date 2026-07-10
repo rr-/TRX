@@ -5,14 +5,16 @@
 #include <trx/debug.h>
 #include <trx/game/fader.h>
 #include <trx/game/game_flow.h>
-#include <trx/game/menu/ring.h>
+#include <trx/game/menu/common.h>
 #include <trx/game/music.h>
 #include <trx/game/output.h>
 #include <trx/game/overlay.h>
 
 typedef struct {
     INVENTORY_MODE mode;
-    INV_RING *ring;
+    const INV_MENU_OPS *ops;
+    INV_MENU *menu;
+    INV_MENU_CAPS caps;
     bool fade_to_black;
 } M_PRIV;
 
@@ -28,35 +30,38 @@ static PHASE_CONTROL M_Start(PHASE *const phase)
         }
     }
 
-    p->ring = InvRing_Open(p->mode);
-    if (p->ring == nullptr) {
+    p->ops = InvMenu_GetOps(p->mode);
+    p->caps = p->ops->get_caps(p->mode);
+    p->menu = p->ops->open(p->mode);
+    if (p->menu == nullptr) {
         return (PHASE_CONTROL) {
             .action = PHASE_ACTION_END,
             .gf_cmd = { .action = GF_NOOP },
         };
     }
-    if (p->mode != INV_TITLE_MODE) {
-        // Title mode draws its own background image, not a game snapshot;
-        // the title level's room data isn't set up for a live scene render.
+    if (p->caps.needs_game_snapshot) {
         // The snapshot re-renders the scene, so it must happen before the
         // inventory lighting mode kicks in.
         Output_Overlay_CaptureGameSnapshot();
     }
-    Output_SetInventoryLightingMode(true);
+    if (p->caps.needs_inventory_lighting) {
+        Output_SetInventoryLightingMode(true);
+    }
     return (PHASE_CONTROL) { .action = PHASE_ACTION_CONTINUE };
 }
 
 static PHASE_CONTROL M_Control(PHASE *const phase)
 {
     M_PRIV *const p = phase->priv;
-    ASSERT(p->ring != nullptr);
-    const GF_COMMAND gf_cmd = InvRing_Control(p->ring);
-    if (p->mode == INV_TITLE_MODE && p->ring->status == RNG_DONE) {
+    ASSERT(p->menu != nullptr);
+    const GF_COMMAND gf_cmd = p->ops->control(p->menu);
+    const bool is_done = p->ops->is_done(p->menu);
+    if (p->mode == INV_TITLE_MODE && is_done) {
         p->fade_to_black = true;
     }
     return (PHASE_CONTROL) {
         .action = (p->mode == INV_GLOBE_SELECT_MODE && gf_cmd.action != GF_NOOP)
-                || p->ring->status == RNG_DONE
+                || is_done
             ? PHASE_ACTION_END
             : PHASE_ACTION_CONTINUE,
         .gf_cmd = gf_cmd,
@@ -85,21 +90,23 @@ static bool M_RequestFadeToBlack(PHASE *const phase, FADER_ARGS *const out_args)
 static void M_End(PHASE *const phase)
 {
     M_PRIV *const p = phase->priv;
-    Output_SetInventoryLightingMode(false);
+    if (p->caps.needs_inventory_lighting) {
+        Output_SetInventoryLightingMode(false);
+    }
     if (p->mode == INV_TITLE_MODE) {
         Music_Stop();
     }
-    if (p->ring != nullptr) {
-        InvRing_Close(p->ring);
-        p->ring = nullptr;
+    if (p->menu != nullptr) {
+        p->ops->close(p->menu);
+        p->menu = nullptr;
     }
 }
 
 static void M_Draw(PHASE *const phase)
 {
     M_PRIV *const p = phase->priv;
-    ASSERT(p->ring != nullptr);
-    InvRing_Draw(p->ring);
+    ASSERT(p->menu != nullptr);
+    p->ops->draw(p->menu);
 }
 
 PHASE *Phase_Inventory_Create(const INVENTORY_MODE mode)

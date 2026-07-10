@@ -2,6 +2,7 @@
 
 #include <trx/core/memory.h>
 #include <trx/core/vector.h>
+#include <trx/game/menu/common.h>
 #include <trx/game/objects.h>
 #include <trx/game/output/common.h>
 #include <trx/game/output/sources/ui.h>
@@ -360,6 +361,10 @@ void UI_ScheduleDrawTextBackground(
     const int32_t z, const int32_t w, const int32_t h,
     const TEXT_STYLE text_style)
 {
+    if (!InvMenu_GetStyle()->draw_menu_chrome) {
+        // e.g. TR4 draws no text boxes; selections are marked by text color.
+        return;
+    }
     M_SCHEDULE_OP(
         M_DrawOp_TextBackground,
         ((M_DRAW_OP_TEXT_RECT) {
@@ -378,6 +383,9 @@ void UI_ScheduleDrawTextOutline(
     const int32_t z, const int32_t w, const int32_t h,
     const TEXT_STYLE text_style)
 {
+    if (!InvMenu_GetStyle()->draw_menu_chrome) {
+        return;
+    }
     M_SCHEDULE_OP(
         M_DrawOp_TextOutline,
         ((M_DRAW_OP_TEXT_RECT) {
@@ -456,6 +464,9 @@ void UI_ScheduleDrawHorizontalLine(
     const UI_STYLE ui_style, const int32_t x0, const int32_t x1,
     const int32_t y, const int32_t z)
 {
+    if (!InvMenu_GetStyle()->draw_menu_chrome) {
+        return;
+    }
     M_SCHEDULE_OP(
         M_DrawOp_HorizontalLine,
         ((M_DRAW_OP_HORZ_LINE) {

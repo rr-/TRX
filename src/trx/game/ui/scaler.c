@@ -2,6 +2,7 @@
 
 #include <trx/config.h>
 #include <trx/core/utils.h>
+#include <trx/game/menu/common.h>
 #include <trx/game/viewport.h>
 
 static float M_DoCalc(
@@ -24,11 +25,13 @@ double UI_Scaler_GetScale(const UI_SCALER_TARGET target)
     case UI_SCALER_TARGET_BAR:
         return g_Config.ui.bar_scale;
     case UI_SCALER_TARGET_TEXT:
-        return g_Config.ui.text_scale;
+        return g_Config.ui.text_scale * InvMenu_GetStyle()->text_base_scale;
     case UI_SCALER_TARGET_ASSAULT_DIGITS:
         return g_Config.ui.text_scale;
     default:
-        return 1.0;
+        // The base multiplier shrinks the virtual canvas, so layout
+        // arithmetic in canvas units stays consistent with the text size.
+        return InvMenu_GetStyle()->text_base_scale;
     }
 }
 

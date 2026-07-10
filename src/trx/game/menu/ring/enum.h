@@ -1,15 +1,6 @@
 #pragma once
 
-typedef enum {
-    INV_GAME_MODE,
-    INV_TITLE_MODE,
-    INV_KEYS_MODE,
-    INV_SAVE_MODE,
-    INV_LOAD_MODE,
-    INV_DEATH_MODE,
-    INV_SAVE_CRYSTAL_MODE,
-    INV_GLOBE_SELECT_MODE,
-} INVENTORY_MODE;
+#include <trx/game/menu/enum.h>
 
 typedef enum {
     RT_MAIN = 0,

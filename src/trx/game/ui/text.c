@@ -142,6 +142,8 @@ static float M_ScaleScreen(const float value)
 
 static float M_ScaleNeutral(const float value)
 {
+    // Text extents in canvas units: the strategy base multiplier is
+    // already part of the canvas scale.
     return value * g_Config.ui.text_scale;
 }
 
