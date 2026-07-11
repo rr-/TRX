@@ -10,6 +10,8 @@
 #include <trx/game/ui/scaler.h>
 #include <trx/game/viewport.h>
 
+const char g_UI_SettingsHeaderSentinel = 0;
+
 typedef struct UI_SETTINGS_DIALOG_STATE {
     UI_SETTINGS_PHASE phase;
     int32_t visible_rows;
@@ -263,6 +265,11 @@ void UI_SettingsDialog_Free(UI_SETTINGS_DIALOG_STATE *const s)
         Memory_FreePointer(&s->tabs);
     }
     Memory_Free(s);
+}
+
+bool UI_SettingsDialog_IsInTabPhase(const UI_SETTINGS_DIALOG_STATE *const s)
+{
+    return s->phase == UI_SETTINGS_PHASE_NAVIGATE_TABS;
 }
 
 bool UI_SettingsDialog_Control(UI_SETTINGS_DIALOG_STATE *const s)

@@ -3,17 +3,21 @@
 #include <trx/config/common.h>
 #include <trx/core/memory.h>
 #include <trx/core/strings.h>
+#include <trx/game/input.h>
+#include <trx/game/ui/common.h>
 #include <trx/game/ui/dialogs/settings.h>
 #include <trx/game/ui/dialogs/settings_catalog.h>
 #include <trx/game/ui/dialogs/settings_tabs.h>
 #include <trx/game/ui/elements/anchor.h>
 #include <trx/game/ui/elements/prompt.h>
+#include <trx/game/ui/events.h>
 
 #include <string.h>
 
 struct UI_COMBINED_SETTINGS_STATE {
     UI_PROMPT_STATE prompt;
     char *last_query;
+    int32_t key_listener;
 
     // All catalog groups concatenated, terminated by .target == nullptr.
     UI_SETTINGS_OPTION *all_options;
@@ -35,7 +39,8 @@ static UI_SETTINGS_OPTION *M_BuildOptions(void)
 {
     int32_t total = 0;
     for (int32_t i = 0; i < UI_SETTINGS_GROUP_COUNT; i++) {
-        total += M_CountGroupOptions(UI_SettingsCatalog_GetGroup(i));
+        // One extra row per group for its section header.
+        total += M_CountGroupOptions(UI_SettingsCatalog_GetGroup(i)) + 1;
     }
 
     UI_SETTINGS_OPTION *const options =
@@ -44,6 +49,11 @@ static UI_SETTINGS_OPTION *M_BuildOptions(void)
     for (int32_t i = 0; i < UI_SETTINGS_GROUP_COUNT; i++) {
         const UI_SETTINGS_GROUP *const group = UI_SettingsCatalog_GetGroup(i);
         const int32_t count = M_CountGroupOptions(group);
+        options[pos] = (UI_SETTINGS_OPTION) {
+            .target = (void *)&g_UI_SettingsHeaderSentinel,
+            .misc = group->header_gs,
+        };
+        pos++;
         memcpy(
             &options[pos], group->options, sizeof(UI_SETTINGS_OPTION) * count);
         pos += count;
@@ -66,6 +76,20 @@ static bool M_MatchesQuery(
     return title != nullptr && String_CaseSubstring(title, query) != nullptr;
 }
 
+static void M_HandleKeyDown(const EVENT *const event, void *const user_data)
+{
+    UI_COMBINED_SETTINGS_STATE *const s = user_data;
+    if (!s->prompt.is_focused) {
+        return;
+    }
+    // While the search box is focused, game inputs are muted (listen
+    // mode); these keys hand the keyboard over to the dialog below.
+    const UI_INPUT key = (UI_INPUT)(uintptr_t)event->data;
+    if (key == UI_KEY_DOWN || key == UI_KEY_ESCAPE) {
+        UI_Prompt_SetFocus(&s->prompt, false);
+    }
+}
+
 static void M_RebuildDialog(UI_COMBINED_SETTINGS_STATE *const s)
 {
     if (s->dialog != nullptr) {
@@ -83,9 +107,21 @@ static void M_RebuildDialog(UI_COMBINED_SETTINGS_STATE *const s)
     s->filtered_options =
         Memory_Alloc(sizeof(UI_SETTINGS_OPTION) * (total + 1));
     int32_t pos = 0;
+    // A section header carries over only once an option under it matches.
+    const UI_SETTINGS_OPTION *pending_header = nullptr;
     for (int32_t i = 0; i < total; i++) {
-        if (M_MatchesQuery(&s->all_options[i], query)) {
-            s->filtered_options[pos] = s->all_options[i];
+        const UI_SETTINGS_OPTION *const option = &s->all_options[i];
+        if (UI_SettingsOption_IsHeader(option)) {
+            pending_header = option;
+            continue;
+        }
+        if (M_MatchesQuery(option, query)) {
+            if (pending_header != nullptr) {
+                s->filtered_options[pos] = *pending_header;
+                pending_header = nullptr;
+                pos++;
+            }
+            s->filtered_options[pos] = *option;
             pos++;
         }
     }
@@ -109,12 +145,14 @@ UI_COMBINED_SETTINGS_STATE *UI_CombinedSettings_Init(void)
     s->all_options = M_BuildOptions();
     UI_Prompt_Init(&s->prompt);
     UI_Prompt_SetFocus(&s->prompt, true);
+    s->key_listener = UI_Subscribe("key_down", nullptr, M_HandleKeyDown, s);
     M_RebuildDialog(s);
     return s;
 }
 
 void UI_CombinedSettings_Free(UI_COMBINED_SETTINGS_STATE *const s)
 {
+    UI_Unsubscribe(s->key_listener);
     UI_Prompt_SetFocus(&s->prompt, false);
     UI_Prompt_Free(&s->prompt);
     UI_SettingsDialog_Free(s->dialog);
@@ -132,6 +170,14 @@ bool UI_CombinedSettings_Control(UI_COMBINED_SETTINGS_STATE *const s)
         s->prompt.current_text != nullptr ? s->prompt.current_text : "";
     if (strcmp(query, s->last_query) != 0) {
         M_RebuildDialog(s);
+    }
+
+    // Navigating up past the tab row returns the keyboard to the
+    // search box.
+    if (!s->prompt.is_focused && g_InputDB.menu_up
+        && UI_SettingsDialog_IsInTabPhase(s->dialog)) {
+        UI_Prompt_SetFocus(&s->prompt, true);
+        return false;
     }
 
     return UI_SettingsDialog_Control(s->dialog);

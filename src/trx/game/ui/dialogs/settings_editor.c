@@ -8,6 +8,7 @@
 #include <trx/core/utils.h>
 #include <trx/debug.h>
 #include <trx/game/input.h>
+#include <trx/game/menu/common.h>
 #include <trx/game/ui.h>
 #include <trx/game/ui/dialogs/color_editor.h>
 #include <trx/game/ui/dialogs/setting_helpers/enums.h>
@@ -48,7 +49,8 @@ static const CONFIG_OPTION *M_GetConfigOption(
 static const char *M_GetOptionDescription(
     const UI_SETTINGS_OPTION *const option)
 {
-    if (option == nullptr || option->target == nullptr) {
+    if (option == nullptr || option->target == nullptr
+        || UI_SettingsOption_IsHeader(option)) {
         return nullptr;
     }
     return Config_GetOptionDescription(M_GetConfigOption(option));
@@ -58,6 +60,10 @@ static const char *M_GetOptionTitle(const UI_SETTINGS_OPTION *const option)
 {
     if (option == nullptr || option->target == nullptr) {
         return "";
+    }
+    if (UI_SettingsOption_IsHeader(option)) {
+        const char *const result = GameString_Get(option->misc);
+        return result != nullptr ? result : "";
     }
     const char *const result = Config_GetOptionTitle(M_GetConfigOption(option));
     return result != nullptr ? result : "";
@@ -117,7 +123,8 @@ static bool M_IsBarColorEnum(const UI_SETTINGS_OPTION *const option)
 
 static bool M_IsColorEditorOption(const UI_SETTINGS_OPTION *const option)
 {
-    return option != nullptr && M_GetConfigOption(option)->type == COT_RGB888;
+    return option != nullptr && !UI_SettingsOption_IsHeader(option)
+        && M_GetConfigOption(option)->type == COT_RGB888;
 }
 
 static bool M_HasAvailableEnumValue(const UI_SETTINGS_OPTION *const option)
@@ -138,6 +145,17 @@ static bool M_HasAvailableEnumValue(const UI_SETTINGS_OPTION *const option)
 
 static bool M_IsOptionHidden(const UI_SETTINGS_OPTION *const option)
 {
+    if (UI_SettingsOption_IsHeader(option)) {
+        // A header hides together with all of its options.
+        for (const UI_SETTINGS_OPTION *opt = option + 1;
+             opt->target != nullptr && !UI_SettingsOption_IsHeader(opt);
+             opt++) {
+            if (!M_IsOptionHidden(opt)) {
+                return false;
+            }
+        }
+        return true;
+    }
     if (option->custom_handler.is_visible != nullptr
         && !option->custom_handler.is_visible(option)) {
         return true;
@@ -230,7 +248,7 @@ static const char *M_FormatRowValue(
     const UI_SETTINGS_EDITOR_STATE *const s, const int32_t row_idx)
 {
     const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, row_idx);
-    if (option == nullptr) {
+    if (option == nullptr || UI_SettingsOption_IsHeader(option)) {
         return nullptr;
     }
     if (option->custom_handler.format_value != nullptr) {
@@ -333,7 +351,8 @@ static bool M_CanChangeValue(
     const int32_t dir)
 {
     const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, row_idx);
-    if (option == nullptr || Config_IsOptionEnforced(option->target)) {
+    if (option == nullptr || UI_SettingsOption_IsHeader(option)
+        || Config_IsOptionEnforced(option->target)) {
         return false;
     }
     if (option->custom_handler.can_change_value != nullptr) {
@@ -459,6 +478,9 @@ static float M_GetMaxValueWidth(const UI_SETTINGS_EDITOR_STATE *const s)
     if (s->options != nullptr) {
         for (int32_t i = 0; s->options[i].target != nullptr; i++) {
             const UI_SETTINGS_OPTION *const option = &s->options[i];
+            if (UI_SettingsOption_IsHeader(option)) {
+                continue;
+            }
             const float value_w = M_MeasureMaxValueWidth(option);
             result = MAX(value_w, result);
         }
@@ -585,6 +607,27 @@ void UI_SettingsEditor_RecomputeSizes(
     UI_Scrollable_SetVisibleItems(&s->scroll, visible_rows);
 }
 
+static bool M_IsHeaderRow(
+    const UI_SETTINGS_EDITOR_STATE *const s, const int32_t row_idx)
+{
+    return UI_SettingsOption_IsHeader(M_GetOptionByRow(s, row_idx));
+}
+
+// Move the selection off group header rows in the given direction;
+// returns false when it runs off the list.
+static bool M_SkipHeaders(UI_SETTINGS_EDITOR_STATE *const s, const int32_t dir)
+{
+    while (M_IsHeaderRow(s, UI_Scrollable_GetSelectedItem(&s->scroll))) {
+        const bool moved = dir > 0
+            ? UI_Scrollable_SelectNext(&s->scroll, false)
+            : UI_Scrollable_SelectPrev(&s->scroll, false);
+        if (!moved) {
+            return false;
+        }
+    }
+    return true;
+}
+
 UI_SCROLLABLE *UI_SettingsEditor_GetScrollable(
     UI_SETTINGS_EDITOR_STATE *const s)
 {
@@ -608,6 +651,9 @@ bool UI_SettingsEditor_Control(
         return true;
     }
 
+    // Entering the list may land on a header (e.g. the very first row).
+    M_SkipHeaders(s, +1);
+
     const int32_t sel_row = UI_Scrollable_GetSelectedItem(&s->scroll);
 
     if (g_InputDB.menu_left && sel_row >= 0) {
@@ -620,13 +666,15 @@ bool UI_SettingsEditor_Control(
     }
 
     if (g_InputDB.menu_up) {
-        if (!UI_Scrollable_SelectPrev(&s->scroll, false)) {
+        if (!UI_Scrollable_SelectPrev(&s->scroll, false)
+            || !M_SkipHeaders(s, -1)) {
             *dialog_phase = UI_SETTINGS_PHASE_NAVIGATE_TABS;
         }
         return true;
     }
     if (g_InputDB.menu_down) {
-        if (!UI_Scrollable_SelectNext(&s->scroll, false)
+        if ((!UI_Scrollable_SelectNext(&s->scroll, false)
+             || !M_SkipHeaders(s, +1))
             && g_Config.ui.enable_wraparound) {
             *dialog_phase = UI_SETTINGS_PHASE_NAVIGATE_TABS;
         }
@@ -655,6 +703,7 @@ bool UI_SettingsEditor_Control(
     if (g_InputDB.unbind_key && sel_row >= 0) {
         const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, sel_row);
         if (option != nullptr && option->target != nullptr
+            && !UI_SettingsOption_IsHeader(option)
             && !Config_IsOptionEnforced(option->target)
             && !Config_IsOptionAtDefault(option->target)) {
             Config_RestoreOptionDefault(option->target);
@@ -729,11 +778,17 @@ void UI_SettingsEditor_Draw(
         return;
     }
 
+    // Chrome-less styles have no opaque dialog backgrounds, so blank the
+    // rows out while an overlay is open instead of drawing through it.
+    const bool hide_rows = !InvMenu_GetStyle()->draw_menu_chrome
+        && (s->description.show
+            || UI_ColorEditorDialog_IsOpen(s->color_editor));
+
     UI_BeginStack(UI_STACK_VERTICAL);
     for (int32_t i = 0; i < dialog_scroll->vis_items; i++) {
         const int32_t row = dialog_scroll->first_item + i;
-        if (row >= dialog_scroll->max_items) {
-            UI_Spacer(0.0f, UI_TEXT_HEIGHT);
+        if (hide_rows || row >= dialog_scroll->max_items) {
+            UI_Spacer(label_w + 20.0f + max_value_w, UI_Text_GetLineHeight());
             continue;
         }
 
@@ -743,6 +798,19 @@ void UI_SettingsEditor_Draw(
             UI_BeginResize(-1.0f, 0.0f);
         } else {
             UI_BeginResize(-1.0f, -1.0f);
+        }
+
+        const UI_SETTINGS_OPTION *const row_option = M_GetOptionByRow(s, row);
+        if (UI_SettingsOption_IsHeader(row_option)) {
+            UI_BeginResize(label_w + 20.0f + max_value_w, -1.0f);
+            UI_BeginAnchor(0.5f, 0.5f);
+            UI_BeginTextRole(UI_TEXT_ROLE_HEADING);
+            UI_Label(M_GetOptionTitle(row_option));
+            UI_EndTextRole();
+            UI_EndAnchor();
+            UI_EndResize();
+            UI_EndResize();
+            continue;
         }
 
         UI_BeginPad(
@@ -837,8 +905,7 @@ void UI_SettingsEditor_DrawFooter(
     const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, row_idx);
 
     const bool can_edit_value = dialog_phase == UI_SETTINGS_PHASE_EDIT_SETTINGS
-        && row_idx >= 0 && option != nullptr
-        && M_GetConfigOption(option)->type == COT_RGB888
+        && row_idx >= 0 && M_IsColorEditorOption(option)
         && !Config_IsOptionEnforced(option->target);
     const bool can_examine = dialog_phase == UI_SETTINGS_PHASE_EDIT_SETTINGS
         && row_idx >= 0 && option != nullptr
@@ -847,6 +914,7 @@ void UI_SettingsEditor_DrawFooter(
     const bool can_restore_default =
         dialog_phase == UI_SETTINGS_PHASE_EDIT_SETTINGS && row_idx >= 0
         && option != nullptr && option->target != nullptr
+        && !UI_SettingsOption_IsHeader(option)
         && !Config_IsOptionEnforced(option->target)
         && !Config_IsOptionAtDefault(option->target);
 

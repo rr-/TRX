@@ -47,11 +47,26 @@ typedef struct UI_SETTINGS_OPTION {
 #define X_UI_CFG_RGB888(TARGET_, ...)                                          \
     X_UI_CFG(TARGET_, .min_value = 0, .max_value = 255, ##__VA_ARGS__)
 
+// Sentinel target marking a non-interactive group section header
+// pseudo-row; the header title's GAME_STRING_ID lives in .misc. The
+// editor skips headers during selection and draws them centered with
+// the heading role.
+extern const char g_UI_SettingsHeaderSentinel;
+
+static inline bool UI_SettingsOption_IsHeader(const UI_SETTINGS_OPTION *option)
+{
+    return option != nullptr
+        && option->target == (void *)&g_UI_SettingsHeaderSentinel;
+}
+
 typedef struct UI_SETTINGS_DIALOG_STATE UI_SETTINGS_DIALOG_STATE;
 
 UI_SETTINGS_DIALOG_STATE *UI_SettingsDialog_Init(
     GAME_STRING_ID title, int32_t tab_count, const UI_SETTINGS_TAB *tabs);
 void UI_SettingsDialog_Free(UI_SETTINGS_DIALOG_STATE *s);
 bool UI_SettingsDialog_Control(UI_SETTINGS_DIALOG_STATE *s);
+// Whether the dialog is in the tab navigation phase (the selection has
+// not descended into the option list).
+bool UI_SettingsDialog_IsInTabPhase(const UI_SETTINGS_DIALOG_STATE *s);
 
 void UI_SettingsDialog(UI_SETTINGS_DIALOG_STATE *s);
