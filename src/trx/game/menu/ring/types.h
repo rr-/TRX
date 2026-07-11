@@ -58,6 +58,12 @@ typedef struct {
     INVENTORY_ITEM_ACTION action;
     // TR4: the item can be inspected up close in the flat menu.
     bool can_examine;
+    // TR4 flat menu display parameters (the OG inventry_objects_list):
+    // camera distance (0 = default), screen-space vertical offset and the
+    // base orientation.
+    int32_t flat_dist;
+    int16_t flat_y_off;
+    XYZ_16 flat_rot;
 } INVENTORY_ITEM;
 
 typedef struct {

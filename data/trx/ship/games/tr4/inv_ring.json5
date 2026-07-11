@@ -1,6 +1,8 @@
 [
     {
         "object_id": "O_SMALL_MEDIPACK_OPTION",
+        "flat_dist": 512,
+        "flat_rot_x": 20480,
         "frames_total": 26,
         "open_frame": 25,
         "anim_direction": 1,
@@ -16,6 +18,8 @@
 
     {
         "object_id": "O_LARGE_MEDIPACK_OPTION",
+        "flat_dist": 800,
+        "flat_y_off": 2,
         "frames_total": 20,
         "open_frame": 19,
         "anim_direction": 1,
@@ -31,6 +35,9 @@
 
     {
         "object_id": "O_FLAREBOX_OPTION",
+        "flat_dist": 1100,
+        "flat_y_off": 2,
+        "flat_rot_y": 16384,
         "frames_total": 31,
         "open_frame": 30,
         "anim_direction": 1,
@@ -45,6 +52,11 @@
 
     {
         "object_id": "O_PISTOL_OPTION",
+        "flat_dist": 1000,
+        "flat_y_off": 6,
+        "flat_rot_x": -21172,
+        "flat_rot_y": 16384,
+        "flat_rot_z": -17088,
         "frames_total": 12,
         "open_frame": 11,
         "anim_direction": 1,
@@ -61,6 +73,11 @@
 
     {
         "object_id": "O_SHOTGUN_OPTION",
+        "flat_dist": 640,
+        "flat_y_off": -6,
+        "flat_rot_x": -16384,
+        "flat_rot_y": -32768,
+        "flat_rot_z": 8192,
         "frames_total": 13,
         "open_frame": 12,
         "anim_direction": 1,
@@ -121,6 +138,11 @@
 
     {
         "object_id": "O_UZI_OPTION",
+        "flat_dist": 1000,
+        "flat_y_off": -4,
+        "flat_rot_x": 24576,
+        "flat_rot_y": 16384,
+        "flat_rot_z": 16384,
         "frames_total": 13,
         "open_frame": 12,
         "anim_direction": 1,
@@ -201,6 +223,9 @@
 
     {
         "object_id": "O_GRENADE_GUN_OPTION",
+        "flat_dist": 800,
+        "flat_rot_y": 16384,
+        "flat_rot_z": 11980,
         "frames_total": 12,
         "open_frame": 11,
         "anim_direction": 1,
@@ -217,6 +242,9 @@
 
     {
         "object_id": "O_PISTOL_AMMO_OPTION",
+        "flat_dist": 700,
+        "flat_y_off": 4,
+        "flat_rot_x": 16384,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -230,6 +258,8 @@
 
     {
         "object_id": "O_SHOTGUN_AMMO_OPTION",
+        "flat_dist": 500,
+        "flat_rot_y": 16384,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -282,6 +312,9 @@
 
     {
         "object_id": "O_UZI_AMMO_OPTION",
+        "flat_dist": 700,
+        "flat_y_off": 5,
+        "flat_rot_x": 5384,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -347,6 +380,9 @@
 
     {
         "object_id": "O_GRENADE_AMMO_OPTION",
+        "flat_dist": 800,
+        "flat_y_off": 3,
+        "flat_rot_y": 16384,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -387,6 +423,8 @@
 
     {
         "object_id": "O_PICKUP_OPTION_1",
+        "flat_dist": 1200,
+        "flat_y_off": 14,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -400,6 +438,8 @@
 
     {
         "object_id": "O_PICKUP_OPTION_2",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -413,6 +453,8 @@
 
     {
         "object_id": "O_PUZZLE_OPTION_1",
+        "flat_dist": 1200,
+        "flat_y_off": 14,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -426,6 +468,9 @@
 
     {
         "object_id": "O_PUZZLE_OPTION_2",
+        "flat_dist": 600,
+        "flat_y_off": 14,
+        "flat_rot_x": -16384,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -439,6 +484,8 @@
 
     {
         "object_id": "O_PUZZLE_OPTION_3",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -452,6 +499,8 @@
 
     {
         "object_id": "O_PUZZLE_OPTION_4",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -465,6 +514,8 @@
 
     {
         "object_id": "O_KEY_OPTION_1",
+        "flat_dist": 1200,
+        "flat_y_off": 14,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -478,6 +529,8 @@
 
     {
         "object_id": "O_KEY_OPTION_2",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -491,6 +544,8 @@
 
     {
         "object_id": "O_KEY_OPTION_3",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -504,6 +559,8 @@
 
     {
         "object_id": "O_KEY_OPTION_4",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -529,6 +586,9 @@
 
     {
         "object_id": "O_COMPASS_OPTION",
+        "flat_dist": 600,
+        "flat_y_off": -14,
+        "flat_rot_x": 14000,
         "frames_total": 25,
         "open_frame": 10,
         "anim_direction": 1,
@@ -542,6 +602,8 @@
 
     {
         "object_id": "O_MEMCARD_LOAD_OPTION",
+        "flat_dist": 4000,
+        "flat_y_off": 2,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -553,6 +615,8 @@
 
     {
         "object_id": "O_MEMCARD_SAVE_OPTION",
+        "flat_dist": 4000,
+        "flat_y_off": 2,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -662,6 +726,9 @@
 
     {
         "object_id": "O_QUEST_OPTION_1",
+        "flat_dist": 1200,
+        "flat_rot_x": -16384,
+        "flat_rot_y": -32768,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -675,6 +742,8 @@
 
     {
         "object_id": "O_QUEST_OPTION_2",
+        "flat_dist": 1024,
+        "flat_rot_y": -32768,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -688,6 +757,9 @@
 
     {
         "object_id": "O_QUEST_OPTION_3",
+        "flat_dist": 1280,
+        "flat_rot_y": -16384,
+        "flat_rot_z": -16384,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -701,6 +773,9 @@
 
     {
         "object_id": "O_QUEST_OPTION_4",
+        "flat_dist": 1280,
+        "flat_rot_y": 16384,
+        "flat_rot_z": -16384,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -714,6 +789,9 @@
 
     {
         "object_id": "O_CROSSBOW_OPTION",
+        "flat_dist": 768,
+        "flat_rot_x": 6144,
+        "flat_rot_y": 8192,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -727,6 +805,8 @@
 
     {
         "object_id": "O_CROSSBOW_AMMO_OPTION",
+        "flat_dist": 1100,
+        "flat_rot_y": 16384,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -740,6 +820,10 @@
 
     {
         "object_id": "O_REVOLVER_OPTION",
+        "flat_dist": 800,
+        "flat_rot_x": 10922,
+        "flat_rot_y": 16384,
+        "flat_rot_z": 15298,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -753,6 +837,9 @@
 
     {
         "object_id": "O_REVOLVER_AMMO_OPTION",
+        "flat_dist": 700,
+        "flat_rot_x": -3000,
+        "flat_rot_y": 16384,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -766,6 +853,10 @@
 
     {
         "object_id": "O_LASERSIGHT_OPTION",
+        "flat_dist": 700,
+        "flat_y_off": 2,
+        "flat_rot_x": 2000,
+        "flat_rot_y": 16384,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -779,6 +870,10 @@
 
     {
         "object_id": "O_BINOCULARS_OPTION",
+        "flat_dist": 700,
+        "flat_y_off": -1,
+        "flat_rot_x": 2000,
+        "flat_rot_y": 4096,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -792,6 +887,9 @@
 
     {
         "object_id": "O_WATERSKIN_1_OPTION",
+        "flat_dist": 1600,
+        "flat_y_off": 2,
+        "flat_rot_x": -14000,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -805,6 +903,9 @@
 
     {
         "object_id": "O_WATERSKIN_2_OPTION",
+        "flat_dist": 1600,
+        "flat_y_off": 2,
+        "flat_rot_x": -14000,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -818,6 +919,8 @@
 
     {
         "object_id": "O_KEY_OPTION_5",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -831,6 +934,8 @@
 
     {
         "object_id": "O_KEY_OPTION_6",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -844,6 +949,8 @@
 
     {
         "object_id": "O_KEY_OPTION_7",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -857,6 +964,8 @@
 
     {
         "object_id": "O_KEY_OPTION_8",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -870,6 +979,8 @@
 
     {
         "object_id": "O_KEY_OPTION_9",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -883,6 +994,8 @@
 
     {
         "object_id": "O_KEY_OPTION_10",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -896,6 +1009,8 @@
 
     {
         "object_id": "O_KEY_OPTION_11",
+        "flat_dist": 1200,
+        "flat_y_off": 4,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -909,6 +1024,8 @@
 
     {
         "object_id": "O_KEY_OPTION_12",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -922,6 +1039,8 @@
 
     {
         "object_id": "O_PUZZLE_OPTION_5",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -935,6 +1054,8 @@
 
     {
         "object_id": "O_PUZZLE_OPTION_6",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -948,6 +1069,8 @@
 
     {
         "object_id": "O_PUZZLE_OPTION_7",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -961,6 +1084,8 @@
 
     {
         "object_id": "O_PUZZLE_OPTION_8",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -974,6 +1099,8 @@
 
     {
         "object_id": "O_PUZZLE_OPTION_9",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -987,6 +1114,8 @@
 
     {
         "object_id": "O_PUZZLE_OPTION_10",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -1000,6 +1129,8 @@
 
     {
         "object_id": "O_PUZZLE_OPTION_11",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -1013,6 +1144,8 @@
 
     {
         "object_id": "O_PUZZLE_OPTION_12",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -1026,6 +1159,8 @@
 
     {
         "object_id": "O_PICKUP_OPTION_3",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -1039,6 +1174,8 @@
 
     {
         "object_id": "O_PICKUP_OPTION_4",
+        "flat_dist": 1200,
+        "flat_y_off": 8,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -1052,6 +1189,8 @@
 
     {
         "object_id": "O_QUEST_OPTION_5",
+        "flat_dist": 768,
+        "flat_rot_z": 8192,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -1065,6 +1204,9 @@
 
     {
         "object_id": "O_QUEST_OPTION_6",
+        "flat_dist": 768,
+        "flat_rot_y": -32768,
+        "flat_rot_z": 8192,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,
@@ -1078,6 +1220,9 @@
 
     {
         "object_id": "O_EXAMINE_OPTION_1",
+        "flat_dist": 1300,
+        "flat_y_off": 4,
+        "flat_rot_x": 16384,
         "examine": true,
         "frames_total": 1,
         "anim_direction": 1,
@@ -1092,6 +1237,9 @@
 
     {
         "object_id": "O_EXAMINE_OPTION_2",
+        "flat_dist": 1200,
+        "flat_y_off": 14,
+        "flat_rot_x": 16384,
         "examine": true,
         "frames_total": 1,
         "anim_direction": 1,
@@ -1106,6 +1254,9 @@
 
     {
         "object_id": "O_EXAMINE_OPTION_3",
+        "flat_dist": 1200,
+        "flat_y_off": 14,
+        "flat_rot_x": 16384,
         "examine": true,
         "frames_total": 1,
         "anim_direction": 1,
@@ -1120,6 +1271,9 @@
 
     {
         "object_id": "O_CROWBAR_OPTION",
+        "flat_dist": 1900,
+        "flat_y_off": 4,
+        "flat_rot_x": 16384,
         "frames_total": 1,
         "anim_direction": 1,
         "anim_speed": 1,

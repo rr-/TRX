@@ -19,58 +19,75 @@
 
 #include <math.h>
 
-// Distance of the item row from the camera and its vertical placement.
-#define M_ROW_Z 1400
-#define M_ROW_Y (-96)
-// The "Combine with" partner row sits below the main row.
-#define M_SECOND_ROW_Y 224
-// Horizontal distance between two adjacent items; OG spaces them a quarter
-// of the screen width apart.
-#define M_ITEM_SPACING 352
+// Default camera distance for items without display parameters.
+#define M_ROW_Z 1200
+// Focal length in the OG's 640-wide screen units at the shared FOV of 80
+// degrees; converts screen offsets to world offsets at a given distance.
+#define M_FOCAL 381.0f
+// The OG spaces items a quarter of the screen width apart.
+#define M_SLOT_SPACING 160.0f
+// Vertical screen placement of the two rows relative to the center.
+#define M_ROW_SCREEN_Y (-26.0f)
+#define M_SECOND_ROW_SCREEN_Y 61.0f
 // How many slots away from the focus an item is still drawn.
 #define M_VISIBLE_RANGE 3.5f
 
-#define M_SHADE_NORMAL SHADE_LOW
-#define M_SHADE_FOCUSED SHADE_NEUTRAL
-
-static XYZ_32 M_VectorViewFromWorld(const XYZ_32 v_world)
-{
-    return Matrix_MulVec32_M(&g_ViewMatrix, v_world);
-}
+// The OG renders the prelit meshes with a flat per-item brightness and no
+// light rig; 127 is neutral, the focused item ramps up to 160 and the
+// rest sit at a dim 32.
+#define M_BRIGHT_NORMAL 32.0f
+#define M_BRIGHT_FOCUSED 160.0f
+#define M_BRIGHT_NEUTRAL 127.0f
 
 static void M_Light(void)
 {
-    // Mirrors InvRing_Light for TR3+, with the ring's fixed light direction.
-    int16_t angles[2];
-    Math_GetVectorAngles(-1536, 256, 1024, angles);
     Output_SetLightDivider(0x6000);
-    Output_RotateLight(angles[1], angles[0]);
-
-    const float ambient_u8 = 32.0f / 255.0f;
-    const RGB_F ambient = { ambient_u8, ambient_u8, ambient_u8 };
-    const RGB_F colors[3] = {
-        { .r = 3312.0f / 4096.0f, .g = 1664.0f / 4096.0f, .b = 0.0f },
-        {
-            .r = 3312.0f / 4096.0f,
-            .g = 3312.0f / 4096.0f,
-            .b = 3312.0f / 4096.0f,
-        },
-        { .r = 0.0f, .g = 0.0f, .b = 3072.0f / 4096.0f },
-    };
+    Output_RotateLight(0, 0);
+    const RGB_F ambient = { 1.0f, 1.0f, 1.0f };
+    const RGB_F colors[3] = {};
     const XYZ_32 dirs_view[3] = {
-        M_VectorViewFromWorld(
-            (XYZ_32) { .x = 0x4000, .y = -0x4000, .z = 0x3000 }),
-        M_VectorViewFromWorld(
-            (XYZ_32) { .x = -0x4000, .y = -0x4000, .z = 0x3000 }),
-        M_VectorViewFromWorld((XYZ_32) { .x = 0, .y = 0x2000, .z = 0x3000 }),
+        { .z = 0x4000 },
+        { .z = 0x4000 },
+        { .z = 0x4000 },
     };
     Output_SetTR3Light(ambient, colors, dirs_view);
 }
 
-// Placement of the corner compass.
-#define M_COMPASS_X 430
-#define M_COMPASS_Y 240
-#define M_COMPASS_Z 1400
+static void M_SetBrightness(const float bright)
+{
+    Output_SetLightAdder(0x2000 - (int32_t)(0x1000 * bright / 127.0f));
+}
+
+// Screen placement of the corner compass.
+#define M_COMPASS_SCREEN_X 117.0f
+#define M_COMPASS_SCREEN_Y 65.0f
+
+static float M_GetItemDist(const INVENTORY_ITEM *const inv_item)
+{
+    return inv_item->flat_dist > 0 ? inv_item->flat_dist : M_ROW_Z;
+}
+
+// Positions an item so it appears at the given screen offsets from the
+// center regardless of its camera distance.
+static void M_PlaceItem(
+    const INVENTORY_ITEM *const inv_item, const float screen_x,
+    const float screen_y)
+{
+    const float dist = M_GetItemDist(inv_item);
+    Matrix_TranslateRel(
+        screen_x * dist / M_FOCAL,
+        (screen_y + inv_item->flat_y_off) * dist / M_FOCAL, dist);
+}
+
+static void M_DrawItemMeshes(const INVENTORY_ITEM *const inv_item)
+{
+    const OBJECT *const obj = Object_Get(inv_item->object_id);
+    if (obj->loaded && obj->mesh_count >= 0) {
+        const ANIM_FRAME *const frame =
+            &obj->frame_base[inv_item->current_frame];
+        InvItem_DrawObject(inv_item, frame, frame, 0, 1);
+    }
+}
 
 static void M_DrawCompass(const INV_FLAT *const flat)
 {
@@ -78,40 +95,29 @@ static void M_DrawCompass(const INV_FLAT *const flat)
         return;
     }
     Matrix_Push();
-    Matrix_TranslateRel(M_COMPASS_X, M_COMPASS_Y, M_COMPASS_Z);
-    Output_SetLightAdder(M_SHADE_FOCUSED);
+    M_PlaceItem(flat->compass, M_COMPASS_SCREEN_X, M_COMPASS_SCREEN_Y);
+    M_SetBrightness(M_BRIGHT_NEUTRAL);
+    Matrix_Rot16(flat->compass->flat_rot);
     Matrix_RotX(flat->compass->x_rot);
-
-    const OBJECT *const obj = Object_Get(flat->compass->object_id);
-    if (obj->loaded && obj->mesh_count >= 0) {
-        const ANIM_FRAME *const frame = &obj->frame_base[0];
-        InvItem_DrawObject(flat->compass, frame, frame, 0, 1);
-    }
+    M_DrawItemMeshes(flat->compass);
     Matrix_Pop();
 }
 
 static void M_DrawItem(
     const INVENTORY_ITEM *const inv_item, const int32_t idx,
-    const float scroll_pos, const int16_t spin_rot, const int32_t row_y)
+    const float scroll_pos, const int16_t spin_rot, const float row_screen_y)
 {
     const float offset = idx - scroll_pos;
 
     Matrix_Push();
-    Matrix_TranslateRel(offset * M_ITEM_SPACING, row_y, M_ROW_Z);
+    M_PlaceItem(inv_item, offset * M_SLOT_SPACING, row_screen_y);
 
     const float focus = 1.0f - MIN(1.0f, fabsf(offset));
-    Output_SetLightAdder(
-        LERP((float)M_SHADE_NORMAL, (float)M_SHADE_FOCUSED, focus));
+    M_SetBrightness(LERP(M_BRIGHT_NORMAL, M_BRIGHT_FOCUSED, focus));
 
     Matrix_RotY(focus > 0.5f ? spin_rot : 0);
-    Matrix_RotX(inv_item->x_rot);
-
-    const OBJECT *const obj = Object_Get(inv_item->object_id);
-    if (obj->loaded && obj->mesh_count >= 0) {
-        const ANIM_FRAME *const frame =
-            &obj->frame_base[inv_item->current_frame];
-        InvItem_DrawObject(inv_item, frame, frame, 0, 1);
-    }
+    Matrix_Rot16(inv_item->flat_rot);
+    M_DrawItemMeshes(inv_item);
     Matrix_Pop();
 }
 
@@ -153,23 +159,16 @@ void InvFlat_Draw(INV_FLAT *const flat)
         // Close-up inspection: only the focused item, steered by input.
         const INVENTORY_ITEM *const inv_item = flat->items[flat->target_idx];
         Matrix_Push();
-        Matrix_TranslateRel(0, 0, M_ROW_Z / 2);
-        Output_SetLightAdder(M_SHADE_FOCUSED);
+        Matrix_TranslateRel(0, 0, M_GetItemDist(inv_item) / 2);
+        M_SetBrightness(M_BRIGHT_NEUTRAL);
         Matrix_RotY((int16_t)(uint16_t)Math_AngleMean(
             (uint16_t)flat->examine.prev_y_rot, (uint16_t)flat->examine.y_rot,
             interp_rate));
-        Matrix_RotX(
-            inv_item->x_rot
-            + (int16_t)(uint16_t)Math_AngleMean(
-                (uint16_t)flat->examine.prev_x_rot,
-                (uint16_t)flat->examine.x_rot, interp_rate));
-
-        const OBJECT *const obj = Object_Get(inv_item->object_id);
-        if (obj->loaded && obj->mesh_count >= 0) {
-            const ANIM_FRAME *const frame =
-                &obj->frame_base[inv_item->current_frame];
-            InvItem_DrawObject(inv_item, frame, frame, 0, 1);
-        }
+        Matrix_RotX((int16_t)(uint16_t)Math_AngleMean(
+            (uint16_t)flat->examine.prev_x_rot, (uint16_t)flat->examine.x_rot,
+            interp_rate));
+        Matrix_Rot16(inv_item->flat_rot);
+        M_DrawItemMeshes(inv_item);
         Matrix_Pop();
     } else if (flat->state != IF_LOADSAVE) {
         // While the partner row is open, the main row holds still and the
@@ -179,7 +178,8 @@ void InvFlat_Draw(INV_FLAT *const flat)
             if (fabsf(i - draw_scroll_pos) > M_VISIBLE_RANGE) {
                 continue;
             }
-            M_DrawItem(flat->items[i], i, draw_scroll_pos, main_spin, M_ROW_Y);
+            M_DrawItem(
+                flat->items[i], i, draw_scroll_pos, main_spin, M_ROW_SCREEN_Y);
         }
         if (flat->state == IF_COMBINE) {
             const float second_scroll_pos = LERP(
@@ -191,7 +191,7 @@ void InvFlat_Draw(INV_FLAT *const flat)
                 }
                 M_DrawItem(
                     flat->second_row.items[i], i, second_scroll_pos,
-                    draw_spin_rot, M_SECOND_ROW_Y);
+                    draw_spin_rot, M_SECOND_ROW_SCREEN_Y);
             }
         }
         M_DrawCompass(flat);
