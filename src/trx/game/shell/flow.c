@@ -101,6 +101,7 @@ static void M_HandleConfigChange(const EVENT *const event, void *const data)
     const CONFIG *const old = &g_SavedConfig;
     const CONFIG *const new = &g_Config;
     Shell_HandleConfigChange(old, new);
+    LUA_Config_NotifyChanged();
 }
 
 static void M_SetupSDL(void)
@@ -296,6 +297,11 @@ static void M_PrepareSystem(void)
         TRXPath_Resolve(TRX_DYNAMIC_PATH_COMMON_CONFIG, "outfits.json5"));
     Config_Presets_ScanFiles();
 
+    // The per-game script may declare config options, so it has to run before
+    // the config is read - otherwise the player's saved value for one of those
+    // options has no option to land on, and is dropped.
+    LUA_LoadGameScript(s->args->startup.mod->name);
+
     if (test_replay_path != nullptr) {
         TestReplay_Start();
     } else {
@@ -314,6 +320,11 @@ static void M_PrepareSystem(void)
         }
     }
     Config_SubscribeChanges(M_HandleConfigChange, nullptr);
+
+    // Let watchers see the values that were just loaded. Without this a script
+    // would only ever react to the player editing an option, and a saved
+    // non-default value would sit in the config doing nothing until touched.
+    LUA_Config_NotifyChanged();
 
     // Auto-enable touch controls on first run if touch hardware is present.
     if (!g_Config.loaded && Touch_HasHardwareSupport()) {

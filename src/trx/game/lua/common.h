@@ -40,3 +40,12 @@ LUA_RESULT Lua_EvalFile(const char *path);
 
 // Reload current level script and reset level-scoped listeners.
 void Lua_ReloadLevelScript(void);
+
+// Tells Lua a config option changed, so trx.config watchers can run. Also fired
+// once after the config is first read, so a watcher applies the saved value at
+// boot rather than only reacting to later edits.
+void LUA_Config_NotifyChanged(void);
+
+// Loads the per-game script (games/<mod>/scripts/_game.lua) if it exists. Runs
+// before the config is read so that options it declares are already in the map.
+void LUA_LoadGameScript(const char *mod_id);

@@ -1,5 +1,6 @@
 #include <trx/game/lua/common.h>
 
+#include <trx/config/dynamic_option.h>
 #include <trx/core/filesystem.h>
 #include <trx/core/log.h>
 #include <trx/core/memory.h>
@@ -8,6 +9,7 @@
 #include <trx/game/game_flow/common.h>
 #include <trx/game/lua/embedded_scripts.h>
 #include <trx/game/lua/events.h>
+#include <trx/game/shell/paths.h>
 
 #include <lauxlib.h>
 #include <lua.h>
@@ -289,6 +291,32 @@ LUA_RESULT Lua_EvalFile(const char *const path)
 {
     M_PRIV *const p = &m_Priv;
     return M_LuaLoadAndRun(p->state, M_LoadFile, path);
+}
+
+void LUA_LoadGameScript(const char *const mod_id)
+{
+    if (mod_id == nullptr) {
+        return;
+    }
+
+    // A game switch must not inherit the previous game's options.
+    Config_ClearDynamicOptions();
+
+    char *const path = TRXPath_Join(
+        TRX_PATH_GAMES_DIR,
+        String_FormatStatic("%s/scripts/_game.lua", mod_id));
+    if (path == nullptr) {
+        return;
+    }
+    if (File_Exists(path)) {
+        LOG_INFO("Loading game script: %s", path);
+        LUA_RESULT res = Lua_EvalFile(path);
+        if (res.code != LUA_OK) {
+            LOG_ERROR("Lua game script error: %s", res.message);
+        }
+        Lua_FreeResult(&res);
+    }
+    Memory_FreePointer((char **)&path);
 }
 
 void Lua_ReloadLevelScript(void)
