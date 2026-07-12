@@ -56,6 +56,7 @@ trx_lua_embed = custom_target(
     '../data/scripting/pickup.lua',
     '../data/scripting/rooms.lua',
     '../data/scripting/sound.lua',
+    '../data/scripting/strings.lua',
   ],
   output: ['trx_embedded_lua.c'],
   command: [
@@ -423,6 +424,7 @@ common_sources = [
   'trx/game/lua/pickup.c',
   'trx/game/lua/rooms.c',
   'trx/game/lua/sound.c',
+  'trx/game/lua/strings.c',
   'trx/game/lua/struct.c',
   'trx/game/lua/utils.c',
   'trx/game/matrix.c',

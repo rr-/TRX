@@ -36,6 +36,7 @@ extern void LUA_CreateMusic(lua_State *L);
 extern void LUA_CreateMath(lua_State *L);
 extern void LUA_CreateStruct(lua_State *L);
 extern void LUA_CreateSound(lua_State *L);
+extern void LUA_CreateStrings(lua_State *L);
 extern void LUA_CreateConfig(lua_State *L);
 extern void LUA_CreateRooms(lua_State *L);
 extern void LUA_CreateGame(lua_State *L);
@@ -241,6 +242,7 @@ void LUA_Init(void)
     M_LoadTRXCModule(L, LUA_CreateMusic);
     M_LoadTRXCModule(L, LUA_CreateMath);
     M_LoadTRXCModule(L, LUA_CreateSound);
+    M_LoadTRXCModule(L, LUA_CreateStrings);
     M_LoadTRXCModule(L, LUA_CreateConfig);
     M_LoadTRXCModule(L, LUA_CreateRooms);
     M_LoadTRXCModule(L, LUA_CreateGame);

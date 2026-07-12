@@ -1,4 +1,5 @@
 #include <trx/core/log.h>
+#include <trx/core/memory.h>
 #include <trx/core/strings.h>
 #include <trx/game/console/common.h>
 #include <trx/game/console/registry.h>
@@ -6,6 +7,11 @@
 #include <trx/game/lua/common.h>
 
 #include <lauxlib.h>
+#include <string.h>
+
+// Matches the pattern in lua/events.c: the module caches the state it was
+// created with, so C-side callbacks can re-enter Lua.
+static lua_State *m_L = nullptr;
 
 // trxc.console.log(...)
 static int M_L_ConsoleLog(lua_State *const L)
@@ -79,8 +85,89 @@ static int M_L_ConsoleEval(lua_State *const L)
     return luaL_error(L, "console.eval %s: %s", err, cmd);
 }
 
+// Registry key for the table mapping command prefix -> Lua handler.
+static const char M_HANDLERS_KEY[] = "trx.console.handlers";
+
+static COMMAND_RESULT M_ResultFromString(const char *const str)
+{
+    if (str == nullptr || !strcmp(str, "ok")) {
+        return CR_SUCCESS;
+    }
+    if (!strcmp(str, "unavailable")) {
+        return CR_UNAVAILABLE;
+    }
+    if (!strcmp(str, "bad_invocation")) {
+        return CR_BAD_INVOCATION;
+    }
+    return CR_FAILURE;
+}
+
+// Shared entrypoint for every Lua-defined console command. Dispatches on the
+// command's prefix to the handler stored in the Lua registry, so a single C
+// trampoline serves all of them.
+static COMMAND_RESULT M_LuaCommandProc(const COMMAND_CONTEXT *const ctx)
+{
+    lua_State *const L = m_L;
+    if (L == nullptr) {
+        return CR_FAILURE;
+    }
+
+    const int32_t base = lua_gettop(L);
+    if (lua_getfield(L, LUA_REGISTRYINDEX, M_HANDLERS_KEY) != LUA_TTABLE) {
+        lua_settop(L, base);
+        return CR_FAILURE;
+    }
+    if (lua_getfield(L, -1, ctx->prefix) != LUA_TFUNCTION) {
+        lua_settop(L, base);
+        return CR_FAILURE;
+    }
+
+    lua_pushstring(L, ctx->args != nullptr ? ctx->args : "");
+    if (lua_pcall(L, 1, 1, 0) != LUA_OK) {
+        Console_LogError("%s: %s", ctx->prefix, lua_tostring(L, -1));
+        lua_settop(L, base);
+        return CR_FAILURE;
+    }
+
+    const COMMAND_RESULT result = M_ResultFromString(lua_tostring(L, -1));
+    lua_settop(L, base);
+    return result;
+}
+
+// trxc.console.register(name, help_id, fn)
+static int M_L_ConsoleRegister(lua_State *const L)
+{
+    const char *const name = luaL_checkstring(L, 1);
+    const char *const help_id = luaL_optstring(L, 2, nullptr);
+    luaL_checktype(L, 3, LUA_TFUNCTION);
+
+    if (Console_Registry_Get(name) != nullptr) {
+        return luaL_error(
+            L, "console command '%s' is already registered", name);
+    }
+
+    if (lua_getfield(L, LUA_REGISTRYINDEX, M_HANDLERS_KEY) != LUA_TTABLE) {
+        lua_pop(L, 1);
+        lua_newtable(L);
+        lua_pushvalue(L, -1);
+        lua_setfield(L, LUA_REGISTRYINDEX, M_HANDLERS_KEY);
+    }
+    lua_pushvalue(L, 3);
+    lua_setfield(L, -2, name);
+    lua_pop(L, 1);
+
+    // The registry stores these by pointer and outlives this call.
+    Console_Registry_Add((CONSOLE_COMMAND) {
+        .prefix = Memory_DupStr(name),
+        .proc = M_LuaCommandProc,
+        .help_id = help_id != nullptr ? Memory_DupStr(help_id) : nullptr,
+    });
+    return 0;
+}
+
 void LUA_CreateConsole(lua_State *const L)
 {
+    m_L = L;
     lua_getglobal(L, "trxc");
     lua_newtable(L);
     lua_pushcfunction(L, M_L_ConsoleLog);
@@ -89,6 +176,8 @@ void LUA_CreateConsole(lua_State *const L)
     lua_setfield(L, -2, "eval");
     lua_pushcfunction(L, M_L_ConsoleClear);
     lua_setfield(L, -2, "clear");
+    lua_pushcfunction(L, M_L_ConsoleRegister);
+    lua_setfield(L, -2, "register");
     lua_setfield(L, -2, "console");
     lua_pop(L, 1);
 }
