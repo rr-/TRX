@@ -15,6 +15,15 @@
         },
         "visuals.fix_animated_sprites": {
             "description": "Fixes original issues in The Cistern and Tomb of Tihocan where plant sprites in water areas do not animate.",
+        },
+        "visuals.water_color_mode": {
+            "description": "Which release's underwater tint to use. TombATI matches the PC re-release, and DOS matches the original DOS and PlayStation builds; both set the water color below for you. Custom hands it back to you.",
+            "title": "Water color preset",
+            "values": {
+                "custom": "Custom",
+                "dos": "DOS",
+                "tombati": "TombATI",
+            }
         }
     },
     "objects": {

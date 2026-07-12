@@ -15,6 +15,15 @@
         },
         "visuals.fix_animated_sprites": {
             "description": "Risolve i problemi preesistenti nei livelli \"Cisterna\" e \"Tomba di Tihocan\" per cui le animazioni degli sprite delle piante nelle aree acquatiche non funzionano.",
+        },
+        "visuals.water_color_mode": {
+            "description": "\\{review}Quale tonalità subacquea utilizzare per la versione. TombATI corrisponde alla re-release per PC e PS1 corrisponde alle versioni originali per console e DOS; entrambe impostano il colore dell'acqua qui sotto per te. Custom te lo restituisce.",
+            "title": "\\{review}Preimpostazione colore dell'acqua",
+            "values": {
+                "custom": "\\{review}Personalizzato",
+                "dos": "\\{review}DOS",
+                "tombati": "\\{review}TombATI",
+            }
         }
     },
     "objects": {

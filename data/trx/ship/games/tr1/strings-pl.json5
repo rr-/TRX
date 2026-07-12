@@ -15,6 +15,15 @@
         },
         "visuals.fix_animated_sprites": {
             "description": "Naprawia błędy oryginalnej gry w Rezerwuarze i Grobowcu Tihocana, gdzie glony w wodnych obszarach nie są animowane.",
+        },
+        "visuals.water_color_mode": {
+            "description": "\\{review}Którego wydania podwodny odcień użyć. TombATI odpowiada wersji PC re-release, a PS1 oryginalnym wersjom konsolowym i DOS; oba ustawiają poniżej kolor wody dla Ciebie. Custom oddaje to Tobie.",
+            "title": "\\{review}Wstępnie ustawiony kolor wody",
+            "values": {
+                "custom": "\\{review}Niestandardowy",
+                "dos": "\\{review}DOS",
+                "tombati": "\\{review}TombATI",
+            }
         }
     },
     "objects": {

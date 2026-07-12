@@ -15,6 +15,15 @@
         },
         "visuals.fix_animated_sprites": {
             "description": "Corrige le fait que les sprites des végétations ne s'animent pas dans les zones aquatiques de La Citerne et de la Tombe de Tihocan.",
+        },
+        "visuals.water_color_mode": {
+            "description": "\\{review}Quelle teinte sous-marine utiliser pour la version. TombATI correspond à la réédition PC et PS1 correspond aux versions originales console et DOS ; les deux définissent la couleur de l'eau ci-dessous pour vous. Custom vous la laisse choisir.",
+            "title": "\\{review}Préréglage de la couleur de l'eau",
+            "values": {
+                "custom": "\\{review}Personnalisé",
+                "dos": "\\{review}DISQUE",
+                "tombati": "\\{review}TombATI",
+            }
         }
     },
     "objects": {

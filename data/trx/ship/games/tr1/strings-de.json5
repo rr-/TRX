@@ -15,6 +15,15 @@
         },
         "visuals.fix_animated_sprites": {
             "description": "Fixt originale Fehler in Die Zisterne und Grab des Tihocan, bei denen Pflanzen-Sprites in Wassergebieten nicht animiert sind.",
+        },
+        "visuals.water_color_mode": {
+            "description": "\\{review}Welchen Unterwasserfarbton der Veröffentlichung verwenden. TombATI entspricht der PC-Neuveröffentlichung und PS1 entspricht den ursprünglichen Konsolen- und DOS-Versionen; beide setzen die untenstehende Wasserfarbe für Sie. Benutzerdefiniert überlässt es Ihnen.",
+            "title": "\\{review}Wasservorlage",
+            "values": {
+                "custom": "\\{review}Benutzerdefiniert",
+                "dos": "\\{review}DOS",
+                "tombati": "\\{review}TombATI",
+            }
         }
     },
     "objects": {

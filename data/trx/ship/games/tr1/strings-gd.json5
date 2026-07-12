@@ -15,6 +15,15 @@
         },
         "visuals.fix_animated_sprites": {
             "description": "Càraichidh bugan san t-Siasarn is Uaigh Tihocan far nach gluais planntrais anns an uisge.",
+        },
+        "visuals.water_color_mode": {
+            "description": "\\{review}Dè an sgaoileadh dath-uisge fon uisge a chleachdadh. Tha TombATI a’ freagairt ris an ath-sgaoileadh PC agus tha PS1 a’ freagairt ris na togalaichean tùsail airson consol agus DOS; tha an dà chuid a’ suidheachadh dath an uisge gu h-ìosal dhut. Bidh Custom ga thoirt air ais thugad.",
+            "title": "\\{review}Ro-shealladh dath an uisge",
+            "values": {
+                "custom": "\\{review}Custom",
+                "dos": "\\{review}DOS",
+                "tombati": "\\{review}TombATI",
+            }
         }
     },
     "objects": {
