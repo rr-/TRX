@@ -48,6 +48,7 @@
 
 #include <SDL2/SDL.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static SHELL_SESSION *m_Session = nullptr;
 static SDL_Window *m_Window = nullptr;
@@ -186,6 +187,11 @@ static void M_InitModules(void)
 
     Clock_Init();
     LUA_Init();
+
+    const SHELL_ARGS *const args = Shell_GetArgs();
+    if (args != nullptr && args->startup.lua_test_path != nullptr) {
+        exit(LUA_RunTest(args->startup.lua_test_path) ? 0 : 1);
+    }
 }
 
 static void M_ShutdownModules(void)

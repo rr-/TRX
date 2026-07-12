@@ -50,6 +50,7 @@ trx_lua_embed = custom_target(
     '../data/scripting/items.lua',
     '../data/scripting/lara.lua',
     '../data/scripting/log.lua',
+    '../data/scripting/math.lua',
     '../data/scripting/music.lua',
     '../data/scripting/objects.lua',
     '../data/scripting/pickup.lua',
@@ -416,6 +417,7 @@ common_sources = [
   'trx/game/lua/items.c',
   'trx/game/lua/lara.c',
   'trx/game/lua/log.c',
+  'trx/game/lua/math.c',
   'trx/game/lua/music.c',
   'trx/game/lua/objects.c',
   'trx/game/lua/pickup.c',
@@ -912,7 +914,7 @@ endif
 
 trx_sources = common_sources + [trx_init, trx_resources, trx_lua_embed]
 
-executable(
+trx_exe = executable(
   'TRX',
   trx_sources,
   dependencies: dependencies,
@@ -931,3 +933,19 @@ if host_machine.system() == 'darwin'
   install_data('../data/trx/mac/Info.plist', install_dir: 'Contents', install_tag: 'trx')
   meson.add_install_script('../tools/shared/mac/bundle_dylibs', '-a', 'TRX', install_tag: 'trx')
 endif
+
+
+# --- engine tests -----------------------------------------------------------
+#
+# The unit tests live in tests/, a project of their own. This is the tier that
+# needs the engine: it boots the real scripting environment - every module
+# loaded, exactly what a level script sees - but with no level and no game data.
+# It catches the wiring a unit test cannot: a forgotten api.seal(), a stdlib left
+# open, a surface that drifted from the committed api.json.
+
+test(
+  'sandbox',
+  trx_exe,
+  args: ['--lua-test', meson.current_source_dir() / 'tests/unit/engine/sandbox.lua'],
+  suite: 'engine',
+)

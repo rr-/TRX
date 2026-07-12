@@ -1,5 +1,7 @@
+#include <trx/game/game/state.h>
 #include <trx/game/game_flow.h>
 #include <trx/game/lua/common.h>
+#include <trx/game/objects/general/combat_end.h>
 #include <trx/game/savegame.h>
 #include <trx/version.h>
 
@@ -144,6 +146,34 @@ static int M_L_GamePlayDemo(lua_State *const L)
     return 0;
 }
 
+// trxc.game.protected_boss_id() -> object_id or nil
+//
+// During a combat-end sequence the boss must not be killed by cheats. Returns
+// the object ID that is currently protected, or nil if none is.
+static int M_L_GameProtectedBossId(lua_State *const L)
+{
+    if (!CombatEnd_IsWaitingForBoss()) {
+        lua_pushnil(L);
+    } else {
+        lua_pushinteger(L, CombatEnd_GetBossType());
+    }
+    return 1;
+}
+
+// trxc.game.is_loaded() -> bool
+static int M_L_GameIsLoaded(lua_State *const L)
+{
+    lua_pushboolean(L, Game_IsLoaded());
+    return 1;
+}
+
+// trxc.game.is_playable() -> bool
+static int M_L_GameIsPlayable(lua_State *const L)
+{
+    lua_pushboolean(L, Game_IsPlayable());
+    return 1;
+}
+
 void LUA_CreateGame(lua_State *const L)
 {
     lua_getglobal(L, "trxc");
@@ -197,6 +227,12 @@ void LUA_CreateGame(lua_State *const L)
     lua_setfield(L, -2, "BONUS");
     lua_setfield(L, -2, "LevelType");
 
+    lua_pushcfunction(L, M_L_GameProtectedBossId);
+    lua_setfield(L, -2, "protected_boss_id");
+    lua_pushcfunction(L, M_L_GameIsLoaded);
+    lua_setfield(L, -2, "is_loaded");
+    lua_pushcfunction(L, M_L_GameIsPlayable);
+    lua_setfield(L, -2, "is_playable");
     lua_setfield(L, -2, "game");
     lua_pop(L, 1);
 }

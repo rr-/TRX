@@ -32,6 +32,7 @@ extern void LUA_CreateItems(lua_State *L);
 extern void LUA_CreateLara(lua_State *L);
 extern void LUA_CreateLog(lua_State *L);
 extern void LUA_CreateMusic(lua_State *L);
+extern void LUA_CreateMath(lua_State *L);
 extern void LUA_CreateStruct(lua_State *L);
 extern void LUA_CreateSound(lua_State *L);
 extern void LUA_CreateConfig(lua_State *L);
@@ -170,13 +171,57 @@ static void M_LoadTRXScripts(lua_State *const L)
         M_RequireTRXModule(L, name);
         Memory_FreePointer(&name);
     }
+
+    // The raw C bridge is not the public API. Remove it from the globals now
+    // that the trx.* modules have captured what they need in locals, so a
+    // builder's script cannot reach past the surface those modules declare.
+    lua_pushnil(L);
+    lua_setglobal(L, "trxc");
+
+    // Seal the registry. trx.api.type() reaches into the C struct binder, so
+    // leaving it callable would let a script re-expose the very members the
+    // declarations deliberately withheld.
+    if (luaL_dostring(L, "trx.api.seal()") != LUA_OK) {
+        LOG_ERROR("failed to seal trx.api: %s", lua_tostring(L, -1));
+        lua_pop(L, 1);
+    }
+
+    // require() and package.preload only exist to bootstrap the modules above.
+    lua_pushnil(L);
+    lua_setglobal(L, "require");
+    lua_pushnil(L);
+    lua_setglobal(L, "package");
+}
+
+// The standard library, minus the parts a level script has no business having.
+//
+// io and os hand a downloaded mod arbitrary file and shell access. debug
+// defeats every other boundary here: debug.getupvalue on any trx.* function
+// recovers the raw C bridge the module captured, so hiding trxc would be
+// theatre while debug is reachable.
+static void M_OpenSafeLibs(lua_State *const L)
+{
+    static const luaL_Reg LIBS[] = {
+        { LUA_GNAME, luaopen_base },
+        { LUA_LOADLIBNAME, luaopen_package },
+        { LUA_COLIBNAME, luaopen_coroutine },
+        { LUA_TABLIBNAME, luaopen_table },
+        { LUA_STRLIBNAME, luaopen_string },
+        { LUA_MATHLIBNAME, luaopen_math },
+        { LUA_UTF8LIBNAME, luaopen_utf8 },
+        { nullptr, nullptr },
+    };
+    for (const luaL_Reg *lib = LIBS; lib->func != nullptr; lib++) {
+        luaL_requiref(L, lib->name, lib->func, 1);
+        lua_pop(L, 1);
+    }
 }
 
 void LUA_Init(void)
 {
     lua_State *const L = luaL_newstate();
     ASSERT(L != nullptr);
-    luaL_openlibs(L);
+    M_OpenSafeLibs(L);
 
     lua_newtable(L);
     lua_setglobal(L, "trxc");
@@ -193,6 +238,7 @@ void LUA_Init(void)
     M_LoadTRXCModule(L, LUA_CreateLara);
     M_LoadTRXCModule(L, LUA_CreateLog);
     M_LoadTRXCModule(L, LUA_CreateMusic);
+    M_LoadTRXCModule(L, LUA_CreateMath);
     M_LoadTRXCModule(L, LUA_CreateSound);
     M_LoadTRXCModule(L, LUA_CreateConfig);
     M_LoadTRXCModule(L, LUA_CreateRooms);
@@ -268,4 +314,19 @@ void Lua_FreeResult(LUA_RESULT *const result)
     if (result != nullptr) {
         Memory_FreePointer(&result->message);
     }
+}
+
+bool LUA_RunTest(const char *const path)
+{
+    lua_State *const L = m_Priv.state;
+    if (L == nullptr) {
+        LOG_ERROR("--lua-test: Lua is not initialised");
+        return false;
+    }
+    if (luaL_dofile(L, path) != LUA_OK) {
+        LOG_ERROR("%s", lua_tostring(L, -1));
+        lua_pop(L, 1);
+        return false;
+    }
+    return true;
 }

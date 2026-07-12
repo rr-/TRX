@@ -50,6 +50,20 @@ static int M_L_LaraSetExposureBar(lua_State *const L)
     return 0;
 }
 
+// trxc.lara.get_killed_loyal_item() -> bool
+static int M_L_LaraGetKilledLoyalItem(lua_State *const L)
+{
+    lua_pushboolean(L, Lara_GetLaraInfo()->killed_loyal_item);
+    return 1;
+}
+
+// trxc.lara.set_killed_loyal_item(bool)
+static int M_L_LaraSetKilledLoyalItem(lua_State *const L)
+{
+    Lara_GetLaraInfo()->killed_loyal_item = lua_toboolean(L, 1);
+    return 0;
+}
+
 // trxc.lara.get_air_bar() → int
 static int M_L_LaraGetAirBar(lua_State *const L)
 {
@@ -224,6 +238,10 @@ void LUA_CreateLara(lua_State *const L)
     lua_setfield(L, -2, "set_exposure_bar");
     lua_pushcfunction(L, M_L_LaraGetAirBar);
     lua_setfield(L, -2, "get_air_bar");
+    lua_pushcfunction(L, M_L_LaraGetKilledLoyalItem);
+    lua_setfield(L, -2, "get_killed_loyal_item");
+    lua_pushcfunction(L, M_L_LaraSetKilledLoyalItem);
+    lua_setfield(L, -2, "set_killed_loyal_item");
     lua_pushcfunction(L, M_L_LaraSetAirBar);
     lua_setfield(L, -2, "set_air_bar");
     lua_pushcfunction(L, M_L_LaraGetOutfit);

@@ -91,3 +91,24 @@ trx.game = setmetatable({
     error("Cannot set field '" .. key .. "' on trx.game")
   end,
 })
+
+local api = trx.api
+
+api.define("game.is_loaded", {
+  description = "Whether a level is currently loaded.",
+  returns = { type = "boolean" },
+  impl = trxc.game.is_loaded,
+})
+
+api.define("game.is_playable", {
+  description = "Whether the game is loaded and accepting input, i.e. not in a menu or cutscene.",
+  returns = { type = "boolean" },
+  impl = trxc.game.is_playable,
+})
+
+api.define("game.protected_boss_id", {
+  description = "During a combat-end sequence the boss must survive. Returns the object ID that is "
+    .. "currently protected from being killed, or `nil` if none is.",
+  returns = { type = "integer", nullable = true },
+  impl = trxc.game.protected_boss_id,
+})

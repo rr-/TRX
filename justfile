@@ -109,3 +109,9 @@ test *args='--suite unit':
     #!/usr/bin/env sh
     meson setup build/tests src/tests >/dev/null 2>&1 || meson setup --reconfigure build/tests src/tests >/dev/null
     meson test -C build/tests --print-errorlogs {{args}}
+
+# Run the sandbox invariants against a real build. Still no level and no game
+# data - it boots the scripting environment a level script would see, and exits.
+[group('test')]
+test-engine binary='build/trx/linux/TRX':
+    {{binary}} --lua-test src/tests/unit/engine/sandbox.lua

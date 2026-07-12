@@ -9,6 +9,7 @@ local lara = {
 
 -- Item proxy metatable
 local getters = {
+  killed_loyal_item = raw.get_killed_loyal_item,
   exposure_bar = raw.get_exposure_bar,
   air_bar = raw.get_air_bar,
   outfit = raw.get_outfit,
@@ -29,6 +30,7 @@ local getters = {
 }
 
 local setters = {
+  killed_loyal_item = raw.set_killed_loyal_item,
   exposure_bar = raw.set_exposure_bar,
   air_bar = raw.set_air_bar,
   outfit = raw.set_outfit,

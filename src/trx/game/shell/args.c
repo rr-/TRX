@@ -46,6 +46,9 @@ static void M_ShowHelp(void)
         "   --headless-fps <NUM>: control replay frame rate in headless mode.");
     puts("-q/--quiet: silence logs and only show errors.");
     puts(
+        "   --lua-test <PATH>: run a Lua test script and exit with its "
+        "status.");
+    puts(
         "   --debug-render-performance: output diagnostic information after "
         "each "
         "frame.");
@@ -135,6 +138,11 @@ SHELL_ARGS *Shell_ParseArgs(VECTOR *const args)
             M_ShowHelp();
             Shell_FreeArgs(result);
             return nullptr;
+        }
+        if (!strcmp(arg, "--lua-test") && next_arg != nullptr) {
+            result->startup.lua_test_path = Memory_DupStr(next_arg);
+            result->quiet = true;
+            i++;
         }
         if (!strcmp(arg, "-g") || !strcmp(arg, "--gold")
             || !strcmp(arg, "-gold")) {

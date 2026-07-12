@@ -1,4 +1,7 @@
+#include <trx/core/memory.h>
 #include <trx/game/lua/utils.h>
+
+#include <string.h>
 
 static void M_PushPropertyValue(
     lua_State *const L, const OBJECT_PROPERTY_VALUE *const value)
@@ -89,6 +92,69 @@ static int M_L_ObjectsGetPropertyNames(lua_State *const L)
     return 1;
 }
 
+static bool M_IsTargetableCreature(const OBJECT_ID obj_id)
+{
+    return (Object_IsType(obj_id, g_CreatureObjects)
+            || Object_IsType(obj_id, g_LoyalObjects))
+        && Object_Get(obj_id)->loaded;
+}
+
+static bool M_IsSpawnable(const OBJECT_ID obj_id)
+{
+    return !Object_IsType(obj_id, g_NullObjects)
+        && !Object_IsType(obj_id, g_AnimObjects)
+        && !Object_IsType(obj_id, g_InvObjects) && Object_Get(obj_id)->loaded;
+}
+
+// trxc.objects.is_type(object_id, kind) -> bool
+static int M_L_ObjectsIsType(lua_State *const L)
+{
+    const OBJECT_ID object_id = luaL_checkinteger(L, 1);
+    const char *const kind = luaL_checkstring(L, 2);
+    if (!strcmp(kind, "creature")) {
+        lua_pushboolean(L, Object_IsType(object_id, g_CreatureObjects));
+    } else if (!strcmp(kind, "loyal")) {
+        lua_pushboolean(L, Object_IsType(object_id, g_LoyalObjects));
+    } else {
+        return luaL_error(L, "unknown object kind '%s'", kind);
+    }
+    return 1;
+}
+
+// trxc.objects.ids_from_name(name, [filter]) -> { object_id, ... }
+//
+// Fuzzy-matches a human-readable object name ("wolf", "big medi") against the
+// object name catalog. `filter` is "creature", "spawnable", or nil for no
+// filter. This is what lets console commands accept object names.
+static int M_L_ObjectsIdsFromName(lua_State *const L)
+{
+    const char *const name = luaL_checkstring(L, 1);
+    const char *const filter_name = luaL_optstring(L, 2, nullptr);
+
+    bool (*filter)(OBJECT_ID) = nullptr;
+    if (filter_name != nullptr) {
+        if (!strcmp(filter_name, "creature")) {
+            filter = M_IsTargetableCreature;
+        } else if (!strcmp(filter_name, "spawnable")) {
+            filter = M_IsSpawnable;
+        } else {
+            return luaL_error(L, "unknown object filter '%s'", filter_name);
+        }
+    }
+
+    int32_t match_count = 0;
+    OBJECT_NAME_MATCH *const matches =
+        Object_IdsFromName(name, &match_count, filter);
+
+    lua_newtable(L);
+    for (int32_t i = 0; i < match_count; i++) {
+        lua_pushinteger(L, matches[i].object_id);
+        lua_rawseti(L, -2, i + 1);
+    }
+    Memory_FreePointer(&matches);
+    return 1;
+}
+
 void LUA_CreateObjects(lua_State *const L)
 {
     lua_getglobal(L, "trxc");
@@ -101,6 +167,10 @@ void LUA_CreateObjects(lua_State *const L)
     lua_setfield(L, -2, "set_property");
     lua_pushcfunction(L, M_L_ObjectsGetPropertyNames);
     lua_setfield(L, -2, "get_property_names");
+    lua_pushcfunction(L, M_L_ObjectsIdsFromName);
+    lua_setfield(L, -2, "ids_from_name");
+    lua_pushcfunction(L, M_L_ObjectsIsType);
+    lua_setfield(L, -2, "is_type");
     lua_setfield(L, -2, "objects");
     lua_pop(L, 1);
 }

@@ -17,6 +17,10 @@ typedef enum {
 void LUA_Init(void);
 void LUA_Shutdown(void);
 
+// Runs a Lua test script against the fully initialised scripting environment -
+// the same one a level script sees. Returns true if it completed without error.
+bool LUA_RunTest(const char *path);
+
 // Set script context: level script vs global script
 LUA_CONTEXT Lua_GetScriptContext(void);
 void Lua_SetScriptContext(LUA_CONTEXT context);

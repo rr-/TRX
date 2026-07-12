@@ -53,3 +53,37 @@ trx.objects = setmetatable(objects, {
     return nil
   end,
 })
+
+trx.api.define("objects.find_by_name", {
+  description = "Fuzzy-matches a human-readable object name against the object catalog. "
+    .. "This is what lets a console command accept `wolf` or `big medi`.",
+  params = {
+    { name = "name", type = "string", description = 'Name to match, e.g. `"wolf"`.' },
+    {
+      name = "filter",
+      type = "string",
+      optional = true,
+      description = '`"creature"` to consider only targetable creatures, `"spawnable"` to consider '
+        .. "only objects that can be spawned. Omit for no filter.",
+    },
+  },
+  returns = { type = "table", description = "List of matching object IDs, possibly empty." },
+  examples = {
+    [[local ids = trx.objects.find_by_name("wolf", "creature")]],
+  },
+  impl = trxc.objects.ids_from_name,
+})
+
+trx.api.define("objects.is_type", {
+  description = "Whether an object belongs to a given family.",
+  params = {
+    { name = "object_id", type = "integer", enum = "objects" },
+    {
+      name = "kind",
+      type = "string",
+      description = '`"creature"` or `"loyal"` (an ally that fights alongside Lara).',
+    },
+  },
+  returns = { type = "boolean" },
+  impl = trxc.objects.is_type,
+})

@@ -5,6 +5,8 @@
 
 typedef struct {
     int32_t engine_version;
+
+    const char *lua_test_path;
     const SHELL_MOD *mod;
     struct {
         int32_t num;
