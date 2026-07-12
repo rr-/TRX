@@ -4,8 +4,7 @@
 
 typedef struct UI_SETTINGS_EDITOR_STATE UI_SETTINGS_EDITOR_STATE;
 
-UI_SETTINGS_EDITOR_STATE *UI_SettingsEditor_Init(
-    const UI_SETTINGS_OPTION *options);
+UI_SETTINGS_EDITOR_STATE *UI_SettingsEditor_Init(UI_SETTINGS_OPTION *options);
 void UI_SettingsEditor_Free(UI_SETTINGS_EDITOR_STATE *s);
 
 void UI_SettingsEditor_RecomputeSizes(

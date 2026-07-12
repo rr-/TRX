@@ -25,7 +25,8 @@ typedef struct {
 } M_ENUM_LOOKUP;
 
 typedef struct UI_SETTINGS_EDITOR_STATE {
-    const UI_SETTINGS_OPTION *options;
+    // Owned: built by the tab, merging its static rows with Lua's declarations.
+    UI_SETTINGS_OPTION *options;
     int32_t visible_rows;
     UI_SCROLLABLE scroll;
     struct {
@@ -138,6 +139,13 @@ static bool M_HasAvailableEnumValue(const UI_SETTINGS_OPTION *const option)
 
 static bool M_IsOptionHidden(const UI_SETTINGS_OPTION *const option)
 {
+    // A tab lists rows for every game, but each game's option map only carries
+    // the options that game actually has. A row with no option behind it is not
+    // an error - it just does not belong to this game. This must come first:
+    // everything below here reaches through M_GetConfigOption(), which asserts.
+    if (Config_GetOption(option->target) == nullptr) {
+        return true;
+    }
     if (option->custom_handler.is_visible != nullptr
         && !option->custom_handler.is_visible(option)) {
         return true;
@@ -333,7 +341,8 @@ static bool M_CanChangeValue(
     const int32_t dir)
 {
     const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, row_idx);
-    if (option == nullptr || Config_IsOptionEnforced(option->target)) {
+    if (option == nullptr || Config_IsOptionEnforced(option->target)
+        || Config_IsOptionDisabled(option->target)) {
         return false;
     }
     if (option->custom_handler.can_change_value != nullptr) {
@@ -414,7 +423,7 @@ changed:
 }
 
 UI_SETTINGS_EDITOR_STATE *UI_SettingsEditor_Init(
-    const UI_SETTINGS_OPTION *const options)
+    UI_SETTINGS_OPTION *const options)
 {
     UI_SETTINGS_EDITOR_STATE *const s = Memory_Alloc(sizeof(*s));
     s->options = options;
@@ -437,6 +446,9 @@ void UI_SettingsEditor_Free(UI_SETTINGS_EDITOR_STATE *const s)
     }
     UI_ColorEditorDialog_Free(s->color_editor);
     s->color_editor = nullptr;
+    // The tab built this array for us out of its static rows and whatever Lua
+    // declared; nobody else holds it.
+    Memory_FreePointer(&s->options);
     Memory_Free(s);
 }
 
@@ -446,6 +458,9 @@ static float M_GetMaxLabelWidth(const UI_SETTINGS_EDITOR_STATE *const s)
     if (s->options != nullptr) {
         for (int32_t i = 0; s->options[i].target != nullptr; i++) {
             const UI_SETTINGS_OPTION *const option = &s->options[i];
+            if (M_IsOptionHidden(option)) {
+                continue;
+            }
             const float label_w = UI_Label_MeasureW(M_GetOptionTitle(option));
             result = MAX(label_w, result);
         }
@@ -459,6 +474,9 @@ static float M_GetMaxValueWidth(const UI_SETTINGS_EDITOR_STATE *const s)
     if (s->options != nullptr) {
         for (int32_t i = 0; s->options[i].target != nullptr; i++) {
             const UI_SETTINGS_OPTION *const option = &s->options[i];
+            if (M_IsOptionHidden(option)) {
+                continue;
+            }
             const float value_w = M_MeasureMaxValueWidth(option);
             result = MAX(value_w, result);
         }
@@ -696,8 +714,9 @@ static void M_OptionLabel(
     const bool star_if_enforced)
 {
     const bool is_available = option == nullptr
-        || option->custom_handler.is_available == nullptr
-        || option->custom_handler.is_available(option);
+        || (!Config_IsOptionDisabled(option->target)
+            && (option->custom_handler.is_available == nullptr
+                || option->custom_handler.is_available(option)));
     const bool is_enforced = star_if_enforced && option != nullptr
         && Config_IsOptionEnforced(option->target);
     const char *const suffix = is_enforced ? "*" : "";

@@ -20,9 +20,11 @@ UI_SETTINGS_DIALOG_STATE *UI_SoundSettings_Init(void)
 {
     const UI_SETTINGS_TAB tabs[] = {
         UI_SettingsTab_MakeEditor(
-            GS_ID("general/settings/sound/tabs/volume"), m_SoundVolumeOptions),
+            GS_ID("general/settings/sound/tabs/volume"), "sound_volume",
+            m_SoundVolumeOptions),
         UI_SettingsTab_MakeEditor(
-            GS_ID("general/settings/sound/tabs/misc"), m_SoundMiscOptions),
+            GS_ID("general/settings/sound/tabs/misc"), "sound_misc",
+            m_SoundMiscOptions),
     };
 
     return UI_SettingsDialog_Init(

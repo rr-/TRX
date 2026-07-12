@@ -47,6 +47,9 @@ typedef struct UI_SETTINGS_TAB {
     void *user_data;
 } UI_SETTINGS_TAB;
 
+// `tab_id` names the tab in Lua: an option declared with this tab gets a row
+// here. It matches the tab's .def file name, eg. "graphic_visuals".
 UI_SETTINGS_TAB UI_SettingsTab_MakeEditor(
-    GAME_STRING_ID header_gs, const UI_SETTINGS_OPTION *options);
+    GAME_STRING_ID header_gs, const char *tab_id,
+    const UI_SETTINGS_OPTION *options);
 UI_SETTINGS_TAB UI_SettingsTab_MakePresets(GAME_STRING_ID header_gs);

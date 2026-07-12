@@ -30,13 +30,16 @@ UI_SETTINGS_DIALOG_STATE *UI_GameplaySettings_Init(void)
 {
     const UI_SETTINGS_TAB tabs[] = {
         UI_SettingsTab_MakeEditor(
-            GS_ID("general/settings/gameplay/tabs/general"), m_GeneralOptions),
+            GS_ID("general/settings/gameplay/tabs/general"), "gameplay_general",
+            m_GeneralOptions),
         UI_SettingsTab_MakeEditor(
-            GS_ID("general/settings/gameplay/tabs/controls"), m_ControlOptions),
+            GS_ID("general/settings/gameplay/tabs/controls"),
+            "gameplay_controls", m_ControlOptions),
         UI_SettingsTab_MakeEditor(
-            GS_ID("general/settings/gameplay/tabs/mods"), m_GameplayModOptions),
+            GS_ID("general/settings/gameplay/tabs/mods"), "gameplay_mods",
+            m_GameplayModOptions),
         UI_SettingsTab_MakeEditor(
-            GS_ID("general/settings/gameplay/tabs/fixes"),
+            GS_ID("general/settings/gameplay/tabs/fixes"), "gameplay_fixes",
             m_GameplayFixOptions),
         UI_SettingsTab_MakePresets(
             GS_ID("general/settings/gameplay/tabs/presets")),
