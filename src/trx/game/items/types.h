@@ -44,6 +44,9 @@ typedef struct ITEM {
     uint16_t flags;
     uint8_t ai_bits;
     int16_t ai_tag;
+    // Bumped on create and on kill. Scripts hold {index, gen} handles; a
+    // mismatch means the slot was recycled and the handle is stale.
+    uint16_t gen;
     ITEM_PROPERTY_SET properties;
 
     SHADE shade;

@@ -172,6 +172,7 @@ int16_t Item_Create(void)
         m_Items[item_num].flags = 0;
         // A recycled slot must not inherit the previous occupant's name.
         m_Items[item_num].name = nullptr;
+        m_Items[item_num].gen++;
         ObjectProperty_ResetItem(&m_Items[item_num]);
         m_NextItemFree = m_Items[item_num].next_item;
     }
@@ -331,6 +332,9 @@ void Item_Kill(const int16_t item_num)
     }
 
     item->flags |= IF_KILLED;
+    // Invalidate any script handle to this item, whether or not the slot is
+    // recycled below.
+    item->gen++;
 
     if (item_num >= m_LevelItemCount) {
         item->next_item = m_NextItemFree;
