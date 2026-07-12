@@ -20,6 +20,8 @@
 
 // In-memory list of pointers to config options hidden by the game flow.
 static VECTOR *m_HiddenOptions = nullptr;
+// In-memory list of pointers to config options greyed out by another option.
+static VECTOR *m_DisabledOptions = nullptr;
 // In-memory list of runtime config overrides.
 static VECTOR *m_OverrideOptions = nullptr;
 
@@ -445,6 +447,29 @@ bool Config_IsOptionHidden(const void *const target)
 {
     return m_HiddenOptions != nullptr
         && Vector_Contains(m_HiddenOptions, &target);
+}
+
+void Config_SetOptionDisabled(const void *const target, const bool disabled)
+{
+    if (target == nullptr) {
+        return;
+    }
+    if (m_DisabledOptions == nullptr) {
+        m_DisabledOptions = Vector_Create(sizeof(void *));
+    }
+    if (disabled) {
+        if (!Vector_Contains(m_DisabledOptions, &target)) {
+            Vector_Add(m_DisabledOptions, &target);
+        }
+    } else {
+        Vector_Remove(m_DisabledOptions, &target);
+    }
+}
+
+bool Config_IsOptionDisabled(const void *const target)
+{
+    return m_DisabledOptions != nullptr
+        && Vector_Contains(m_DisabledOptions, &target);
 }
 
 bool Config_IsOptionAtDefault(const void *const target)
