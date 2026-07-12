@@ -1,12 +1,15 @@
 #include <trx/config/priv.h>
 
 #include <trx/config/common.h>
+#include <trx/config/dynamic_enum.h>
+#include <trx/config/dynamic_option.h>
 #include <trx/config/file.h>
 #include <trx/config/vars.h>
 #include <trx/core/log.h>
 #include <trx/core/memory.h>
 #include <trx/core/strings.h>
 #include <trx/core/utils.h>
+#include <trx/core/vector.h>
 #include <trx/debug.h>
 #include <trx/game/clock.h>
 #include <trx/game/input.h>
@@ -562,6 +565,36 @@ void Config_DumpToJSON(JSON_OBJECT *root_obj)
     M_DumpInputConfig(root_obj);
 }
 
+// An enum declared by a script lists its own allowed values, so a config file
+// left behind by another game - or by a build that wrote the value out wrong -
+// can name one that does not exist. Trusting it strands the option on a value
+// nothing matches, and writes that straight back out on the next save.
+static void M_SanitizeDynamicOptions(void)
+{
+    const VECTOR *const options = Config_GetDynamicOptions();
+    for (int32_t i = 0; options != nullptr && i < options->count; i++) {
+        CONFIG_DYNAMIC_OPTION *const option = Vector_Get((VECTOR *)options, i);
+        if (option->type != COT_DYNAMIC_ENUM) {
+            continue;
+        }
+        const CONFIG_OPTION *const cfg_option =
+            Config_GetOption(option->target);
+        char **const target = (char **)option->target;
+        if (cfg_option == nullptr
+            || Config_DynamicEnum_IsValidValue(cfg_option, *target)) {
+            continue;
+        }
+        LOG_WARNING(
+            "%s: unknown value '%s', restoring default '%s'", option->name,
+            *target != nullptr ? *target : "(null)",
+            (const char *)option->default_value);
+        Memory_FreePointer(target);
+        *target = option->default_value == nullptr
+            ? nullptr
+            : Memory_DupStr(option->default_value);
+    }
+}
+
 void Config_Sanitize(void)
 {
     if (g_Config.rendering.aspect_mode != ASPECT_MODE_ANY
@@ -615,4 +648,6 @@ void Config_Sanitize(void)
         CONFIG_MAX_BRIGHTNESS);
     CLAMP(g_Config.visuals.gamma, CONFIG_MIN_GAMMA, CONFIG_MAX_GAMMA);
     CLAMPL(g_Config.rendering.anisotropy_filter, 1.0);
+
+    M_SanitizeDynamicOptions();
 }

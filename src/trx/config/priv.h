@@ -5,3 +5,7 @@
 void Config_LoadFromJSON(JSON_OBJECT *root_obj);
 void Config_DumpToJSON(JSON_OBJECT *root_obj);
 void Config_Sanitize(void);
+
+// Forces Config_GetOptionMap() to rebuild. Called when the set of dynamic
+// options changes.
+void Config_InvalidateOptionMap(void);

@@ -1,6 +1,7 @@
 #include <trx/config/common.h>
 
 #include <trx/config/dynamic_enum.h>
+#include <trx/config/dynamic_option.h>
 #include <trx/config/file.h>
 #include <trx/config/priv.h>
 #include <trx/config/vars.h>
@@ -277,7 +278,12 @@ bool Config_Read(
 bool Config_Update(void)
 {
     Config_Sanitize();
-    if (memcmp(&g_Config, &g_SavedConfig, sizeof(CONFIG)) == 0) {
+    // A dynamic option's value lives on the heap, not in g_Config, so the
+    // memcmp below cannot see it move. Ask it directly, or changing one would
+    // fire no event and nothing watching it would ever hear.
+    const bool dynamic_changed = Config_CommitDynamicOptions();
+    if (memcmp(&g_Config, &g_SavedConfig, sizeof(CONFIG)) == 0
+        && !dynamic_changed) {
         return false;
     }
 

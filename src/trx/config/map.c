@@ -1,9 +1,12 @@
+#include <trx/config/dynamic_option.h>
 #include <trx/config/option.h>
+#include <trx/config/priv.h>
 #include <trx/config/types.h>
 #include <trx/config/vars.h>
 #include <trx/core/colors.h>
 #include <trx/core/enum_map.h>
 #include <trx/core/utils.h>
+#include <trx/core/vector.h>
 #include <trx/debug.h>
 #include <trx/game/lara/const.h>
 #include <trx/version.h>
@@ -126,12 +129,61 @@ static const CONFIG_OPTION *m_ConfigOptionMap[TR_VERSION_COUNT] = {
 #undef X_CFG_DYNAMIC_ENUM
 #undef X_CFG_DYNAMIC_ENUM_EX
 
+// The map handed out at runtime: the static options for this game, plus every
+// option Lua declared. Rebuilt lazily, so a declaration made before the game
+// version is known still lands in the map.
+static VECTOR *m_RuntimeMap = nullptr;
+static int32_t m_RuntimeMapVersion = 0;
+static bool m_RuntimeMapDirty = true;
+
+void Config_InvalidateOptionMap(void)
+{
+    m_RuntimeMapDirty = true;
+}
+
+static void M_RebuildOptionMap(void)
+{
+    if (m_RuntimeMap == nullptr) {
+        m_RuntimeMap = Vector_Create(sizeof(CONFIG_OPTION));
+    }
+    Vector_Clear(m_RuntimeMap);
+
+    for (const CONFIG_OPTION *opt = m_ConfigOptionMap[g_TRVersion - 1];
+         opt->name != nullptr; opt++) {
+        Vector_Add(m_RuntimeMap, opt);
+    }
+
+    const VECTOR *const dynamic_options = Config_GetDynamicOptions();
+    if (dynamic_options != nullptr) {
+        for (int32_t i = 0; i < dynamic_options->count; i++) {
+            const CONFIG_DYNAMIC_OPTION *const dyn =
+                Vector_Get((VECTOR *)dynamic_options, i);
+            const CONFIG_OPTION option = {
+                .name = dyn->name,
+                .type = dyn->type,
+                .target = dyn->target,
+                .default_value = dyn->default_value,
+                .param = nullptr,
+            };
+            Vector_Add(m_RuntimeMap, &option);
+        }
+    }
+
+    Vector_Add(m_RuntimeMap, &(CONFIG_OPTION) {}); // sentinel
+
+    m_RuntimeMapVersion = g_TRVersion;
+    m_RuntimeMapDirty = false;
+}
+
 const CONFIG_OPTION *Config_GetOptionMap(void)
 {
     if (g_TRVersion < 1 || g_TRVersion > TR_VERSION_COUNT) {
         return nullptr;
     }
-    return m_ConfigOptionMap[g_TRVersion - 1];
+    if (m_RuntimeMapDirty || m_RuntimeMapVersion != g_TRVersion) {
+        M_RebuildOptionMap();
+    }
+    return Vector_GetData(m_RuntimeMap);
 }
 
 const char *Config_ResolveOptionName(const char *option_name)

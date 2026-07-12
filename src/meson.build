@@ -153,6 +153,7 @@ common_sources = [
   'trx/av/video.c',
   'trx/config/common.c',
   'trx/config/dynamic_enum.c',
+  'trx/config/dynamic_option.c',
   'trx/config/enum.c',
   'trx/config/file.c',
   'trx/config/map.c',

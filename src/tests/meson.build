@@ -63,6 +63,15 @@ test_field_exe = executable(
 )
 test('field', test_field_exe, suite: 'unit')
 
+test_config_option_exe = executable(
+  'test_config_option',
+  files('unit/test_config_option.c') + test_stubs
+    + files('../trx/config/dynamic_option.c', '../trx/core/vector.c', '../trx/core/memory.c'),
+  include_directories: [src_inc, test_inc],
+  build_by_default: false,
+)
+test('config_option', test_config_option_exe, suite: 'unit')
+
 # field.c and lua/struct.c are leaf modules, so the reflection layer and the Lua
 # bridge can be exercised against a synthetic struct type.
 test_lua_struct_exe = executable(
