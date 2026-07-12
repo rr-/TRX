@@ -45,6 +45,7 @@ static void M_ShowHelp(void)
     puts(
         "   --headless-fps <NUM>: control replay frame rate in headless mode.");
     puts("-q/--quiet: silence logs and only show errors.");
+    puts("   --dump-lua-api: print the Lua API field tables as JSON and exit.");
     puts(
         "   --lua-test <PATH>: run a Lua test script and exit with its "
         "status.");
@@ -143,6 +144,13 @@ SHELL_ARGS *Shell_ParseArgs(VECTOR *const args)
             result->startup.lua_test_path = Memory_DupStr(next_arg);
             result->quiet = true;
             i++;
+        }
+        if (!strcmp(arg, "--dump-lua-api")) {
+            // Handled after LUA_Init: the dump combines the C field tables with
+            // the Lua-side trx.api registry, so the scripts must be loaded.
+            // Logs share stdout with the JSON, so silence them.
+            result->startup.dump_lua_api = true;
+            result->quiet = true;
         }
         if (!strcmp(arg, "-g") || !strcmp(arg, "--gold")
             || !strcmp(arg, "-gold")) {

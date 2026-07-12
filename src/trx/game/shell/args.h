@@ -6,6 +6,7 @@
 typedef struct {
     int32_t engine_version;
 
+    bool dump_lua_api;
     const char *lua_test_path;
     const SHELL_MOD *mod;
     struct {

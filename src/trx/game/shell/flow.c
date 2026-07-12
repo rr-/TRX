@@ -189,6 +189,10 @@ static void M_InitModules(void)
     LUA_Init();
 
     const SHELL_ARGS *const args = Shell_GetArgs();
+    if (args != nullptr && args->startup.dump_lua_api) {
+        LUA_DumpAPI();
+        exit(0);
+    }
     if (args != nullptr && args->startup.lua_test_path != nullptr) {
         exit(LUA_RunTest(args->startup.lua_test_path) ? 0 : 1);
     }

@@ -115,3 +115,21 @@ test *args='--suite unit':
 [group('test')]
 test-engine binary='build/trx/linux/TRX':
     {{binary}} --lua-test src/tests/unit/engine/sandbox.lua
+
+# Regenerate the Lua API reference from a built binary.
+[group('lint')]
+lua-api-dump binary='build/trx/linux/TRX':
+    # The binary is required because the dump merges the C-side FIELD_DESC tables
+    # with the Lua-side trx.api registry. Neither can be read from source alone,
+    # and scripts can register fields at runtime that no parser would ever see.
+    tools/update_lua_docs --dump-from {{binary}}
+
+# CI guard: fail if the committed Lua API docs or api.json are stale.
+[group('lint')]
+lua-api-check binary='build/trx/linux/TRX': (lua-api-dump binary)
+    # The prek hook only regenerates the docs from the committed api.json, so it
+    # cannot notice that api.json itself went stale - a new FIELD_DESC entry, or a
+    # new trx.api.define. This re-dumps from a real build and fails on any diff.
+    @git diff --exit-code -- docs/trx/lua/ || ( \
+        echo 'Lua API docs are stale. Run `just lua-api-dump` and commit the result.'; \
+        exit 1 )

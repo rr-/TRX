@@ -17,6 +17,10 @@ typedef enum {
 void LUA_Init(void);
 void LUA_Shutdown(void);
 
+// Prints the full public API surface as JSON: the C-side FIELD_DESC tables plus
+// the Lua-side trx.api registry. Used by --dump-lua-api.
+void LUA_DumpAPI(void);
+
 // Runs a Lua test script against the fully initialised scripting environment -
 // the same one a level script sees. Returns true if it completed without error.
 bool LUA_RunTest(const char *path);

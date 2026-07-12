@@ -1,0 +1,608 @@
+{
+  "functions": [
+    {
+      "description": "Fuzzy-matches a human-readable object name against the object catalog. This is what lets a console command accept `wolf` or `big medi`.",
+      "examples": [
+        "local ids = trx.objects.find_by_name(\"wolf\", \"creature\")"
+      ],
+      "params": [
+        {
+          "description": "Name to match, e.g. `\"wolf\"`.",
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "description": "`\"creature\"` to consider only targetable creatures, `\"spawnable\"` to consider only objects that can be spawned. Omit for no filter.",
+          "name": "filter",
+          "optional": true,
+          "type": "string"
+        }
+      ],
+      "path": "objects.find_by_name",
+      "returns": {
+        "description": "List of matching object IDs, possibly empty.",
+        "type": "table"
+      }
+    },
+    {
+      "description": "Whether an object belongs to a given family.",
+      "params": [
+        {
+          "enum": "objects",
+          "name": "object_id",
+          "type": "integer"
+        },
+        {
+          "description": "`\"creature\"` or `\"loyal\"` (an ally that fights alongside Lara).",
+          "name": "kind",
+          "type": "string"
+        }
+      ],
+      "path": "objects.is_type",
+      "returns": {
+        "type": "boolean"
+      }
+    },
+    {
+      "description": "Sine of an angle.",
+      "params": [
+        {
+          "description": "Angle in TRX units.",
+          "name": "angle",
+          "type": "integer"
+        }
+      ],
+      "path": "math.sin",
+      "returns": {
+        "description": "A value in [-1, 1].",
+        "type": "number"
+      }
+    },
+    {
+      "description": "Cosine of an angle.",
+      "params": [
+        {
+          "description": "Angle in TRX units.",
+          "name": "angle",
+          "type": "integer"
+        }
+      ],
+      "path": "math.cos",
+      "returns": {
+        "description": "A value in [-1, 1].",
+        "type": "number"
+      }
+    },
+    {
+      "description": "Angle of the vector (x, z), in TRX units.",
+      "examples": [
+        "-- face an item towards Lara\nlocal angle = trx.math.atan(lara.pos.z - pos.z, lara.pos.x - pos.x)"
+      ],
+      "params": [
+        {
+          "name": "z",
+          "type": "integer"
+        },
+        {
+          "name": "x",
+          "type": "integer"
+        }
+      ],
+      "path": "math.atan",
+      "returns": {
+        "type": "integer"
+      }
+    },
+    {
+      "description": "Retrieves an item by 1-based index or by name.",
+      "examples": [
+        "local item = trx.items[1]\nitem.name = \"lara\"\nlocal lara = trx.items[\"lara\"]"
+      ],
+      "params": [
+        {
+          "description": "1-based index, or the item's unique name.",
+          "name": "key",
+          "type": "any"
+        }
+      ],
+      "path": "items.get",
+      "returns": {
+        "nullable": true,
+        "type": "Item"
+      }
+    },
+    {
+      "description": "Creates a new item of the given object type at the given position.",
+      "examples": [
+        "local wolf = trx.items.spawn(\n  trx.catalog.objects.wolf, trx.lara.item.pos, 0, { activate = true })"
+      ],
+      "params": [
+        {
+          "description": "Object type to spawn.",
+          "enum": "objects",
+          "name": "object_id",
+          "type": "integer"
+        },
+        {
+          "description": "World position. Must lie inside the level.",
+          "name": "pos",
+          "type": "vec3"
+        },
+        {
+          "default": 0,
+          "description": "Facing angle.",
+          "name": "angle_y",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "description": "`activate`: bring the item to life, enabling AI for creatures.",
+          "name": "opts",
+          "optional": true,
+          "type": "table"
+        }
+      ],
+      "path": "items.spawn",
+      "returns": {
+        "description": "`nil` if the item pool is exhausted.",
+        "nullable": true,
+        "type": "Item"
+      }
+    },
+    {
+      "description": "Returns the total number of allocated items. Same as `#trx.items`.",
+      "path": "items.count",
+      "returns": {
+        "type": "integer"
+      }
+    },
+    {
+      "description": "Finds all items matching the query.",
+      "examples": [
+        "local wolves = trx.items.find({ object_id = trx.catalog.objects.wolf })"
+      ],
+      "params": [
+        {
+          "description": "Supported keys: `object_id`, `room_num`. Unknown keys are ignored and logged.",
+          "name": "query",
+          "type": "table"
+        }
+      ],
+      "path": "items.find",
+      "returns": {
+        "description": "List of `Item`.",
+        "type": "table"
+      }
+    },
+    {
+      "description": "Finds the first item matching the query.",
+      "examples": [
+        "local natla = trx.items.first({ object_id = trx.catalog.objects.natla })"
+      ],
+      "params": [
+        {
+          "description": "Supported keys: `object_id`, `room_num`.",
+          "name": "query",
+          "type": "table"
+        }
+      ],
+      "path": "items.first",
+      "returns": {
+        "nullable": true,
+        "type": "Item"
+      }
+    },
+    {
+      "description": "Retrieves a room by 1-based index.",
+      "examples": [
+        "local room = trx.rooms[15]\nroom.underwater = true"
+      ],
+      "params": [
+        {
+          "description": "1-based room number.",
+          "name": "num",
+          "type": "integer"
+        }
+      ],
+      "path": "rooms.get",
+      "returns": {
+        "nullable": true,
+        "type": "Room"
+      }
+    },
+    {
+      "description": "Returns the number of rooms in the level. Same as `#trx.rooms`.",
+      "path": "rooms.count",
+      "returns": {
+        "type": "integer"
+      }
+    },
+    {
+      "description": "Flips the current room map, swapping every room with its flip pair.",
+      "path": "rooms.flip"
+    },
+    {
+      "description": "Sets the active flip effect, and optionally its timer.",
+      "examples": [
+        "trx.rooms.flip_effect(trx.catalog.flip_effects.floor_shake, 10)"
+      ],
+      "params": [
+        {
+          "description": "0-based effect id. Use `-1` to clear the current effect. Compare against `trx.catalog.flip_effects`.",
+          "name": "effect_id",
+          "type": "integer"
+        },
+        {
+          "description": "Flip timer value.",
+          "name": "timer",
+          "optional": true,
+          "type": "integer"
+        }
+      ],
+      "path": "rooms.flip_effect"
+    },
+    {
+      "description": "Nudges a position into valid room geometry, e.g. to find somewhere an item can legally be placed.",
+      "params": [
+        {
+          "description": "Position to search near.",
+          "name": "pos",
+          "type": "vec3"
+        },
+        {
+          "description": "1-based room to search from.",
+          "name": "room_num",
+          "type": "integer"
+        }
+      ],
+      "path": "rooms.find_valid_pos",
+      "returns": {
+        "description": "The valid position and its 1-based room number, or `nil` if none was found nearby.",
+        "nullable": true,
+        "type": "vec3"
+      }
+    },
+    {
+      "description": "Whether a level is currently loaded.",
+      "path": "game.is_loaded",
+      "returns": {
+        "type": "boolean"
+      }
+    },
+    {
+      "description": "Whether the game is loaded and accepting input, i.e. not in a menu or cutscene.",
+      "path": "game.is_playable",
+      "returns": {
+        "type": "boolean"
+      }
+    },
+    {
+      "description": "During a combat-end sequence the boss must survive. Returns the object ID that is currently protected from being killed, or `nil` if none is.",
+      "path": "game.protected_boss_id",
+      "returns": {
+        "nullable": true,
+        "type": "integer"
+      }
+    }
+  ],
+  "modules": [
+    {
+      "description": "Fixed-point trigonometry, matching the engine's own tables.\n\nTRX angles are 16-bit units where 65536 is a full turn, not radians. Using these rather than Lua's `math` library guarantees a script places things exactly where the engine would.",
+      "name": "math",
+      "order": 17
+    },
+    {
+      "description": "Module for controlling all moveables.",
+      "name": "items",
+      "order": 4
+    },
+    {
+      "description": "Module for inspecting and altering the rooms of the current level.",
+      "name": "rooms",
+      "order": 10
+    }
+  ],
+  "types": [
+    {
+      "description": "An item, also known as a moveable.",
+      "extensions": [
+        {
+          "description": "Typed, object-specific item properties. Writing here overrides the object's default for this item only; reads fall back to the object. Iterable with `pairs()`. See [Objects](../../OBJECTS.md).",
+          "name": "properties",
+          "type": "table"
+        },
+        {
+          "description": "The `trx.rooms.Room` containing this item.",
+          "name": "room",
+          "type": "Room"
+        }
+      ],
+      "fields": [
+        {
+          "description": "Object-relative animation number, 0-indexed.",
+          "name": "anim",
+          "type": "integer",
+          "writable": true
+        },
+        {
+          "description": "Current animation state.",
+          "name": "anim_state",
+          "type": "integer",
+          "writable": true
+        },
+        {
+          "description": "Whether Lara can collide with this item.",
+          "name": "collidable",
+          "type": "boolean",
+          "writable": true
+        },
+        {
+          "description": "Vertical speed.",
+          "name": "fall_speed",
+          "type": "integer",
+          "writable": true
+        },
+        {
+          "description": "Trigger-related flag bits.",
+          "name": "flags",
+          "type": "integer",
+          "writable": true
+        },
+        {
+          "description": "Object-relative frame number, 0-indexed. Negative values count back from the end.",
+          "name": "frame",
+          "type": "integer",
+          "writable": true
+        },
+        {
+          "description": "Animation state the item is transitioning towards.",
+          "name": "goal_anim_state",
+          "type": "integer",
+          "writable": true
+        },
+        {
+          "description": "Whether gravity applies to this item.",
+          "name": "gravity",
+          "type": "boolean",
+          "writable": true
+        },
+        {
+          "description": "Current hit points. Raising this above the maximum also raises `properties.max_hit_points`.",
+          "name": "hit_points",
+          "type": "integer",
+          "writable": true
+        },
+        {
+          "description": "Whether the item's control routine is running. Call `activate()` to start it.",
+          "name": "is_active",
+          "type": "boolean",
+          "writable": false
+        },
+        {
+          "description": "Whether the item is a living creature with hit points remaining.",
+          "name": "is_alive",
+          "type": "boolean",
+          "writable": false
+        },
+        {
+          "description": "Whether this item is a creature currently hostile to Lara.",
+          "name": "is_hostile",
+          "type": "boolean",
+          "writable": false
+        },
+        {
+          "description": "Whether the item has already been killed.",
+          "name": "is_killed",
+          "type": "boolean",
+          "writable": false
+        },
+        {
+          "description": "Maximum hit points. Set `properties.max_hit_points` to change it.",
+          "name": "max_hit_points",
+          "type": "integer",
+          "writable": false
+        },
+        {
+          "description": "Bitmask of which of the item's meshes are drawn.",
+          "name": "mesh_bits",
+          "type": "integer",
+          "writable": true
+        },
+        {
+          "description": "Unique item name, or `nil`. Assigning a name already in use raises an error.",
+          "name": "name",
+          "type": "string",
+          "writable": true
+        },
+        {
+          "description": "The item's object type. Compare against `trx.catalog.objects`.",
+          "name": "object_id",
+          "type": "integer",
+          "writable": false
+        },
+        {
+          "description": "World position. Updating this also updates `room` and `room_num`.",
+          "name": "pos",
+          "type": "vec3",
+          "writable": true
+        },
+        {
+          "description": "1-based number of the room containing this item. Set `pos` to move the item between rooms.",
+          "name": "room_num",
+          "type": "integer",
+          "writable": false
+        },
+        {
+          "description": "Orientation.",
+          "name": "rot",
+          "type": "vec3",
+          "writable": true
+        },
+        {
+          "description": "Forward speed.",
+          "name": "speed",
+          "type": "integer",
+          "writable": true
+        },
+        {
+          "description": "Item status. Compare against `trx.items.Status`.",
+          "name": "status",
+          "type": "integer",
+          "writable": true
+        },
+        {
+          "description": "Trigger-related timer value.",
+          "name": "timer",
+          "type": "integer",
+          "writable": true
+        },
+        {
+          "description": "Bitmask of which of the item's meshes Lara is touching.",
+          "name": "touch_bits",
+          "type": "integer",
+          "writable": false
+        },
+        {
+          "description": "Whether the item was hit during the current frame.",
+          "name": "was_hit",
+          "type": "boolean",
+          "writable": false
+        }
+      ],
+      "methods": [
+        {
+          "description": "Adds the item to the active list and starts its control routine. Objects with no control routine cannot be activated.",
+          "name": "activate"
+        },
+        {
+          "description": "Distance from this item to a world position.",
+          "name": "distance_to",
+          "params": [
+            {
+              "description": "World position.",
+              "name": "pos",
+              "type": "vec3"
+            }
+          ],
+          "returns": {
+            "type": "integer"
+          }
+        },
+        {
+          "description": "Runs the object's death handling with an explosion, as a rocket or a grenade would. Unlike `kill()`, which simply removes the item from the game.",
+          "name": "explode"
+        },
+        {
+          "description": "Reads an object property, falling back to the object's default. Prefer `item.properties.<name>`.",
+          "name": "get_property",
+          "params": [
+            {
+              "name": "name",
+              "type": "string"
+            }
+          ],
+          "returns": {
+            "nullable": true,
+            "type": "any"
+          }
+        },
+        {
+          "description": "Names of every property this item's object declares.",
+          "name": "get_property_names",
+          "returns": {
+            "type": "table"
+          }
+        },
+        {
+          "description": "Whether the handle still refers to a live item. Reading or writing a field on a stale handle raises an error rather than silently operating on an unrelated item, so check this for a handle held across time.",
+          "examples": [
+            "local wolf = trx.items.first({ object_id = trx.catalog.objects.wolf })\ntrx.events.after_control(function()\n  if wolf:is_valid() and wolf.hit_points <= 0 then\n    trx.log.info(\"the wolf is down\")\n  end\nend)"
+          ],
+          "name": "is_valid",
+          "returns": {
+            "type": "boolean"
+          }
+        },
+        {
+          "description": "Removes the item from the game. Any other handle to it becomes stale.",
+          "name": "kill"
+        },
+        {
+          "description": "Overrides an object property for this item. Prefer `item.properties.<name> = ...`.",
+          "name": "set_property",
+          "params": [
+            {
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "name": "value",
+              "type": "any"
+            }
+          ]
+        }
+      ],
+      "path": "items.Item"
+    },
+    {
+      "description": "A room in the current level.",
+      "extensions": [
+        {
+          "description": "World-coordinate bounds of the room: `min_x`, `min_y`, `min_z`, `max_x`, `max_y`, `max_z`.",
+          "name": "bounds",
+          "type": "table"
+        },
+        {
+          "description": "This room's flip pair, or `nil` if it has none.",
+          "name": "flipped_room",
+          "type": "Room"
+        },
+        {
+          "description": "As `bounds`, but excluding the outer ring of sectors, which is solid wall.",
+          "name": "internal_bounds",
+          "type": "table"
+        }
+      ],
+      "fields": [
+        {
+          "description": "Whether Lara's breath is visible in the room.",
+          "name": "cold",
+          "type": "boolean",
+          "writable": true
+        },
+        {
+          "description": "Whether the room drains Lara's exposure meter.",
+          "name": "damaging",
+          "type": "boolean",
+          "writable": true
+        },
+        {
+          "description": "Current flip status. Compare against `trx.rooms.fn.FlipStatus`.",
+          "name": "flip_status",
+          "type": "integer",
+          "writable": false
+        },
+        {
+          "description": "1-based room number.",
+          "name": "num",
+          "type": "integer",
+          "writable": false
+        },
+        {
+          "description": "Whether the room is filled with water.",
+          "name": "underwater",
+          "type": "boolean",
+          "writable": true
+        },
+        {
+          "description": "Whether the room has a breeze. Requires the player to have breeze enabled.",
+          "name": "wind",
+          "type": "boolean",
+          "writable": true
+        }
+      ],
+      "methods": [],
+      "path": "rooms.Room"
+    }
+  ]
+}
