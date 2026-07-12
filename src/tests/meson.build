@@ -86,4 +86,10 @@ endif
 python_exe = find_program('python3', required: false)
 if python_exe.found()
   test('update_lua_docs', python_exe, args: [files('unit/test_update_lua_docs.py')], suite: 'unit')
+  test(
+    'update_game_strings',
+    python_exe,
+    args: [files('unit/test_update_game_strings.py')],
+    suite: 'unit',
+  )
 endif
