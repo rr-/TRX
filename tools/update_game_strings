@@ -54,6 +54,20 @@ RE_LUA_GAME_STRING_USAGE = re.compile(
 # `help = "console/cmd/kill/help"` in a trx.console.register{} spec.
 RE_LUA_HELP_ID_USAGE = re.compile(r'\bhelp\s*=\s*"((?:\\.|[^"\\])*)"')
 
+# A game's own settings, declared in data/trx/ship/games/<mod>/scripts/*.lua.
+#
+# These are game strings that no C code defines. GS_DEFINE() is not the only way
+# to author a translatable string: a game may declare an option the engine has
+# never heard of, and its title, description and enum labels have to reach
+# translators just the same. They are defined by the declaration itself and live
+# in that game's strings.json5, so the other games never carry them.
+RE_LUA_CONFIG_DECLARE = re.compile(r"trx\.config\.declare\s*\(")
+# A Lua string literal, possibly built up with `..` across several lines.
+RE_LUA_CONCAT_STRING = re.compile(
+    r'(?:"(?:\\.|[^"\\])*"\s*(?:\.\.\s*)?)+', flags=re.M
+)
+RE_LUA_QUOTED = re.compile(r'"((?:\\.|[^"\\])*)"')
+
 ROOT_SECTIONS = ("general", "console", "enums", "dynamic", "settings")
 TOP_LEVEL_SECTION_ORDER = (
     "extends",
@@ -361,6 +375,82 @@ def get_used_lua_strings(path: Path) -> Iterable[tuple[int, str]]:
             yield source.count("\n", 0, match.start()) + 1, match.group(1)
 
 
+def lua_unescape(text: str) -> str:
+    return (
+        text.replace("\\n", "\n").replace('\\"', '"').replace("\\\\", "\\")
+    )
+
+
+def lua_string_field(chunk: str, field: str) -> str | None:
+    """The value of `field = "..."`, joining any `..` continuation."""
+    match = re.search(
+        rf'\b{field}\s*=\s*({RE_LUA_CONCAT_STRING.pattern})', chunk, flags=re.M
+    )
+    if not match:
+        return None
+    return "".join(
+        lua_unescape(part) for part in RE_LUA_QUOTED.findall(match.group(1))
+    )
+
+
+def lua_list_field(chunk: str, field: str) -> list[str]:
+    """The values of `field = { "a", "b" }`."""
+    match = re.search(rf"\b{field}\s*=\s*\{{(.*?)\}}", chunk, flags=re.S)
+    if not match:
+        return []
+    return [lua_unescape(v) for v in RE_LUA_QUOTED.findall(match.group(1))]
+
+
+def iter_lua_call_bodies(source: str, regex: re.Pattern) -> Iterable[str]:
+    """The balanced-paren body of every call matching `regex`."""
+    for match in regex.finditer(source):
+        depth = 0
+        for i in range(match.end() - 1, len(source)):
+            if source[i] == "(":
+                depth += 1
+            elif source[i] == ")":
+                depth -= 1
+                if depth == 0:
+                    yield source[match.end() : i]
+                    break
+
+
+def get_lua_config_strings(path: Path) -> list[str]:
+    """Game string keys a game's Lua scripts require by declaring an option.
+
+    The declaration carries no English - only the keys it needs. The text lives
+    in that game's strings.json5, where translators already work. So these are
+    keys nothing in C defines, and nothing in C is going to.
+    """
+    result: list[str] = []
+    source = re.sub("--.*", "", path.read_text(), flags=re.M)
+    for body in iter_lua_call_bodies(source, RE_LUA_CONFIG_DECLARE):
+        key = lua_string_field(body, "key")
+        if key is None:
+            continue
+        result.append(f"settings/{key}/title")
+        result.append(f"settings/{key}/description")
+        # Enum labels are translatable too - "Custom" is a word, not an id. The
+        # engine looks them up under this key; see M_DeclareEnumValues.
+        for value in lua_list_field(body, "values"):
+            result.append(f"settings/{key}/values/{value}")
+    return result
+
+
+def get_mod_lua_strings() -> dict[str, list[str]]:
+    """Per-game keys required by Lua option declarations, keyed by mod name."""
+    result: dict[str, list[str]] = {}
+    games_dir = DATA_DIR / "trx" / "ship" / "games"
+    for mod_path in sorted(games_dir.glob("*")):
+        if not mod_path.is_dir():
+            continue
+        keys: list[str] = []
+        for script in sorted(mod_path.glob("scripts/**/*.lua")):
+            keys.extend(get_lua_config_strings(script))
+        result[mod_path.name] = keys
+    return result
+
+
 def get_enum_value_types(paths: list[Path]) -> dict[str, str]:
     value_types: dict[str, str] = {}
     for path in paths:
@@ -483,6 +573,12 @@ class RunContext:
             CommonPaths.src_dir / "game/game_strings/entries.def"
         )
         self.game_strings_dict = get_strings_map(self.game_strings_def_path)
+        # Keys each game's Lua option declarations require. GS_DEFINE() in C is
+        # not the only way to author a translatable string: a game may declare an
+        # option the engine has never heard of, and its text lives in that game's
+        # own strings.json5. So these are legitimate keys that entries.def will
+        # never contain.
+        self.mod_strings_dict = get_mod_lua_strings()
         self.used_game_strings = sum(
             [
                 list(
@@ -725,17 +821,25 @@ def sync_base_strings(ctx: RunContext) -> None:
     old_flat = root_flatten(ctx.base.main.data)
     used = {key for _, key in ctx.used_game_strings}
     new_flat = dict(ctx.game_strings_dict)
+    # A key a game declared for itself is defined, just not by C. Only a key
+    # nobody defines at all is an error.
+    mod_defined = {
+        key for strings in ctx.mod_strings_dict.values() for key in strings
+    }
     missing_used = sorted(
         key
         for key in used
-        if key.startswith("settings/") and key not in new_flat
+        if key.startswith("settings/")
+        and key not in new_flat
+        and key not in mod_defined
     )
     if missing_used:
         preview = "\n".join(f"  - {key}" for key in missing_used[:20])
         extra = "" if len(missing_used) <= 20 else f"\n  ... and {len(missing_used) - 20} more"
         sys.exit(
-            "Error: used game string keys are missing from "
-            "src/trx/game/game_strings/entries.def:\n"
+            "Error: used game string keys are defined nowhere - neither by "
+            "GS_DEFINE() in src/trx/game/game_strings/entries.def, nor by a "
+            "trx.config.declare() in a game's scripts:\n"
             f"{preview}{extra}"
         )
     changed = [k for k, v in new_flat.items() if old_flat.get(k) != v]
@@ -793,6 +897,49 @@ def sync_base_strings(ctx: RunContext) -> None:
                                 trans_obj["description"] = ""
                             else:
                                 trans_obj["description"] = REVIEW_MARKER
+
+
+@step
+def check_mod_declared_strings(ctx: RunContext) -> None:
+    """Every option a game declares in Lua must have its text in that game.
+
+    The counterpart of sync_base_strings, for the strings C does not define. The
+    text is hand-authored in games/<mod>/strings.json5 rather than generated, so
+    the tool's job here is to keep the two honest: fail on a declared option with
+    no text, and drop text for an option that is no longer declared.
+    """
+    base_flat = root_flatten(ctx.base.main.data)
+    missing: list[str] = []
+
+    for mod_name, gs in ctx.mods.items():
+        required = ctx.mod_strings_dict.get(mod_name, [])
+        mod_flat = root_flatten(gs.main.data)
+
+        for key in required:
+            if not mod_flat.get(key) and not base_flat.get(key):
+                missing.append(f"{mod_name}: {key}")
+
+        # Drop text for an option that is no longer declared - but only if C does
+        # not define it either. A game's hand-written override of an engine
+        # option (tr1 re-words visuals.enable_gun_lighting) is not ours to eat.
+        for key in list(mod_flat):
+            if not key.startswith("settings/"):
+                continue
+            if key in base_flat or key in required:
+                continue
+            root_delete(gs.main.data, key)
+            for file in gs.translations.values():
+                if root_get(file.data, key) is not None:
+                    root_delete(file.data, key)
+
+    if missing:
+        preview = "\n".join(f"  - {entry}" for entry in missing)
+        sys.exit(
+            "Error: options declared with trx.config.declare() have no text.\n"
+            "Add them to the game's strings.json5 - the engine looks them up by "
+            "these keys, and without them the setting renders blank:\n"
+            f"{preview}"
+        )
 
 
 @step
