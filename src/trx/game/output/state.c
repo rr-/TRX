@@ -185,7 +185,16 @@ RGBA_F Output_GetTint(void)
         return m_TintOverrideStack[m_TintOverrideDepth - 1];
     }
     if (m_IsShadeEffect) {
-        return Color_RGBToRGBA(m_WaterColor);
+        RGBA_F tint = Color_RGBToRGBA(m_WaterColor);
+        if (g_Config.rendering.lighting_curve == LIGHTING_CURVE_SATURATE) {
+            // The PlayStation took 128 for neutral in the water color too, so
+            // a channel above it brightens the water toward white where a
+            // plain multiply can only ever darken it.
+            tint.r *= 255.0f / 128.0f;
+            tint.g *= 255.0f / 128.0f;
+            tint.b *= 255.0f / 128.0f;
+        }
+        return tint;
     }
     return COLOR_RGBA_F_WHITE;
 }

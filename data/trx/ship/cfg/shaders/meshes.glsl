@@ -1,5 +1,7 @@
 #include "common.glsl"
 
+uniform vec4 uTint;
+
 #ifdef VERTEX
 
 uniform mat4 uMatModel;
@@ -144,6 +146,14 @@ void main(void) {
 
     float gamma_exp = 1.0 / ((uGamma / 10.0) * 4.0);
 
+    // The PlayStation carried the water color in the same register as the
+    // light, so the two combine and clip there, before the gamma curve and
+    // before the texture is modulated by them. Applying the color after the
+    // curve instead lets it scale a value the curve has already lifted, which
+    // drives every channel into the ceiling and takes the hue with it.
+    vec3 tintReg =
+        uLightingCurve == LIGHTING_CURVE_SATURATE ? uTint.rgb : vec3(1.0);
+
 #if TR_VERSION >= 4
     // The OG engine lights everything in the "128 = neutral" scale: the lit value is
     // doubled and the excess above 1.0 becomes an additive overbright term
@@ -186,6 +196,7 @@ void main(void) {
     // deeper into its own hue instead of toward white, so the excess is kept
     // here and clipped after texturing. The curve clamps, so that excess has
     // to sit the curve out and go back on after it.
+    L = min(L * tintReg, vec3(255.0 / 128.0));
     vec3 over = saturate ? max(L - vec3(1.0), vec3(0.0)) : vec3(0.0);
     vec3 lit = gammaCurve(L, gamma_exp) + over;
     gColor = vec4(lit * modulate, inColor.a);
@@ -245,6 +256,7 @@ void main(void) {
 
     // The curve clamps, so an excess a saturating light carries has to sit the
     // curve out and go back on after it.
+    lit = min(lit * tintReg, vec3(255.0 / 128.0));
     vec3 over = max(lit - vec3(1.0), vec3(0.0));
     lit = gammaCurve(lit, gamma_exp) + over;
 
@@ -289,7 +301,6 @@ void main(void) {
 
 uniform sampler2DArray uTexAtlas;
 uniform sampler2D uTexEnvMap;
-uniform vec4 uTint;
 uniform bool uDiscardAlpha;
 
 #if TR_VERSION >= 4
@@ -473,7 +484,11 @@ void main(void) {
     // The framebuffer blend is premultiplied alpha, so the color carries the
     // coverage: fading a fragment out scales both, and the color a second time
     // by the alpha it is premultiplied against.
-    texColor *= uTint;
+    if (uLightingCurve == LIGHTING_CURVE_SATURATE) {
+        texColor.a *= uTint.a;
+    } else {
+        texColor *= uTint;
+    }
     texColor.rgb *= uTint.a;
 
     outColor = texColor;
