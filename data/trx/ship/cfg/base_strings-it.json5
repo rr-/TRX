@@ -791,6 +791,10 @@
             "LIGHTING_CONTRAST_LOW": "Basso",
             "LIGHTING_CONTRAST_MEDIUM": "Medio",
         },
+        "LIGHTING_CURVE": {
+            "LIGHTING_CURVE_FLAT": "\\{review}Piatto",
+            "LIGHTING_CURVE_OVERBRIGHT": "\\{review}Overbright",
+        },
         "LOADING_SCREENS_MODE": {
             "LOADING_SCREENS_ALWAYS": "Sempre",
             "LOADING_SCREENS_DISABLED": "Disattivato",
@@ -1532,6 +1536,10 @@
         "rendering.lighting_contrast": {
             "title": "Contrasto",
             "description": "Aumenta il contrasto per fonti di luce dinamiche come razzi di segnalazione e lampi di armi da fuoco.",
+        },
+        "rendering.lighting_curve": {
+            "title": "\\{review}Modello di illuminazione",
+            "description": "\\{review}Sceglie quanto l'illuminazione per vertice scala la texture. Overbright è ciò che facevano i renderer originali: un vertice pienamente illuminato porta il texel al doppio della luminosità, con l'eccesso aggiunto dopo. Piatto si ferma alla luminosità della texture, quindi più scuro.",
         },
         "rendering.multisampling_factor": {
             "title": "Multicampionamento (MSAA)",

@@ -791,6 +791,10 @@
             "LIGHTING_CONTRAST_LOW": "Низкая",
             "LIGHTING_CONTRAST_MEDIUM": "Средняя",
         },
+        "LIGHTING_CURVE": {
+            "LIGHTING_CURVE_FLAT": "\\{review}Плоская",
+            "LIGHTING_CURVE_OVERBRIGHT": "\\{review}Overbright",
+        },
         "LOADING_SCREENS_MODE": {
             "LOADING_SCREENS_ALWAYS": "\\{review}Всегда",
             "LOADING_SCREENS_DISABLED": "\\{review}Отключено",
@@ -1532,6 +1536,10 @@
         "rendering.lighting_contrast": {
             "title": "Контрастность динамического освещения",
             "description": "Увеличивает контрастность динамических источников света, таких как вспышки и выстрелы.",
+        },
+        "rendering.lighting_curve": {
+            "title": "\\{review}Модель освещения",
+            "description": "\\{review}Определяет, насколько освещение вершин масштабирует текстуру. Overbright повторяет исходные рендереры: полностью освещённая вершина делает тексель вдвое ярче, а избыток добавляется после. Плоская модель ограничена яркостью самой текстуры и выглядит темнее.",
         },
         "rendering.multisampling_factor": {
             "title": "\\{review}Мультисэмплинг",

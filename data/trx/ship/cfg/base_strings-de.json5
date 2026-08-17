@@ -791,6 +791,10 @@
             "LIGHTING_CONTRAST_LOW": "Niedrig",
             "LIGHTING_CONTRAST_MEDIUM": "Mittel",
         },
+        "LIGHTING_CURVE": {
+            "LIGHTING_CURVE_FLAT": "\\{review}Flach",
+            "LIGHTING_CURVE_OVERBRIGHT": "\\{review}Overbright",
+        },
         "LOADING_SCREENS_MODE": {
             "LOADING_SCREENS_ALWAYS": "\\{review}Immer",
             "LOADING_SCREENS_DISABLED": "\\{review}Deaktiviert",
@@ -1532,6 +1536,10 @@
         "rendering.lighting_contrast": {
             "title": "Beleuchtungs-Kontrast",
             "description": "Erhöht den Kontrast für dynamische Lichtquellen, wie zum Beispiel Fackeln und Mündungsfeuer.",
+        },
+        "rendering.lighting_curve": {
+            "title": "\\{review}Beleuchtungsmodell",
+            "description": "\\{review}Legt fest, wie weit die Vertex-Beleuchtung die Textur skaliert. Overbright entspricht den Original-Renderern: ein voll beleuchteter Vertex hebt das Texel auf die doppelte Helligkeit, der Überschuss wird danach addiert. Flach endet bei der Helligkeit der Textur selbst und wirkt dunkler.",
         },
         "rendering.multisampling_factor": {
             "title": "\\{review}Multisampling",

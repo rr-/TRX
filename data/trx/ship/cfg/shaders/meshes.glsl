@@ -171,8 +171,10 @@ void main(void) {
         }
     }
 
-    vec3 L = lightIn * (255.0 / 128.0) + lr.add;
-    gAdd = max(L - vec3(1.0), vec3(0.0)) * (64.0 / 255.0);
+    bool overbright = uLightingCurve == LIGHTING_CURVE_OVERBRIGHT;
+    vec3 L = lightIn * (overbright ? 255.0 / 128.0 : 1.0) + lr.add;
+    gAdd = overbright ? max(L - vec3(1.0), vec3(0.0)) * (64.0 / 255.0)
+                      : vec3(0.0);
     if ((gFlags & VERT_ADDITIVE) != 0u) {
         // The OG draws additive polys with specular disabled
         // (HWR_DrawSortList drawtype 2), so no overbright excess.
@@ -211,6 +213,17 @@ void main(void) {
         lit = clamp(lightIn + lr.add, 0.0, 1.0);
     }
     lit *= lr.mul;
+
+    // The vertex flag speaks for the data that is already on the 128-neutral
+    // scale, such as the sky; the model speaks for the rest, which is how the
+    // OG hardware renderer took a fully lit vertex to twice the texel.
+    if (uLightingCurve == LIGHTING_CURVE_OVERBRIGHT && uLightingEnabled != 0
+        && (gFlags & VERT_OVERBRIGHT) == 0u) {
+        vec3 L = lit * (255.0 / 128.0);
+        gAdd += max(L - vec3(1.0), vec3(0.0)) * (64.0 / 255.0);
+        lit = clamp(L, 0.0, 1.0);
+    }
+
     lit = gammaCurve(lit, gamma_exp);
 
     // Apply flat shading AFTER modulation

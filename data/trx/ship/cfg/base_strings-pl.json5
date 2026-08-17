@@ -791,6 +791,10 @@
             "LIGHTING_CONTRAST_LOW": "Niski",
             "LIGHTING_CONTRAST_MEDIUM": "Średni",
         },
+        "LIGHTING_CURVE": {
+            "LIGHTING_CURVE_FLAT": "\\{review}Płaski",
+            "LIGHTING_CURVE_OVERBRIGHT": "\\{review}Overbright",
+        },
         "LOADING_SCREENS_MODE": {
             "LOADING_SCREENS_ALWAYS": "Zawsze",
             "LOADING_SCREENS_DISABLED": "Wył.",
@@ -1532,6 +1536,10 @@
         "rendering.lighting_contrast": {
             "title": "Kontrast oświetlenia",
             "description": "Zwiększa kontrast dla dynamicznych źródeł światła, takich jak flary i rozbłyski broni.",
+        },
+        "rendering.lighting_curve": {
+            "title": "\\{review}Model oświetlenia",
+            "description": "\\{review}Określa, jak mocno oświetlenie wierzchołków skaluje teksturę. Overbright odpowiada oryginalnym rendererom: w pełni oświetlony wierzchołek rozjaśnia teksel dwukrotnie, a nadmiar jest dodawany później. Płaski zatrzymuje się na jasności samej tekstury, więc jest ciemniejszy.",
         },
         "rendering.multisampling_factor": {
             "title": "\\{review}Wielopróbkowanie",

@@ -23,6 +23,9 @@
 #define VERT_OVERBRIGHT        0x1000u
 #define VERT_ADDITIVE          0x4000u
 
+#define LIGHTING_CURVE_FLAT       0
+#define LIGHTING_CURVE_OVERBRIGHT 1
+
 #define LIGHTING_CONTRAST_LOW    0
 #define LIGHTING_CONTRAST_MEDIUM 1
 #define LIGHTING_CONTRAST_HIGH   2
@@ -47,6 +50,7 @@ layout(std140) uniform Globals {
     int uVertexSnapEnabled; // bool
     int uPS1FogEnabled; // bool
     int uAffineMappingEnabled; // bool
+    int uLightingCurve;
     int uTRVersion;
     float uUVScrollTick;
 };

@@ -124,6 +124,16 @@ typedef enum {
     QUICK_GUNS_MODE_DRAW_AND_HOLSTER,
 } QUICK_GUNS_MODE;
 
+// How much of the texture a fully lit vertex shows. The games' own renderers
+// took 128 for neutral and let a vertex brighten the texel up to twice over,
+// with the excess added on after texturing; flat caps the modulation at the
+// texture's own brightness.
+typedef enum {
+    LIGHTING_CURVE_FLAT,
+    LIGHTING_CURVE_OVERBRIGHT,
+    LIGHTING_CURVE_NUMBER_OF,
+} LIGHTING_CURVE;
+
 typedef enum {
     LIGHTING_CONTRAST_LOW,
     LIGHTING_CONTRAST_MEDIUM,

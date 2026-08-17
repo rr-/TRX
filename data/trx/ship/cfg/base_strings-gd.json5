@@ -791,6 +791,10 @@
             "LIGHTING_CONTRAST_LOW": "Ìosal",
             "LIGHTING_CONTRAST_MEDIUM": "Meadhanach",
         },
+        "LIGHTING_CURVE": {
+            "LIGHTING_CURVE_FLAT": "\\{review}Rèidh",
+            "LIGHTING_CURVE_OVERBRIGHT": "\\{review}Overbright",
+        },
         "LOADING_SCREENS_MODE": {
             "LOADING_SCREENS_ALWAYS": "An-còmhnaidh",
             "LOADING_SCREENS_DISABLED": "Ciorramach",
@@ -1532,6 +1536,10 @@
         "rendering.lighting_contrast": {
             "title": "Iomsgaradh solais",
             "description": "Cuiridh seo atharrachadh air iomsgaradh solais fiùghantach, airson m.e. lasraichean neo losgadh armachd.",
+        },
+        "rendering.lighting_curve": {
+            "title": "\\{review}Modail an t-solais",
+            "description": "\\{review}Taghaidh seo dè cho fada 's a sgèilicheas solas nan oisean an t-inneach. Tha overbright mar a bha na h-einnseanan tùsail: bheir oisean làn-shoillsichte an texel gu dà uiread de shoillseachd, leis a' chòrr air a chur ris às a dhèidh. Stadaidh am modail rèidh aig soillseachd an inneach fhèin, agus tha e nas duirche.",
         },
         "rendering.multisampling_factor": {
             "title": "Ioma-shamplachadh",

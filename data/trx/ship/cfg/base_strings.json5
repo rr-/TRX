@@ -791,6 +791,10 @@
             "LIGHTING_CONTRAST_LOW": "Low",
             "LIGHTING_CONTRAST_MEDIUM": "Medium",
         },
+        "LIGHTING_CURVE": {
+            "LIGHTING_CURVE_FLAT": "Flat",
+            "LIGHTING_CURVE_OVERBRIGHT": "Overbright",
+        },
         "LOADING_SCREENS_MODE": {
             "LOADING_SCREENS_ALWAYS": "Always",
             "LOADING_SCREENS_DISABLED": "Disabled",
@@ -1532,6 +1536,10 @@
         "rendering.lighting_contrast": {
             "title": "Lighting contrast",
             "description": "Boosts contrast for dynamic light sources such as flares and gun flashes.",
+        },
+        "rendering.lighting_curve": {
+            "title": "Lighting model",
+            "description": "Chooses how far vertex lighting scales the texture. Overbright is what the original renderers did: a fully lit vertex takes the texel to twice its brightness, with the excess added on afterwards. Flat stops at the texture's own brightness, which is dimmer.",
         },
         "rendering.multisampling_factor": {
             "title": "Multisampling",
