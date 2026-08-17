@@ -123,7 +123,7 @@ static const TRX_GL_FBO *M_ResolveScene(M_CONTEXT *const p)
         TRX_GL_FBO_Bind(&p->resolve_fbo);
         glViewport(0, 0, width, height);
         TRX_GL_Program_Uniform1i(&p->program, p->loc_supersample, factor);
-        TRX_GL_Program_Uniform1i(&p->program, p->loc_dither, false);
+        TRX_GL_Program_Uniform1i(&p->program, p->loc_dither, DITHER_MODE_OFF);
         M_Blit(p, &p->geometry_fbo);
         TRX_GL_Program_Uniform1i(&p->program, p->loc_supersample, 1);
     }
@@ -160,7 +160,7 @@ static void M_Composite(
     TRX_GL_Sampler_Parameteri(&p->sampler, GL_TEXTURE_MIN_FILTER, filter);
 
     TRX_GL_Program_Uniform1i(
-        &p->program, p->loc_dither, p->config->enable_dithering);
+        &p->program, p->loc_dither, p->config->dither_mode);
 
     glViewport(rect.x, rect.y, rect.width, rect.height);
     TRX_GL_CheckError();
@@ -251,7 +251,7 @@ static RESULT M_Init(
     TRX_GL_Program_Bind(&p->program);
     TRX_GL_Program_Uniform1i(
         &p->program, TRX_GL_Program_UniformLocation(&p->program, "uTex0"), 0);
-    p->loc_dither = TRX_GL_Program_UniformLocation(&p->program, "uDither");
+    p->loc_dither = TRX_GL_Program_UniformLocation(&p->program, "uDitherMode");
     p->loc_supersample =
         TRX_GL_Program_UniformLocation(&p->program, "uSupersample");
     TRX_GL_Program_Uniform1i(&p->program, p->loc_supersample, 1);

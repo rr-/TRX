@@ -18,7 +18,7 @@ char *TRX_GL_Context_DescribeDriver(void *window_handle);
 
 void TRX_GL_Context_SetDisplayFilter(TEXTURE_FILTER filter);
 void TRX_GL_Context_SetMultisamplingFactor(int32_t factor);
-void TRX_GL_Context_SetDithering(bool enable);
+void TRX_GL_Context_SetDitherMode(DITHER_MODE mode);
 bool TRX_GL_Context_GetWireframeMode(void);
 void TRX_GL_Context_SetWireframeMode(bool enable);
 void TRX_GL_Context_SetLineWidth(int32_t line_width);

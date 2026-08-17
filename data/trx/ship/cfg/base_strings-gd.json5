@@ -698,6 +698,11 @@
             "CREATURE_DROWN_POLICY_NEVER": "A-riamh",
             "CREATURE_DROWN_POLICY_SUBMERGED": "Fo uisge",
         },
+        "DITHER_MODE": {
+            "DITHER_MODE_15_BIT": "\\{review}15-bit",
+            "DITHER_MODE_8_BIT": "\\{review}8-bit",
+            "DITHER_MODE_OFF": "\\{review}Dheth",
+        },
         "GAME_MODES_POLICY": {
             "GAME_MODES_POLICY_ALWAYS": "An-còmhnaidh",
             "GAME_MODES_POLICY_NEVER": "A-riamh",
@@ -1492,9 +1497,9 @@
             "title": "Iomallan",
             "description": "Cuiridh seo iomallan dubha timcheall air uinneag a' gheama.",
         },
-        "rendering.enable_dithering": {
-            "title": "Dithering",
-            "description": "Lùghdaichidh seo an dealbh gu dathan 8-biod le pàtran dithering òrdaichte, airson coltas nan tionndaidhean le reandaradh bathar-bog.",
+        "rendering.dither_mode": {
+            "title": "\\{review}Dithering",
+            "description": "\\{review}Lùghdaichidh seo an dealbh gu nas lugha de dhathan le pàtran dithering òrdaichte: 8-bit airson nan tionndaidhean PC le rendering bathar-bog, 15-bit airson nan tionndaidhean PlayStation.",
         },
         "rendering.enable_trapezoid_filter": {
             "title": "Criathradh trapeasoid",

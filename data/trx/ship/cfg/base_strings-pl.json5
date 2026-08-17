@@ -698,6 +698,11 @@
             "CREATURE_DROWN_POLICY_NEVER": "Wyłączone",
             "CREATURE_DROWN_POLICY_SUBMERGED": "Zanurzone",
         },
+        "DITHER_MODE": {
+            "DITHER_MODE_15_BIT": "\\{review}15-bit",
+            "DITHER_MODE_8_BIT": "\\{review}8-bit",
+            "DITHER_MODE_OFF": "\\{review}Wyłączone",
+        },
         "GAME_MODES_POLICY": {
             "GAME_MODES_POLICY_ALWAYS": "\\{review}Zawsze",
             "GAME_MODES_POLICY_NEVER": "\\{review}Nigdy",
@@ -1492,9 +1497,9 @@
             "title": "Ramka",
             "description": "Dodaje czarną ramkę wokół okna gry.",
         },
-        "rendering.enable_dithering": {
+        "rendering.dither_mode": {
             "title": "\\{review}Dithering",
-            "description": "\\{review}Redukuje obraz do koloru 8-bitowego, rozpraszając go uporządkowanym wzorem, tak jak w wydaniach renderowanych programowo.",
+            "description": "\\{review}Redukuje obraz do mniejszej liczby kolorów z uporządkowanym wzorem ditheringu: 8-bitowy dla programowo renderowanych wersji PC, 15-bitowy dla wersji na PlayStation.",
         },
         "rendering.enable_trapezoid_filter": {
             "title": "Filtr trapezoidalny",

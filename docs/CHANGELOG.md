@@ -64,6 +64,9 @@
 - Fixed rooms and their contents sometimes disappearing while an in-game cutscene plays
 - Fixed a crash while an in-game cutscene poses Lara
 
+**Rendering**
+- Added a 15-bit dithering mode, the color depth of the PlayStation framebuffer, beside the 8-bit one the option had before; the PlayStation presets pick it and the PC ones leave dithering off (Graphic Options → Rendering → Dithering)
+
 **Miscellaneous**
 - Added an option to cast Lara in gold whatever she is wearing (Graphic Options → Visuals → Golden Lara)
 - Changed the message shown when there is nothing to play to name each game it passed over and say what is wrong with it, rather than leaving the reason in the log

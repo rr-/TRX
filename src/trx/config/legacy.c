@@ -55,6 +55,14 @@ static void M_ApplySaveCrystals(const JSON_VALUE *const value)
     }
 }
 
+static void M_ApplyDithering(const JSON_VALUE *const value)
+{
+    // The old switch only ever meant the 8-bit pattern; 15-bit is new.
+    if (JSON_ValueIsTrue(value)) {
+        CONFIG_SET(g_Config.rendering.dither_mode, DITHER_MODE_8_BIT);
+    }
+}
+
 static void M_ApplyTurns(const JSON_VALUE *const value)
 {
     if (JSON_ValueIsFalse(value)) {
@@ -74,6 +82,8 @@ static const M_MIGRATION m_Migrations[] = {
     { "enable_save_crystals", "save_crystal_mode", M_ApplySaveCrystals },
     // TRX ..1.10: neutral twists on/off changed to cover multiple animations.
     { "enable_neutral_twists", "enable_alternative_turns", M_ApplyTurns },
+    // TRX ..1.11: dithering on/off changed to a color depth.
+    { "enable_dithering", "dither_mode", M_ApplyDithering },
     {}, // sentinel
 };
 

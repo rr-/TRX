@@ -1,6 +1,7 @@
 #include <trx/config/enum.h>
 
 #include <trx/core/enum_map.h>
+#include <trx/gl/enum.h>
 
 static __attribute__((constructor)) void M_Init(void)
 {
@@ -92,6 +93,10 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(LIGHTING_CONTRAST, LIGHTING_CONTRAST_LOW, "low");
     ENUM_MAP(LIGHTING_CONTRAST, LIGHTING_CONTRAST_MEDIUM, "medium");
     ENUM_MAP(LIGHTING_CONTRAST, LIGHTING_CONTRAST_HIGH, "high");
+
+    ENUM_MAP(DITHER_MODE, DITHER_MODE_OFF, "off");
+    ENUM_MAP(DITHER_MODE, DITHER_MODE_8_BIT, "8-bit");
+    ENUM_MAP(DITHER_MODE, DITHER_MODE_15_BIT, "15-bit");
 
     ENUM_MAP(BILLBOARD_LOCK_MODE, BILLBOARD_LOCK_NONE, "none");
     ENUM_MAP(BILLBOARD_LOCK_MODE, BILLBOARD_LOCK_ROLL, "roll");

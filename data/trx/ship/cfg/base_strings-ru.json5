@@ -698,6 +698,11 @@
             "CREATURE_DROWN_POLICY_NEVER": "\\{review}Никогда",
             "CREATURE_DROWN_POLICY_SUBMERGED": "\\{review}Погружены",
         },
+        "DITHER_MODE": {
+            "DITHER_MODE_15_BIT": "\\{review}15 бит",
+            "DITHER_MODE_8_BIT": "\\{review}8 бит",
+            "DITHER_MODE_OFF": "\\{review}Выкл",
+        },
         "GAME_MODES_POLICY": {
             "GAME_MODES_POLICY_ALWAYS": "\\{review}Всегда",
             "GAME_MODES_POLICY_NEVER": "\\{review}Никогда",
@@ -1492,9 +1497,9 @@
             "title": "Рамка",
             "description": "Добавляет черные рамки вокруг игрового окна.",
         },
-        "rendering.enable_dithering": {
+        "rendering.dither_mode": {
             "title": "\\{review}Дизеринг",
-            "description": "\\{review}Снижает цветность картинки до 8 бит с упорядоченным узором дизеринга, воспроизводя вид программного рендерера.",
+            "description": "\\{review}Снижает число цветов картинки с упорядоченным узором дизеринга: 8 бит для программно отрисованных версий для ПК, 15 бит для версий для PlayStation.",
         },
         "rendering.enable_trapezoid_filter": {
             "title": "Четырёхугольная интерполяция",

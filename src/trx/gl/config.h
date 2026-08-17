@@ -7,7 +7,7 @@
 typedef struct {
     TEXTURE_FILTER display_filter;
     int32_t multisampling_factor;
-    bool enable_dithering;
+    DITHER_MODE dither_mode;
     bool enable_wireframe;
     int32_t line_width;
 } TRX_GL_CONFIG;

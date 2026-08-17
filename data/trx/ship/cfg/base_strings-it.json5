@@ -698,6 +698,11 @@
             "CREATURE_DROWN_POLICY_NEVER": "Mai",
             "CREATURE_DROWN_POLICY_SUBMERGED": "Sommerso",
         },
+        "DITHER_MODE": {
+            "DITHER_MODE_15_BIT": "\\{review}15-bit",
+            "DITHER_MODE_8_BIT": "\\{review}8-bit",
+            "DITHER_MODE_OFF": "\\{review}Spento",
+        },
         "GAME_MODES_POLICY": {
             "GAME_MODES_POLICY_ALWAYS": "Sempre",
             "GAME_MODES_POLICY_NEVER": "Mai",
@@ -1492,9 +1497,9 @@
             "title": "Bordi",
             "description": "Aggiunge dei bordi neri attorno alla finestra del gioco.",
         },
-        "rendering.enable_dithering": {
-            "title": "Retinatura",
-            "description": "Riduce l'immagine a colori a 8 bit (o 256 colori) e utilizza un motivo a scacchiera per sopperire alle limitazioni della tavolozza di colori. Emula le versioni di Tomb Raider che non godevano dell'accelerazione 3D.",
+        "rendering.dither_mode": {
+            "title": "\\{review}Dithering",
+            "description": "\\{review}Riduce l'immagine a meno colori con un motivo di dithering ordinato: 8 bit per le versioni PC con rendering software, 15 bit per quelle PlayStation.",
         },
         "rendering.enable_trapezoid_filter": {
             "title": "Filtro trapezoidale",
