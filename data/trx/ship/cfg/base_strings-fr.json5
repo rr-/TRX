@@ -1501,6 +1501,10 @@
             "title": "\\{review}Tramage",
             "description": "\\{review}Réduit l'image à moins de couleurs avec un motif de tramage ordonné : 8 bits pour les versions PC en rendu logiciel, 15 bits pour celles sur PlayStation.",
         },
+        "rendering.enable_affine_mapping": {
+            "title": "\\{review}Placage de textures affine",
+            "description": "\\{review}Supprime la correction de perspective du placage de textures, absente sur PlayStation : les textures se déforment et ondulent sur les grandes surfaces quand la caméra bouge.",
+        },
         "rendering.enable_ps1_fog": {
             "title": "\\{review}Brouillard PlayStation",
             "description": "\\{review}Fond la géométrie lointaine vers la couleur du brouillard comme le faisait l'atténuation en profondeur de la PlayStation : selon 1/distance plutôt que la distance, et calculée par sommet, ce qui fait apparaître des bandes sur les grandes surfaces.",

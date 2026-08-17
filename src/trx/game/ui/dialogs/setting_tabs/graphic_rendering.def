@@ -23,6 +23,7 @@ X_UI_ROW(rendering.multisampling_factor)
 X_UI_ROW(rendering.borders)
 X_UI_ROW(rendering.enable_vertex_snap)
 X_UI_ROW(rendering.enable_ps1_fog)
+X_UI_ROW(rendering.enable_affine_mapping)
 X_UI_ROW(rendering.dither_mode)
 
 X_UI_ROW(rendering.screenshot_format)
