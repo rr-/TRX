@@ -69,6 +69,7 @@
 - Added the PlayStation depth cue, which blends distant geometry toward the fog color along 1/distance and works it out per vertex, rather than ramping with distance per pixel; the PlayStation presets turn it on (Graphic Options → Rendering → PlayStation fog)
 - Added affine texture mapping, the uncorrected texturing of the PlayStation, so textures warp across large surfaces as the camera moves; the PlayStation presets turn it on (Graphic Options → Rendering → Affine texture mapping)
 - Changed TR3 to light geometry on the overbright curve TR4 already uses, as the OG hardware renderer did, which is brighter than before; the TR3 PC preset picks the flat curve it had, and TR4 can be taken down to it as well (Graphic Options → Rendering → Lighting model)
+- Added the PlayStation lighting model, which lets a brightly lit surface clip into its own color rather than washing out toward white; the TR3 PlayStation preset picks it (Graphic Options → Rendering → Lighting model)
 
 **Miscellaneous**
 - Added an option to cast Lara in gold whatever she is wearing (Graphic Options → Visuals → Golden Lara)

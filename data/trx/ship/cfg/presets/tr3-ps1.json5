@@ -4,7 +4,7 @@
         "rendering.dither_mode": "15-bit",
         "rendering.enable_ps1_fog": true,
         "rendering.enable_affine_mapping": true,
-        "rendering.lighting_curve": "overbright",
+        "rendering.lighting_curve": "saturate",
         "ui.menu_style": "ps1",
         "ui.enable_smooth_bars": false,
         "ui.bar_look": "tr3_ps1",

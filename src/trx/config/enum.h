@@ -127,10 +127,12 @@ typedef enum {
 // How much of the texture a fully lit vertex shows. The games' own renderers
 // took 128 for neutral and let a vertex brighten the texel up to twice over,
 // with the excess added on after texturing; flat caps the modulation at the
-// texture's own brightness.
+// texture's own brightness. Saturate doubles the texel the same way but lets
+// each channel clip on its own, as the PlayStation did.
 typedef enum {
     LIGHTING_CURVE_FLAT,
     LIGHTING_CURVE_OVERBRIGHT,
+    LIGHTING_CURVE_SATURATE,
     LIGHTING_CURVE_NUMBER_OF,
 } LIGHTING_CURVE;
 

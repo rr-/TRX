@@ -172,7 +172,8 @@ void main(void) {
     }
 
     bool overbright = uLightingCurve == LIGHTING_CURVE_OVERBRIGHT;
-    vec3 L = lightIn * (overbright ? 255.0 / 128.0 : 1.0) + lr.add;
+    bool saturate = uLightingCurve == LIGHTING_CURVE_SATURATE;
+    vec3 L = lightIn * (overbright || saturate ? 255.0 / 128.0 : 1.0) + lr.add;
     gAdd = overbright ? max(L - vec3(1.0), vec3(0.0)) * (64.0 / 255.0)
                       : vec3(0.0);
     if ((gFlags & VERT_ADDITIVE) != 0u) {
@@ -180,8 +181,13 @@ void main(void) {
         // (HWR_DrawSortList drawtype 2), so no overbright excess.
         gAdd = vec3(0.0);
     }
-    vec3 lit = clamp(L, 0.0, 1.0);
-    lit = gammaCurve(lit, gamma_exp);
+    // The PlayStation had no excess to add back. It modulated the texel by the
+    // light and let each channel clip on its own, which drives a lit color
+    // deeper into its own hue instead of toward white, so the excess is kept
+    // here and clipped after texturing. The curve clamps, so that excess has
+    // to sit the curve out and go back on after it.
+    vec3 over = saturate ? max(L - vec3(1.0), vec3(0.0)) : vec3(0.0);
+    vec3 lit = gammaCurve(L, gamma_exp) + over;
     gColor = vec4(lit * modulate, inColor.a);
 #elif TR_VERSION >= 3
     vec3 lightIn;
@@ -199,6 +205,7 @@ void main(void) {
     }
 
     // Combine lighting in linear-ish space first: (base + add) * mul
+    bool saturate = uLightingCurve == LIGHTING_CURVE_SATURATE;
     vec3 lit;
     gAdd = vec3(0.0);
     if ((gFlags & VERT_OVERBRIGHT) != 0u && uLightingEnabled != 0) {
@@ -207,24 +214,39 @@ void main(void) {
         // part; the excess becomes an additive term applied after texturing
         // (tomb4's CalcColorSplit: diffuse = min(2c, 255), add = (c-128)/2).
         vec3 L = lightIn * (255.0 / 128.0) + lr.add;
-        gAdd = max(L - vec3(1.0), vec3(0.0)) * (64.0 / 255.0);
-        lit = clamp(L, 0.0, 1.0);
+        if (saturate) {
+            // The PlayStation had no excess to add back. It modulated the
+            // texel by the light and let each channel clip on its own, which
+            // drives a lit color deeper into its own hue instead of toward
+            // white, so the excess goes to the fragment stage instead.
+            lit = L;
+        } else {
+            gAdd = max(L - vec3(1.0), vec3(0.0)) * (64.0 / 255.0);
+            lit = clamp(L, 0.0, 1.0);
+        }
     } else {
-        lit = clamp(lightIn + lr.add, 0.0, 1.0);
+        vec3 L = lightIn + lr.add;
+        lit = saturate ? L : clamp(L, 0.0, 1.0);
     }
     lit *= lr.mul;
 
     // The vertex flag speaks for the data that is already on the 128-neutral
     // scale, such as the sky; the model speaks for the rest, which is how the
     // OG hardware renderer took a fully lit vertex to twice the texel.
-    if (uLightingCurve == LIGHTING_CURVE_OVERBRIGHT && uLightingEnabled != 0
-        && (gFlags & VERT_OVERBRIGHT) == 0u) {
-        vec3 L = lit * (255.0 / 128.0);
-        gAdd += max(L - vec3(1.0), vec3(0.0)) * (64.0 / 255.0);
-        lit = clamp(L, 0.0, 1.0);
+    if (uLightingEnabled != 0 && (gFlags & VERT_OVERBRIGHT) == 0u) {
+        if (saturate) {
+            lit *= 255.0 / 128.0;
+        } else if (uLightingCurve == LIGHTING_CURVE_OVERBRIGHT) {
+            vec3 L = lit * (255.0 / 128.0);
+            gAdd += max(L - vec3(1.0), vec3(0.0)) * (64.0 / 255.0);
+            lit = clamp(L, 0.0, 1.0);
+        }
     }
 
-    lit = gammaCurve(lit, gamma_exp);
+    // The curve clamps, so an excess a saturating light carries has to sit the
+    // curve out and go back on after it.
+    vec3 over = max(lit - vec3(1.0), vec3(0.0));
+    lit = gammaCurve(lit, gamma_exp) + over;
 
     // Apply flat shading AFTER modulation
     gColor = vec4(lit * modulate, inColor.a);
@@ -249,6 +271,18 @@ void main(void) {
     // high contrast can still brighten textured geometry.
     gColor.rgb += lr.add;
 #endif
+
+    // The OG fades the vertex color toward the fog before the texture
+    // modulates it (tomb3's transform.cpp), so a fogged surface keeps its
+    // texture and its own hue rather than flattening toward the fog color.
+    // Applying it after texturing instead would clip a bright channel to white
+    // first and only then fade it, which loses the color the distance is
+    // meant to keep.
+    if (uPS1FogEnabled != 0 && (gFlags & VERT_NO_LIGHTING) == 0u
+        && uLightingEnabled != 0) {
+        gColor.rgb = mix(gColor.rgb, uFogColor.rgb, gFogFactor);
+        gAdd *= 1.0 - gFogFactor;
+    }
 }
 
 #elif defined(FRAGMENT)
@@ -283,11 +317,13 @@ out vec4 outColor;
 
 vec4 applyFog(vec4 color, float dist)
 {
-    float fogFactor = uPS1FogEnabled != 0
-        ? gFogFactor
-        : clamp(
-              (dist - uFogDistance.x) / (uFogDistance.y - uFogDistance.x), 0.0,
-              1.0);
+    // The PlayStation depth cue is already on the vertex color, applied there
+    // so the texture modulates a fogged color rather than a fogged texel.
+    if (uPS1FogEnabled != 0) {
+        return color;
+    }
+    float fogFactor = clamp(
+        (dist - uFogDistance.x) / (uFogDistance.y - uFogDistance.x), 0.0, 1.0);
     return mix(color, uFogColor, fogFactor);
 }
 
@@ -385,6 +421,12 @@ void main(void) {
 
     // Overbright lighting excess, added after texturing (OG specular).
     texColor.rgb += gAdd;
+
+    // Where the light carries an excess of its own, each channel clips here,
+    // before fog and the bulbs blend against it.
+    if (uLightingCurve == LIGHTING_CURVE_SATURATE) {
+        texColor.rgb = min(texColor.rgb, vec3(1.0));
+    }
 
     // Alpha discard - chroma keying || transparent pixels in the opaque pass
     if (texColor.a <= 0.0
