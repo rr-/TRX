@@ -1501,6 +1501,10 @@
             "title": "Dithering",
             "description": "Reduces the picture to fewer colors with an ordered dither pattern: 8-bit for the software-rendered PC releases, 15-bit for the PlayStation ones.",
         },
+        "rendering.enable_ps1_fog": {
+            "title": "PlayStation fog",
+            "description": "Blends distant geometry toward the fog color the way the PlayStation depth cue did: along 1/distance rather than distance, and worked out per vertex, so the ramp bands across large surfaces.",
+        },
         "rendering.enable_trapezoid_filter": {
             "title": "Trapezoid filter",
             "description": "Corrects rendering of quadrilaterals.",
