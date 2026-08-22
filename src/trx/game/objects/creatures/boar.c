@@ -1,3 +1,4 @@
+#include <trx/core/utils.h>
 #include <trx/game/creature.h>
 #include <trx/game/lara.h>
 #include <trx/game/objects.h>
@@ -14,6 +15,7 @@
 #define M_BITE_DIST   SQUARE(STEP_L) // = 65536
 #define M_ATTACK_TURN (DEG_1 * 6) // = 1092
 #define M_RUN_TURN    (DEG_1 * 3) // = 546
+#define M_WRAP_DIST   50
 // clang-format on
 
 typedef enum {
@@ -119,6 +121,10 @@ static void M_Control(const int16_t item_num)
     Creature_ApplyMood(item, &info, true);
 
     angle = Creature_Turn(item, creature->maximum_turn);
+
+    const int32_t dx = ABS((int16_t)item->pos.x);
+    const int32_t dz = ABS((int16_t)item->pos.z);
+
     if (info.ahead) {
         neck_y = info.angle >> 1;
     }
@@ -144,7 +150,9 @@ static void M_Control(const int16_t item_num)
             neck_x = -info.distance;
         }
 
-        if (creature->flags == 0 && info.distance < M_BITE_DIST && info.bite) {
+        if (creature->flags == 0
+            && ((dx < M_WRAP_DIST && dz < M_WRAP_DIST)
+                || (info.distance < M_BITE_DIST && info.bite))) {
             if (creature->enemy == Lara_GetItem()) {
                 const M_PRIV *const p = item->priv;
                 Lara_TakeDamage(p->damage, true);
