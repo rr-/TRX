@@ -2,6 +2,7 @@
 
 #include <trx/core/memory.h>
 #include <trx/game/game.h>
+#include <trx/game/game_flow/sequencer_events.h>
 #include <trx/game/lua/events.h>
 #include <trx/game/output.h>
 #include <trx/game/sound.h>
@@ -17,6 +18,10 @@ typedef struct {
 static PHASE_CONTROL M_Start(PHASE *const phase)
 {
     M_PRIV *const p = phase->priv;
+    // Before Game_Start, so that a level script that asks for a cutscene as
+    // the level starts does not black the view out: a pending cutscene holds
+    // the screen black until it begins.
+    GF_ShowPendingLoadingCamera();
     if (!Game_Start(p->level, p->seq_ctx)) {
         return (PHASE_CONTROL) {
             .action = PHASE_ACTION_END,
