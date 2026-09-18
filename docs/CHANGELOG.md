@@ -20,7 +20,7 @@
 - Fixed a bug where the game crashed when its own scripts or modules were missing
 
 **TR4**
-- Added the views of the level that the original game shows before it is played, in place of a loading picture (TRX493)
+- Added level views before play starts, with a progress bar (TRX493)
 
 **Lua**
 - Added `given_in_ngplus` to weapon specs and `trx.weapons.Weapon`.
