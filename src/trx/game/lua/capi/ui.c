@@ -207,10 +207,24 @@ static int M_L_UISprite(lua_State *const L)
     return 0;
 }
 
+static bool M_GetSlotRotX(const void *const self, TRX_VALUE *const out)
+{
+    const UI_MESH_SLOT *const slot = self;
+    *out = (TRX_VALUE) { .type = TVT_S32, .as_int = slot->cur.rot.x };
+    return true;
+}
+
 static bool M_GetSlotRotY(const void *const self, TRX_VALUE *const out)
 {
     const UI_MESH_SLOT *const slot = self;
-    *out = (TRX_VALUE) { .type = TVT_S32, .as_int = slot->cur.rot_y };
+    *out = (TRX_VALUE) { .type = TVT_S32, .as_int = slot->cur.rot.y };
+    return true;
+}
+
+static bool M_GetSlotRotZ(const void *const self, TRX_VALUE *const out)
+{
+    const UI_MESH_SLOT *const slot = self;
+    *out = (TRX_VALUE) { .type = TVT_S32, .as_int = slot->cur.rot.z };
     return true;
 }
 
@@ -222,7 +236,9 @@ static const FIELD_DESC m_MeshSlotFields[] = {
     FIELD_FN("y", TVT_FLOAT, M_GetSlotY, nullptr),
     FIELD_FN("w", TVT_FLOAT, M_GetSlotW, nullptr),
     FIELD_FN("h", TVT_FLOAT, M_GetSlotH, nullptr),
+    FIELD_FN("rot_x", TVT_S32, M_GetSlotRotX, nullptr),
     FIELD_FN("rot_y", TVT_S32, M_GetSlotRotY, nullptr),
+    FIELD_FN("rot_z", TVT_S32, M_GetSlotRotZ, nullptr),
 };
 // clang-format on
 
@@ -233,7 +249,8 @@ static void *M_ResolveMeshSlot(const LUA_STRUCT_REF *const ref)
     return UI_MeshSlot_Resolve(ref->handle);
 }
 
-// slot:move{ object = ..., x = ..., y = ..., w = ..., h = ..., rot_y = ... }
+// slot:move{ object = ..., x = ..., y = ..., w = ..., h = ..., rot_x = ...,
+// rot_y = ..., rot_z = ... }
 static int M_L_UIMeshSlotMove(lua_State *const L)
 {
     LUA_STRUCT_REF *const ref = LUA_Struct_CheckRef(L, 1, &TYPE_UI_MESH_SLOT);
@@ -249,7 +266,11 @@ static int M_L_UIMeshSlotMove(lua_State *const L)
             .y = M_OptNumberField(L, 2, "y", 0.0f),
             .w = M_OptNumberField(L, 2, "w", 0.0f),
             .h = M_OptNumberField(L, 2, "h", 0.0f),
-            .rot_y = (int32_t)M_OptNumberField(L, 2, "rot_y", 0.0f),
+            .rot = {
+                .x = (int16_t)(int32_t)M_OptNumberField(L, 2, "rot_x", 0.0f),
+                .y = (int16_t)(int32_t)M_OptNumberField(L, 2, "rot_y", 0.0f),
+                .z = (int16_t)(int32_t)M_OptNumberField(L, 2, "rot_z", 0.0f),
+            },
         });
     return 0;
 }

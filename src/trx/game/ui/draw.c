@@ -609,7 +609,7 @@ void UI_DrawMeshes(void)
                 .w = lroundf(UI_ScaleX(slots[i].pose.w)),
                 .h = lroundf(UI_ScaleY(slots[i].pose.h)),
             },
-            .rot_y = slots[i].pose.rot_y,
+            .rot = slots[i].pose.rot,
         });
     }
     SceneCompositor_Flush();

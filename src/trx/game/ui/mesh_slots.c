@@ -109,7 +109,11 @@ int32_t UI_MeshSlots_Collect(UI_MESH_DRAW *const out, const int32_t max)
                 .y = M_Lerp(from.y, slot->cur.y, rate),
                 .w = M_Lerp(from.w, slot->cur.w, rate),
                 .h = M_Lerp(from.h, slot->cur.h, rate),
-                .rot_y = M_LerpAngle(from.rot_y, slot->cur.rot_y, rate),
+                .rot = {
+                    .x = (int16_t)M_LerpAngle(from.rot.x, slot->cur.rot.x, rate),
+                    .y = (int16_t)M_LerpAngle(from.rot.y, slot->cur.rot.y, rate),
+                    .z = (int16_t)M_LerpAngle(from.rot.z, slot->cur.rot.z, rate),
+                },
             },
         };
     }

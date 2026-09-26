@@ -152,7 +152,7 @@ static void M_DrawMeshes(const M_PRIV *const p)
         Matrix_TranslateSet32(origin);
         Matrix_RotX(DEG_1 * 15);
         Matrix_RotY(-DEG_180);
-        Matrix_RotY(mesh->rot_y);
+        Matrix_Rot16(mesh->rot);
         Matrix_Scale((1 << W2V_SHIFT) * scale);
 
         // Set up lighting for the mesh.

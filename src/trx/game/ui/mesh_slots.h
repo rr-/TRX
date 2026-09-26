@@ -8,6 +8,7 @@
 // runs only once a tick.
 
 #include <trx/core/handle.h>
+#include <trx/core/math/types.h>
 #include <trx/game/objects/ids.h>
 
 #include <stdint.h>
@@ -21,7 +22,7 @@ typedef struct {
     float y;
     float w;
     float h;
-    int32_t rot_y;
+    XYZ_16 rot;
 } UI_MESH_POSE;
 
 typedef struct {
